@@ -132,7 +132,7 @@ function renderSales() {
     const h = editor.houseForm;
     target.innerHTML = `<div class="house-layout"><section class="panel house-form"><div class="form-title"><h2>${editor.editingHouse === null ? `Verkauf ${editor.houses.length + 1}` : 'Verkauf bearbeiten'}</h2><label>Hausnummer / Bezeichnung<input maxlength="24" data-house="number" value="${esc(h.number)}" placeholder="z. B. Haus 7"></label></div><fieldset><legend>1. Wer beliefert das Haus?</legend><div class="player-choices">${game.players.map((p,i) => `<button class="choice ${h.player === i ? 'selected' : ''}" style="--player-color:${p.color}" data-action="house-player" data-index="${i}" aria-pressed="${h.player === i}">${playerName(p)}</button>`).join('')}</div></fieldset><fieldset><legend>2. Was wurde verkauft?</legend><div class="house-goods">${GOODS.map(([key,label,icon]) => `<label><span>${icon} ${label}</span><div class="stepper"><button data-action="house-count" data-field="${key}" data-delta="-1" aria-label="${label} weniger">−</button><input type="number" inputmode="numeric" min="0" max="1000000" step="1" required data-house="${key}" value="${h[key]}" aria-label="Anzahl ${label}"><button data-action="house-count" data-field="${key}" data-delta="1" aria-label="${label} mehr">+</button></div></label>`).join('')}</div></fieldset><fieldset><legend>3. Welches Haus?</legend><div class="house-types">${[['normal','⌂','Ohne Garten','Einfacher Stückpreis'],['garden','♧','Mit Garten','Doppelter Stückpreis']].map(([type,icon,label,hint]) => `<button class="choice ${h.type === type ? 'selected' : ''}" data-action="house-type" data-type="${type}" aria-pressed="${h.type === type}"><span class="type-icon">${icon}</span><span>${label}<small>${hint}</small></span></button>`).join('')}</div></fieldset><div class="house-price"><label>Stückpreis vor −1-$-Meilenstein<input type="number" inputmode="numeric" min="0" max="100" step="1" required data-house="price" value="${h.price}"></label><div><span>Verkauf inkl. Meilensteinen</span><strong id="house-income">${housePreview()}</strong><small>Trinkgeld und CFO folgen in Schritt 2.</small></div></div><div class="house-form-actions">${editor.editingHouse !== null ? '<button class="secondary" data-action="cancel-house">Abbrechen</button>' : ''}<button data-action="save-house">${editor.editingHouse !== null ? 'Verkauf speichern' : 'Haus übernehmen & nächstes'} →</button></div></section><aside class="house-sidebar"><div class="sidebar-heading"><h2>Diese Runde</h2><span>${editor.houses.length} ${editor.houses.length === 1 ? 'Haus' : 'Häuser'}</span></div>${houseList()}<div class="sidebar-total"><span>Warenumsatz inkl. Meilensteinen</span><strong>${money(editor.houses.reduce((sum, house) => sum + calculateHouse(house, editor.rows[house.player].milestones).total, 0))}</strong></div><button class="secondary" data-action="sales-step" data-step="extras">Häuser fertig · weiter →</button></aside></div>`;
   } else if (step === 'extras') {
-    target.innerHTML = `<div class="entry-grid">${game.players.map((p,i) => `<article class="panel player-entry" style="--player-color:${p.color}"><h3>${playerName(p)}</h3>${numberField('Bedienungen / Waitresses','waitresses',i,editor.rows[i].waitresses)}<p class="hint">${editor.rows[i].milestones.waitress ? 'Meilenstein aktiv: 5 $' : '3 $'} je Bedienung</p><label class="check cfo-option"><input type="checkbox" data-row="${i}" data-field="cfo" ${editor.rows[i].cfo || editor.rows[i].milestones.cfo ? 'checked' : ''} ${editor.rows[i].milestones.cfo ? 'disabled' : ''}> CFO +50 % ${editor.rows[i].milestones.cfo ? '· durch Meilenstein aktiv' : ''}</label><div class="entry-total"><span>Rundeneinnahmen</span><strong id="row-total-${i}">${safeTotal(editor.rows[i])}</strong></div></article>`).join('')}</div><div class="commit-bar"><button class="secondary" data-action="sales-step" data-step="houses">← Häuser</button><button data-action="sales-step" data-step="summary">Gesamtübersicht prüfen →</button></div>`;
+    target.innerHTML = `<div class="entry-grid">${game.players.map((p,i) => `<article class="panel player-entry" style="--player-color:${p.color}"><h3>${playerName(p)}</h3>${waitressField(editor.rows[i],i)}${cfoButton(editor.rows[i],i)}${roundCalculation(editor.rows[i],i)}</article>`).join('')}</div><div class="commit-bar"><button class="secondary" data-action="sales-step" data-step="houses">← Häuser</button><button data-action="sales-step" data-step="summary">Gesamtübersicht prüfen →</button></div>`;
   } else {
     target.innerHTML = `<section class="panel summary-houses"><div class="sidebar-heading"><h2>Alle Hausverkäufe</h2><button class="secondary" data-action="add-house">+ Weiteres Haus</button></div>${houseList()}</section><div class="summary-heading"><h2>Einnahmen pro Spieler</h2><button class="text-button" data-action="sales-step" data-step="extras">Bedienungen & CFO bearbeiten</button></div>${renderReview()}<div class="commit-bar"><span>${editor.index === null ? 'Alle Einnahmen werden gemeinsam gutgeschrieben.' : 'Die Korrektur berechnet alle folgenden Kontostände neu.'}</span><button data-action="commit">${editor.index === null ? 'Verkaufsrunde bestätigen' : 'Änderung speichern'} ✓</button></div>`;
   }
@@ -160,6 +160,40 @@ function storeHouse() {
 function numberField(label, key, row, value, max = 1000000) {
   return `<label>${label}<input type="number" inputmode="numeric" min="0" max="${max}" step="1" required data-row="${row}" data-field="${key}" value="${value}"></label>`;
 }
+function waitressField(row, i) {
+  return `<label class="waitress-field"><span>Bedienungen / Waitresses</span><div class="stepper"><button data-action="waitress-count" data-index="${i}" data-delta="-1" aria-label="Eine Waitress weniger für ${esc(game.players[i].name)}">−</button><input type="number" inputmode="numeric" min="0" max="1000000" step="1" required data-row="${i}" data-field="waitresses" value="${row.waitresses}" aria-label="Anzahl Waitresses für ${esc(game.players[i].name)}"><button data-action="waitress-count" data-index="${i}" data-delta="1" aria-label="Eine Waitress mehr für ${esc(game.players[i].name)}">+</button></div><small>${row.milestones.waitress ? 'Meilenstein aktiv: 5 $' : '3 $'} Trinkgeld je Waitress</small></label>`;
+}
+function cfoContent(row) {
+  const active = row.cfo || row.milestones.cfo;
+  return `<span class="cfo-icon" aria-hidden="true">${row.milestones.cfo ? '◆' : active ? '✓' : '+'}</span><span class="cfo-label"><strong>CFO +50 %</strong><small>${row.milestones.cfo ? 'Meilenstein · dauerhaft aktiv' : active ? 'Bonus auf Einnahmen und Trinkgeld' : 'Bonus für diese Runde einschalten'}</small></span><span class="cfo-state">${active ? 'Aktiv' : 'Inaktiv'}</span>`;
+}
+function cfoButton(row, i) {
+  const active = row.cfo || row.milestones.cfo;
+  return `<button class="cfo-toggle ${active ? 'is-active' : ''} ${row.milestones.cfo ? 'is-milestone' : ''}" data-action="toggle-cfo" data-index="${i}" aria-pressed="${Boolean(active)}" aria-label="CFO für ${esc(game.players[i].name)}${row.milestones.cfo ? ', durch Meilenstein dauerhaft aktiv' : ''}" ${row.milestones.cfo ? 'disabled' : ''}>${cfoContent(row)}</button>`;
+}
+function calculationLines(row, i) {
+  try {
+    const c = calculateSale(row);
+    const active = row.cfo || row.milestones.cfo;
+    return `<dl><div><dt>Einnahmen<small>Waren inkl. Meilensteinboni</small></dt><dd>${money(c.revenue + c.bonus)}</dd></div><div><dt>+ Waitresses<small>${row.waitresses} × ${money(row.milestones.waitress ? 5 : 3)}</small></dt><dd>${money(c.tips)}</dd></div><div><dt>+ CFO<small>${active ? `50 % auf ${money(c.revenue + c.bonus + c.tips)} · aufgerundet` : 'Inaktiv'}</small></dt><dd>${money(c.cfo)}</dd></div><div class="calculation-total"><dt>Gesamtergebnis</dt><dd id="row-total-${i}">${money(c.total)}</dd></div></dl>`;
+  } catch { return '<p class="hint">Bitte die Verkaufseingaben prüfen.</p>'; }
+}
+function roundCalculation(row, i) {
+  return `<div class="round-calculation" id="row-calculation-${i}" aria-live="polite">${calculationLines(row,i)}</div>`;
+}
+function refreshSaleCard(i) {
+  const row = editor.rows[i];
+  document.querySelector(`#row-calculation-${i}`).innerHTML = calculationLines(row,i);
+  const button = app.querySelector(`[data-action="toggle-cfo"][data-index="${i}"]`);
+  const active = Boolean(row.cfo || row.milestones.cfo);
+  button.classList.toggle('is-active',active);
+  button.classList.toggle('is-milestone',row.milestones.cfo);
+  button.disabled = row.milestones.cfo;
+  button.setAttribute('aria-pressed',String(active));
+  button.innerHTML = cfoContent(row);
+  const rate = app.querySelector(`[data-row="${i}"][data-field="waitresses"]`).closest('label').querySelector('small');
+  rate.textContent = `${row.milestones.waitress ? 'Meilenstein aktiv: 5 $' : '3 $'} Trinkgeld je Waitress`;
+}
 function renderEditor(target) {
   const sale = editor.type === 'sale';
   const editing = editor.index !== null;
@@ -168,11 +202,11 @@ function renderEditor(target) {
     <div class="commit-bar"><span>${editing ? 'Die Änderung berechnet alle folgenden Kontostände neu.' : 'Erst bestätigen, dann wird gebucht.'}</span><div>${review ? '<button class="secondary" data-action="back-input">← Eingaben</button>' : ''}<button data-action="${review ? 'commit' : 'review'}">${review ? editing ? 'Änderung speichern' : sale ? 'Verkauf bestätigen ✓' : 'Löhne bestätigen ✓' : 'Übersicht prüfen →'}</button></div></div>`;
 }
 function saleFields(row, i) {
-  return `<div class="goods-grid">${GOODS.map(([key,label,icon]) => numberField(`${icon} ${label}`,key,i,row[key])).join('')}${numberField('Bedienungen / Waitresses','waitresses',i,row.waitresses)}</div>
-    <div class="pricing">${numberField('Stückpreis vor −1-$-Meilenstein','price',i,row.price,100)}<label class="check"><input type="checkbox" data-row="${i}" data-field="cfo" ${row.cfo || row.milestones.cfo ? 'checked' : ''} ${row.milestones.cfo ? 'disabled' : ''}> CFO +50 %${row.milestones.cfo ? ' · Meilenstein' : ''}</label></div>
+  return `<div class="goods-grid">${GOODS.map(([key,label,icon]) => numberField(`${icon} ${label}`,key,i,row[key])).join('')}${waitressField(row,i)}</div>
+    <div class="pricing">${numberField('Stückpreis vor −1-$-Meilenstein','price',i,row.price,100)}</div>${cfoButton(row,i)}
     <details><summary>Meilensteine <span>${MILESTONES.filter(([key]) => row.milestones[key]).length} aktiv</span></summary><div class="milestones">${MILESTONES.map(([key,label,hint]) => `<label class="check"><input type="checkbox" data-row="${i}" data-milestone="${key}" ${row.milestones[key] ? 'checked' : ''}><span>${label}<small>${hint}</small></span></label>`).join('')}</div><p class="hint">Den 100-$-Meilenstein erst ab der Folgerunde aktivieren. Meilensteine werden beim Buchen für kommende Runden übernommen.</p></details>
     <details><summary>Gartenbonus</summary>${numberField('Davon an Häuser mit Garten verkauft','garden',i,row.garden)}<p class="hint">Nur die Gesamtzahl der Gartenwaren. Ihr Stückpreis zählt doppelt, Meilensteinboni zählen einfach. Keine Häuserverwaltung.</p></details>
-    <div class="entry-total"><span>Einnahmen</span><strong id="row-total-${i}">${safeTotal(row)}</strong></div>`;
+    ${roundCalculation(row,i)}`;
 }
 function safeTotal(row) { try { return money(calculateSale(row).total); } catch { return 'Eingabe prüfen'; } }
 function renderReview() {
@@ -244,9 +278,6 @@ app.addEventListener('input', event => {
     editor.rows[i].milestones[input.dataset.milestone] = input.checked;
     // Explicit CFO selection remains independent of the permanent milestone.
     const card = input.closest('.player-entry');
-    const cfo = card.querySelector('[data-field="cfo"]');
-    cfo.checked = editor.rows[i].cfo || editor.rows[i].milestones.cfo;
-    cfo.disabled = editor.rows[i].milestones.cfo;
     card.querySelector('summary span').textContent = `${MILESTONES.filter(([key]) => editor.rows[i].milestones[key]).length} aktiv`;
   } else {
     const value = input.type === 'checkbox' ? input.checked : input.valueAsNumber;
@@ -254,7 +285,8 @@ app.addEventListener('input', event => {
     if (editor.type === 'salary') editor.rows[i] = value;
     else editor.rows[i][input.dataset.field] = value;
   }
-  document.querySelector(`#row-total-${i}`).textContent = editor.type === 'sale' ? safeTotal(editor.rows[i]) : money(editor.rows[i]*5);
+  if (editor.type === 'sale') refreshSaleCard(i);
+  else document.querySelector(`#row-total-${i}`).textContent = money(editor.rows[i]*5);
   persistDraft();
 });
 app.addEventListener('change', event => {
@@ -300,6 +332,19 @@ app.addEventListener('click', async event => {
         if (!validInputs()) return;
         const key = button.dataset.field;
         editor.houseForm[key] = Math.max(0,Math.min(1000000,editor.houseForm[key] + +button.dataset.delta)); persistDraft(); break;
+      }
+      case 'waitress-count': {
+        if (!validInputs()) return;
+        const i = +button.dataset.index;
+        editor.rows[i].waitresses = Math.max(0,Math.min(1000000,editor.rows[i].waitresses + +button.dataset.delta));
+        app.querySelector(`[data-row="${i}"][data-field="waitresses"]`).value = editor.rows[i].waitresses;
+        refreshSaleCard(i); persistDraft(); return;
+      }
+      case 'toggle-cfo': {
+        const i = +button.dataset.index;
+        if (editor.rows[i].milestones.cfo) return;
+        editor.rows[i].cfo = !editor.rows[i].cfo;
+        refreshSaleCard(i); persistDraft(); return;
       }
       case 'save-house': {
         const returnToSummary = editor.returnToSummary;
