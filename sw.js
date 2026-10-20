@@ -1,4 +1,4 @@
-const CACHE = 'gamescores-v4';
+const CACHE = 'gamescores-v5';
 const FILES = ['./', './index.html', './style.css', './app.js', './rules.js', './icon.svg', './manifest.webmanifest'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES)).then(() => self.skipWaiting()));

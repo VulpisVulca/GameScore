@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MILESTONES, COLORS, emptySale, calculateSale, calculateHouse, houseRows, account, validateGame } from '../rules.js';
+import { MILESTONES, COLORS, emptySale, calculateSale, calculateHouse, houseRows, account, roundSettlement, validateGame } from '../rules.js';
 
 const milestones = extra => ({ ...Object.fromEntries(MILESTONES.map(([key]) => [key, false])), ...extra });
 const sale = extra => ({ ...emptySale(milestones()), ...extra });
@@ -120,4 +120,68 @@ test('Leere Häuser, fremde Spieler und widersprüchliche Hausdaten werden abgew
 test('Nur Bedienungen ohne Hausverkäufe bleiben möglich', () => {
   const [row]=houseRows([sale({waitresses:3,cfo:true})],[]);
   assert.equal(calculateSale(row).total,14);
+});
+
+test('Rundenbestätigung bucht Verkäufe und Löhne gemeinsam und erhält den Geldbestand', () => {
+  const state=game([]);
+  const r=roundSettlement(state,[sale({burger:3}),sale({pizza:2})],[2,1]);
+  assert.deepEqual(r.incomes,[30,20]);
+  assert.deepEqual(r.expenses,[10,5]);
+  assert.deepEqual(r.balances,[20,15]);
+  assert.equal(state.events.length,0);
+  assert.equal(r.candidate.events.length,2);
+  assert.equal(account(r.candidate).bank,65);
+  assert.deepEqual(r.issues,[]);
+  validateGame(r.candidate);
+});
+test('Löhne wirken erst nach der Prüfung auf Bankbruch', () => {
+  const state=game([]);
+  const pending=roundSettlement(state,[sale({burger:10}),sale({})],[1,0]);
+  assert.equal(pending.needsReserve,true);
+  assert.equal(pending.candidate,null);
+  const resolved=roundSettlement(state,[sale({burger:10}),sale({})],[1,0],null,[100,100]);
+  assert.equal(resolved.afterSales.firstBreak,0);
+  assert.equal(account(resolved.candidate).bank,205);
+  assert.deepEqual(resolved.balances,[95,0]);
+});
+test('Beim zweiten Bankbruch werden eingegebene Löhne nicht abgezogen', () => {
+  const state=game([]);
+  const r=roundSettlement(state,[sale({burger:30}),sale({})],[50,1],null,[100,100]);
+  assert.equal(r.ended,true);
+  assert.deepEqual(r.expenses,[0,0]);
+  assert.deepEqual(r.balances,[300,0]);
+  assert.equal(r.candidate.events.length,1);
+  assert.deepEqual(r.issues,[]);
+  validateGame(r.candidate);
+});
+test('Historische Rundenvorschau berücksichtigt alten Stand und berechnet spätere Runden neu', () => {
+  const state=game([sales(1,{burger:3},{pizza:2}),wages(1,1,1),sales(2,{burger:1}),wages(2,1,0)]);
+  const r=roundSettlement(state,[sale({burger:2}),sale({pizza:1})],[2,1],0);
+  assert.deepEqual(r.before.balances,[0,0]);
+  assert.deepEqual(r.balances,[10,5]);
+  assert.deepEqual(account(r.candidate).balances,[15,5]);
+  assert.equal(r.candidate.events.length,4);
+  validateGame(r.candidate);
+  const next=roundSettlement(r.candidate,[sale({burger:1}),sale({})],[1,0],2);
+  assert.deepEqual(next.before.balances,[10,5]);
+  assert.deepEqual(next.balances,[15,5]);
+});
+test('Überhöhte Löhne verhindern Buchung und neue Löhne stapeln keinen CFO-Bonus', () => {
+  const r=roundSettlement(game([]),[sale({burger:1,cfo:true}),sale({})],[4,0]);
+  assert.deepEqual(r.incomes,[15,0]);
+  assert.match(r.issues.join(' '),/Lohn übersteigt/);
+});
+test('Bereits gebuchte alte Verkäufe werden beim Ergänzen der Löhne nicht doppelt gutgeschrieben', () => {
+  const state=game([sales(1,{burger:3},{pizza:2})]);
+  const r=roundSettlement(state,state.events[0].rows,[1,2],0);
+  assert.deepEqual(r.balances,[25,10]);
+  assert.equal(r.candidate.events.length,2);
+  assert.deepEqual(account(r.candidate).balances,[25,10]);
+});
+test('Lohn- und Reserveentwürfe werden beim Import validiert', () => {
+  const state=game([]);
+  state.draft={type:'sale',rows:[sale({}),sale({})],wages:[2,1],reserves:[100,200],step:'wages'};
+  validateGame(state);
+  state.draft.wages[0]=-1;
+  assert.throws(()=>validateGame(state));
 });

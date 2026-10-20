@@ -1,4 +1,4 @@
-import { GOODS, MILESTONES, COLORS, emptySale, calculateSale, calculateHouse, houseRows, account, validateGame } from './rules.js';
+import { GOODS, MILESTONES, COLORS, emptySale, calculateSale, calculateHouse, houseRows, account, roundSettlement, validateGame } from './rules.js';
 
 const KEY = 'gamescores.fcm.v1';
 const app = document.querySelector('#app');
@@ -58,8 +58,15 @@ function setup() {
     <section class="panel setup"><label class="count-label">Anzahl der Spieler <select id="player-count">${[2,3,4,5].map(n => `<option ${n === setupCount ? 'selected' : ''}>${n}</option>`).join('')}</select></label><div class="setup-players">${setupPlayers.slice(0, setupCount).map((p,i) => `<div class="setup-row"><span class="row-number">0${i+1}</span><label>Name<input data-setup-name="${i}" maxlength="40" value="${esc(p.name)}" required></label><label>Farbe<select data-setup-color="${i}" style="border-left:6px solid ${p.color}">${COLORS.map((color,j) => `<option value="${color}" ${p.color === color ? 'selected' : ''}>${['Rot','Gelb','Blau','Grün','Violett'][j]}</option>`).join('')}</select></label></div>`).join('')}</div><div class="bank-start"><div><span class="eyebrow">DIE BANK STARTET MIT</span><strong>${money(setupCount * 50)}</strong></div><p>50 $ pro Spieler · Spielerkonten starten bei 0 $.<br>Reservekarten bleiben bis zum ersten Bankbruch geheim.</p></div>${game ? '<p class="hint">Beim Start wird die bisherige Partie ersetzt. Exportiere sie vorher, wenn du sie behalten möchtest.</p><button class="text-button" data-action="export">Bisherige Partie exportieren</button>' : ''}<button data-action="start">Partie starten →</button></section>`;
 }
 function beginEditor(index = null) {
+  // Complete older, already booked sales in the same four-step round editor.
+  let completing = false;
+  if (index === null && game.events.length % 2 && game.events.at(-1).rows.every(row => Array.isArray(row.houses))) {
+    completing = true;
+    index = game.events.length - 1;
+  } else if (index !== null && game.events[index].type === 'salary' && game.events[index - 1]?.rows.every(row => Array.isArray(row.houses))) index--;
+  const roundDraft = completing ? game.draft?.completion : index === null ? game.draft : null;
   const type = index === null ? (game.events.length % 2 ? 'salary' : 'sale') : game.events[index].type;
-  editor = { index, type, rows: structuredClone(index !== null ? game.events[index].rows : game.draft?.type === type ? game.draft.rows : game.players.map(p => type === 'sale' ? emptySale(p.milestones) : 0)) };
+  editor = { index, type, rows: structuredClone(completing && roundDraft?.rows ? roundDraft.rows : index !== null ? game.events[index].rows : game.draft?.type === type ? game.draft.rows : game.players.map(p => type === 'sale' ? emptySale(p.milestones) : 0)) };
   review = false;
   if (type === 'sale') {
     // Old aggregate-only records stay editable without inventing house details.
@@ -68,11 +75,16 @@ function beginEditor(index = null) {
     if (editor.wizard) {
       editor.houses = editor.rows.flatMap((row, player) => (row.houses || []).map(house => ({ ...house, player }))).sort((a,b) => (a.order ?? 0) - (b.order ?? 0));
       if (index === null) editor.rows.forEach((row, i) => { row.milestones = { ...game.players[i].milestones }; });
-      editor.houseForm = index === null && game.draft?.houseForm ? structuredClone(game.draft.houseForm) : newHouse();
-      editor.step = index !== null ? 'summary' : ['houses', 'extras', 'summary'].includes(game.draft?.step) ? game.draft.step : 'houses';
-      editor.returnToSummary = index === null && game.draft?.returnToSummary === true;
-      editor.editingHouse = index === null && Number.isInteger(game.draft?.editingHouse) && editor.houses[game.draft.editingHouse] ? game.draft.editingHouse : null;
+      editor.houseForm = roundDraft?.houseForm ? structuredClone(roundDraft.houseForm) : newHouse();
+      editor.wages = structuredClone(completing && game.draft?.type === 'salary' ? game.draft.rows : index !== null ? game.events[index + 1]?.rows || game.players.map(() => 0) : game.draft?.wages || game.players.map(() => 0));
+      editor.reserves = roundDraft?.reserves ?? game.reserves;
+      editor.wagesReviewed = roundDraft?.wagesReviewed === true || (!completing && index !== null);
+      editor.completing = completing;
+      editor.step = ['houses', 'extras', 'wages', 'summary'].includes(roundDraft?.step) ? roundDraft.step : completing ? 'wages' : index !== null ? 'summary' : 'houses';
+      editor.returnToSummary = roundDraft?.returnToSummary === true;
+      editor.editingHouse = Number.isInteger(roundDraft?.editingHouse) && editor.houses[roundDraft.editingHouse] ? roundDraft.editingHouse : null;
       syncHouseRows();
+      if (editor.step === 'summary' && (!editor.wagesReviewed || previewRound().needsReserve)) editor.step = 'wages';
     }
   }
 }
@@ -103,7 +115,7 @@ function renderTable(target) {
     <section class="achievement-grid">${game.players.map((p,i) => `<article class="panel achievement-card" style="--player-color:${p.color}"><h3>${playerName(p)}</h3><div class="milestones">${MILESTONES.map(([key,label,hint]) => `<label class="check"><input type="checkbox" data-player="${i}" data-achievement="${key}" ${p.milestones[key] ? 'checked' : ''}><span>${label}<small>${hint}</small></span></label>`).join('')}</div></article>`).join('')}</section><p class="hint">Den 100-$-Meilenstein nach der erreichten Verkaufsrunde auswählen: Der CFO-Bonus zählt ab dem nächsten Verkauf. Mehrere Spieler können denselben Meilenstein erhalten.</p>`;
 }
 function roundHeader() {
-  return `<div class="round-top"><button class="text-button" data-action="leave-round">← ${editor.index === null ? 'Spieltisch' : 'Protokoll'}</button><span>Food Chain Magnate · Runde ${currentRound()}</span><span class="draft-badge">${editor.index === null ? 'Entwurf · noch nicht gebucht' : 'Buchung bearbeiten'}</span></div>`;
+  return `<div class="round-top"><button class="text-button" data-action="leave-round">← ${editor.index === null || editor.completing ? 'Spieltisch' : 'Protokoll'}</button><span>Food Chain Magnate · Runde ${currentRound()}</span><span class="draft-badge">${editor.index === null ? 'Entwurf · noch nicht gebucht' : editor.completing ? 'Löhne noch nicht gebucht' : 'Runde bearbeiten'}</span></div>`;
 }
 function newHouse() {
   return { number: '', player: null, type: 'normal', price: 10, ...Object.fromEntries(GOODS.map(([key]) => [key, 0])) };
@@ -124,18 +136,41 @@ function housePreview() {
 }
 function renderSales() {
   const step = editor.step;
-  app.innerHTML = `${roundHeader()}<div class="sales-heading"><div><p class="eyebrow">VERKAUFSRUNDE</p><h1>${step === 'houses' ? 'Ein Haus nach dem anderen.' : step === 'extras' ? 'Bedienungen & CFO.' : 'Ein letzter Blick auf die Runde.'}</h1><p>${step === 'houses' ? 'Wer hat geliefert, was wurde verkauft und hat das Haus einen Garten?' : step === 'extras' ? 'Trinkgeld und CFO werden einmal je Spieler für die gesamte Runde berechnet.' : 'Alle Häuser und Einnahmen prüfen. Erst mit deiner Bestätigung wird Geld gebucht.'}</p></div></div>
-    <nav class="wizard-steps" aria-label="Verkaufsrunde"><button data-action="sales-step" data-step="houses" class="${step === 'houses' ? 'active' : ''}" ${step === 'houses' ? 'aria-current="step"' : ''}><b>1</b> Häuser</button><button data-action="sales-step" data-step="extras" class="${step === 'extras' ? 'active' : ''}" ${step === 'extras' ? 'aria-current="step"' : ''}><b>2</b> Bedienungen & CFO</button><button data-action="sales-step" data-step="summary" class="${step === 'summary' ? 'active' : ''}" ${step === 'summary' ? 'aria-current="step"' : ''}><b>3</b> Übersicht</button></nav>
+  app.innerHTML = `${roundHeader()}<div class="sales-heading"><div><p class="eyebrow">RUNDE ABRECHNEN</p><h1>${step === 'houses' ? 'Ein Haus nach dem anderen.' : step === 'extras' ? 'Bedienungen & CFO.' : step === 'wages' ? 'Jetzt die Löhne erfassen.' : 'Ein letzter Blick auf die Runde.'}</h1><p>${step === 'houses' ? 'Wer hat geliefert, was wurde verkauft und hat das Haus einen Garten?' : step === 'extras' ? 'Trinkgeld und CFO werden einmal je Spieler für die gesamte Runde berechnet.' : step === 'wages' ? 'Wie viele Mitarbeiter müssen tatsächlich bezahlt werden? Je Person werden 5 $ abgezogen.' : 'Einnahmen, Ausgaben und neue Kontostände prüfen. Erst mit deiner Bestätigung wird die Runde gebucht.'}</p></div></div>
+    <nav class="wizard-steps" aria-label="Rundenabrechnung">${[['houses','Häuser'],['extras','Bedienung & CFO'],['wages','Löhne'],['summary','Übersicht']].map(([key,label],i) => `<button data-action="sales-step" data-step="${key}" class="${step === key ? 'active' : ''}" ${step === key ? 'aria-current="step"' : ''}><b>${i + 1}</b>${label}</button>`).join('')}</nav>
     <div id="sales-workspace"></div>`;
   const target = document.querySelector('#sales-workspace');
   if (step === 'houses') {
     const h = editor.houseForm;
     target.innerHTML = `<div class="house-layout"><section class="panel house-form"><div class="form-title"><h2>${editor.editingHouse === null ? `Verkauf ${editor.houses.length + 1}` : 'Verkauf bearbeiten'}</h2><label>Hausnummer / Bezeichnung<input maxlength="24" data-house="number" value="${esc(h.number)}" placeholder="z. B. Haus 7"></label></div><fieldset><legend>1. Wer beliefert das Haus?</legend><div class="player-choices">${game.players.map((p,i) => `<button class="choice ${h.player === i ? 'selected' : ''}" style="--player-color:${p.color}" data-action="house-player" data-index="${i}" aria-pressed="${h.player === i}">${playerName(p)}</button>`).join('')}</div></fieldset><fieldset><legend>2. Was wurde verkauft?</legend><div class="house-goods">${GOODS.map(([key,label,icon]) => `<label><span>${icon} ${label}</span><div class="stepper"><button data-action="house-count" data-field="${key}" data-delta="-1" aria-label="${label} weniger">−</button><input type="number" inputmode="numeric" min="0" max="1000000" step="1" required data-house="${key}" value="${h[key]}" aria-label="Anzahl ${label}"><button data-action="house-count" data-field="${key}" data-delta="1" aria-label="${label} mehr">+</button></div></label>`).join('')}</div></fieldset><fieldset><legend>3. Welches Haus?</legend><div class="house-types">${[['normal','⌂','Ohne Garten','Einfacher Stückpreis'],['garden','♧','Mit Garten','Doppelter Stückpreis']].map(([type,icon,label,hint]) => `<button class="choice ${h.type === type ? 'selected' : ''}" data-action="house-type" data-type="${type}" aria-pressed="${h.type === type}"><span class="type-icon">${icon}</span><span>${label}<small>${hint}</small></span></button>`).join('')}</div></fieldset><div class="house-price"><label>Stückpreis vor −1-$-Meilenstein<input type="number" inputmode="numeric" min="0" max="100" step="1" required data-house="price" value="${h.price}"></label><div><span>Verkauf inkl. Meilensteinen</span><strong id="house-income">${housePreview()}</strong><small>Trinkgeld und CFO folgen in Schritt 2.</small></div></div><div class="house-form-actions">${editor.editingHouse !== null ? '<button class="secondary" data-action="cancel-house">Abbrechen</button>' : ''}<button data-action="save-house">${editor.editingHouse !== null ? 'Verkauf speichern' : 'Haus übernehmen & nächstes'} →</button></div></section><aside class="house-sidebar"><div class="sidebar-heading"><h2>Diese Runde</h2><span>${editor.houses.length} ${editor.houses.length === 1 ? 'Haus' : 'Häuser'}</span></div>${houseList()}<div class="sidebar-total"><span>Warenumsatz inkl. Meilensteinen</span><strong>${money(editor.houses.reduce((sum, house) => sum + calculateHouse(house, editor.rows[house.player].milestones).total, 0))}</strong></div><button class="secondary" data-action="sales-step" data-step="extras">Häuser fertig · weiter →</button></aside></div>`;
   } else if (step === 'extras') {
-    target.innerHTML = `<div class="entry-grid">${game.players.map((p,i) => `<article class="panel player-entry" style="--player-color:${p.color}"><h3>${playerName(p)}</h3>${waitressField(editor.rows[i],i)}${cfoButton(editor.rows[i],i)}${roundCalculation(editor.rows[i],i)}</article>`).join('')}</div><div class="commit-bar"><button class="secondary" data-action="sales-step" data-step="houses">← Häuser</button><button data-action="sales-step" data-step="summary">Gesamtübersicht prüfen →</button></div>`;
+    target.innerHTML = `<div class="entry-grid">${game.players.map((p,i) => `<article class="panel player-entry" style="--player-color:${p.color}"><h3>${playerName(p)}</h3>${waitressField(editor.rows[i],i)}${cfoButton(editor.rows[i],i)}${roundCalculation(editor.rows[i],i)}</article>`).join('')}</div><div class="commit-bar"><button class="secondary" data-action="sales-step" data-step="houses">← Häuser</button><button data-action="sales-step" data-step="wages">Weiter zu den Löhnen →</button></div>`;
+  } else if (step === 'wages') {
+    renderRoundWages(target);
   } else {
-    target.innerHTML = `<section class="panel summary-houses"><div class="sidebar-heading"><h2>Alle Hausverkäufe</h2><button class="secondary" data-action="add-house">+ Weiteres Haus</button></div>${houseList()}</section><div class="summary-heading"><h2>Einnahmen pro Spieler</h2><button class="text-button" data-action="sales-step" data-step="extras">Bedienungen & CFO bearbeiten</button></div>${renderReview()}<div class="commit-bar"><span>${editor.index === null ? 'Alle Einnahmen werden gemeinsam gutgeschrieben.' : 'Die Korrektur berechnet alle folgenden Kontostände neu.'}</span><button data-action="commit">${editor.index === null ? 'Verkaufsrunde bestätigen' : 'Änderung speichern'} ✓</button></div>`;
+    const settlement = previewRound();
+    target.innerHTML = `<section class="panel summary-houses"><div class="sidebar-heading"><h2>Alle Hausverkäufe</h2><button class="secondary" data-action="add-house">+ Weiteres Haus</button></div>${houseList()}</section><div class="summary-heading"><h2>Rundenabrechnung pro Spieler</h2><div><button class="text-button" data-action="sales-step" data-step="extras">Bedienungen & CFO bearbeiten</button><button class="text-button" data-action="sales-step" data-step="wages">Löhne bearbeiten</button></div></div>${settlement.ended ? '<p class="round-warning">Zweiter Bankbruch: Alle Einnahmen werden ausgezahlt, Löhne entfallen.</p>' : ''}${renderReview()}<div class="commit-bar"><span>${editor.index === null ? 'Einnahmen und Löhne werden zusammen gebucht.' : 'Die Korrektur berechnet alle folgenden Kontostände neu.'}</span><button data-action="commit">${editor.index === null ? 'Runde bestätigen' : 'Änderung speichern'} ✓</button></div>`;
   }
+}
+function previewRound() { return roundSettlement(game,editor.rows,editor.wages,editor.index,editor.reserves); }
+function wageCardCalculation(i, settlement = previewRound()) {
+  const cost = settlement.expenses[i];
+  return `<dl><div><dt>Bisheriger Stand</dt><dd>${money(settlement.before.balances[i])}</dd></div><div><dt>+ Einnahmen</dt><dd>${money(settlement.incomes[i])}</dd></div><div><dt>− Ausgaben / Löhne</dt><dd>${money(cost)}</dd></div><div class="calculation-total"><dt>Neuer Stand</dt><dd>${money(settlement.balances[i])}</dd></div></dl>`;
+}
+function renderRoundWages(target) {
+  const settlement = previewRound();
+  if (settlement.needsReserve) {
+    renderReserve(target, true);
+    return;
+  }
+  target.innerHTML = `${settlement.ended ? '<p class="round-warning">Zweiter Bankbruch: In dieser Runde werden keine Löhne mehr gezahlt. Alle Einnahmen werden vollständig gutgeschrieben.</p>' : ''}<div class="entry-grid">${game.players.map((p,i) => `<article class="panel player-entry" style="--player-color:${p.color}"><h3>${playerName(p)}</h3>${settlement.ended ? '<p class="hint">Löhne entfallen bei Spielende.</p>' : `<label class="waitress-field"><span>Zu bezahlende Mitarbeiter</span><div class="stepper"><button data-action="wage-count" data-index="${i}" data-delta="-1" aria-label="Ein Mitarbeiter weniger für ${esc(p.name)}">−</button><input type="number" inputmode="numeric" min="0" max="1000000" step="1" required data-wage="${i}" value="${editor.wages[i]}" aria-label="Zu bezahlende Mitarbeiter für ${esc(p.name)}"><button data-action="wage-count" data-index="${i}" data-delta="1" aria-label="Ein Mitarbeiter mehr für ${esc(p.name)}">+</button></div><small>5 $ je Mitarbeiter · Rabatte vorher selbst berücksichtigen</small></label>`}<div class="round-calculation" id="wage-calculation-${i}" aria-live="polite">${wageCardCalculation(i,settlement)}</div></article>`).join('')}</div><p class="round-warning" id="wage-issues" ${settlement.issues.length ? '' : 'hidden'}>${esc(settlement.issues.join(' '))}</p><div class="commit-bar"><button class="secondary" data-action="sales-step" data-step="extras">← Bedienung & CFO</button><button data-action="sales-step" data-step="summary">Gesamtübersicht prüfen →</button></div>`;
+}
+function refreshWages() {
+  const settlement = previewRound();
+  editor.wages.forEach((_,i) => { document.querySelector(`#wage-calculation-${i}`).innerHTML = wageCardCalculation(i,settlement); });
+  const issues = document.querySelector('#wage-issues');
+  issues.textContent = settlement.issues.join(' ');
+  issues.hidden = !settlement.issues.length;
 }
 function houseHasGoods() { return GOODS.some(([key]) => editor.houseForm[key] > 0); }
 function validInputs() {
@@ -211,20 +246,21 @@ function saleFields(row, i) {
 function safeTotal(row) { try { return money(calculateSale(row).total); } catch { return 'Eingabe prüfen'; } }
 function renderReview() {
   const sale = editor.type === 'sale';
-  return `<section class="panel review"><div class="table-scroll"><table><thead><tr><th>Spieler</th>${sale ? GOODS.map(([,label]) => `<th>${label}</th>`).join('') + '<th>Bedienungen</th><th>Warenumsatz¹</th><th>Meilensteine</th><th>Trinkgeld</th><th>CFO</th>' : '<th>Mitarbeiter</th>'}<th>${sale ? 'Einnahmen' : 'Lohn'}</th></tr></thead><tbody>${game.players.map((p,i) => {
+  const settlement = sale && editor.wizard ? previewRound() : null;
+  return `<section class="panel review"><div class="table-scroll"><table><thead><tr><th>Spieler</th>${sale ? GOODS.map(([,label]) => `<th>${label}</th>`).join('') + '<th>Bedienungen</th><th>Warenumsatz¹</th><th>Meilensteine</th><th>Trinkgeld</th><th>CFO</th>' : '<th>Mitarbeiter</th>'}<th>${sale ? 'Einnahmen' : 'Lohn'}</th>${settlement ? '<th>Ausgaben / Löhne</th><th>Neuer Stand</th>' : ''}</tr></thead><tbody>${game.players.map((p,i) => {
     const r = editor.rows[i]; const c = sale ? calculateSale(r) : null;
-    return `<tr><th>${playerName(p)}</th>${sale ? GOODS.map(([key]) => `<td>${r[key]}</td>`).join('') + `<td>${r.waitresses}</td><td>${money(c.revenue)}</td><td>${money(c.bonus)}</td><td>${money(c.tips)}</td><td>${money(c.cfo)}</td>` : `<td>${r}</td>`}<td class="amount">${money(sale ? c.total : r*5)}</td></tr>`;
+    return `<tr><th>${playerName(p)}</th>${sale ? GOODS.map(([key]) => `<td>${r[key]}</td>`).join('') + `<td>${r.waitresses}</td><td>${money(c.revenue)}</td><td>${money(c.bonus)}</td><td>${money(c.tips)}</td><td>${money(c.cfo)}</td>` : `<td>${r}</td>`}<td class="${settlement ? 'income-amount' : 'amount'}">${money(sale ? c.total : r*5)}</td>${settlement ? `<td class="expense-amount">${money(settlement.expenses[i])}</td><td class="amount new-balance">${money(settlement.balances[i])}</td>` : ''}</tr>`;
   }).join('')}</tbody></table></div>${sale ? '<p class="hint">¹ Mit eingestelltem Stückpreis und gegebenenfalls Gartenbonus. CFO wird einmal auf alle Rundeneinnahmen berechnet und aufgerundet.</p>' : ''}</section>`;
 }
-function renderReserve(target) {
-  target.innerHTML = `<section class="panel reserve"><p class="eyebrow">ERSTER BANKBRUCH</p><h2>Zeit, die Reserve aufzudecken.</h2><p>Wählt den Geldbetrag der zu Beginn verdeckt gewählten Karte jedes Spielers. Noch ausstehende Einnahmen werden vollständig ausgezahlt.</p><div class="reserve-grid">${game.players.map((p,i) => `<label>${playerName(p)}<select data-reserve="${i}"><option value="">Karte wählen …</option>${[100,200,300].map(n => `<option value="${n}">${money(n)}</option>`).join('')}</select></label>`).join('')}</div><button data-action="reserve">Reserve der Bank hinzufügen</button></section>`;
+function renderReserve(target, preview = false) {
+  target.innerHTML = `<section class="panel reserve"><p class="eyebrow">ERSTER BANKBRUCH</p><h2>Zeit, die Reserve aufzudecken.</h2><p>Wählt den Geldbetrag der zu Beginn verdeckt gewählten Karte jedes Spielers. ${preview ? 'Die Bank reicht für die erfassten Verkäufe nicht aus. Die Reserve wird für die Vorschau berücksichtigt und erst mit der Runde gebucht.' : 'Noch ausstehende Einnahmen werden vollständig ausgezahlt.'}</p><div class="reserve-grid">${game.players.map((p,i) => `<label>${playerName(p)}<select data-reserve="${i}"><option value="">Karte wählen …</option>${[100,200,300].map(n => `<option value="${n}">${money(n)}</option>`).join('')}</select></label>`).join('')}</div><button data-action="${preview ? 'round-reserve' : 'reserve'}">${preview ? 'Reserve für Vorschau übernehmen' : 'Reserve der Bank hinzufügen'}</button></section>`;
 }
 function renderLog(target) {
   target.innerHTML = `<div class="phase-heading"><div><p class="eyebrow">JEDE BUCHUNG BLEIBT NACHVOLLZIEHBAR</p><h2>Das Geschäftsbuch</h2><p>Vergangene Eingaben bearbeiten. Konten und Bank werden neu berechnet.</p></div></div>${!game.events.length ? '<section class="panel"><p>Noch keine Buchungen. Los geht’s mit dem ersten Verkauf.</p></section>' : [...game.events].reverse().map((event, reverseIndex) => {
     const index = game.events.length - 1 - reverseIndex;
     const sale = event.type === 'sale';
     return `<section class="panel log-event"><div class="log-heading"><div><span class="eyebrow">RUNDE ${event.round}</span><h3>${sale ? 'Verkauf' : 'Lohnzahlung'}</h3></div><span>${event.updatedAt ? 'Bearbeitet · ' : ''}${esc(new Date(event.updatedAt || event.createdAt).toLocaleString('de-DE'))}</span><button class="secondary" data-action="edit" data-index="${index}">Bearbeiten</button></div>${game.players.map((p,i) => `<div class="log-row"><span>${playerName(p)}</span><span class="log-detail">${sale ? GOODS.map(([key,label]) => `${event.rows[i][key]} ${label}`).join(' · ') + ` · ${event.rows[i].waitresses} Bedienungen · CFO ${event.rows[i].cfo || event.rows[i].milestones.cfo ? 'ja' : 'nein'}` : `${event.rows[i]} Mitarbeiter × 5 $`}</span><strong class="${sale ? 'positive' : ''}">${sale ? '+' : '−'}${money(sale ? calculateSale(event.rows[i]).total : event.rows[i]*5)}</strong></div>${sale && event.rows[i].houses?.length ? `<details class="log-houses"><summary>${event.rows[i].houses.length} Hausverkäufe anzeigen</summary>${event.rows[i].houses.map(h => `<p><strong>${esc(h.number)}</strong> · ${h.type === 'garden' ? 'Mit Garten' : 'Ohne Garten'} · ${houseDescription(h)} · ${money(calculateHouse(h,event.rows[i].milestones).total)}</p>`).join('')}</details>` : ''}`).join('')}</section>`;
-  }).join('')}${game.events.length ? '<button class="text-button danger" data-action="undo">Letzte Buchung zurücknehmen</button>' : ''}`;
+  }).join('')}${game.events.length ? `<button class="text-button danger" data-action="undo">${game.events.at(-1).combined ? 'Letzte Runde' : 'Letzte Buchung'} zurücknehmen</button>` : ''}`;
 }
 function render() {
   document.body.classList.toggle('playing', !['home','setup'].includes(screen));
@@ -239,13 +275,23 @@ function render() {
   else { screen = 'home'; home(); }
 }
 function persistDraft() {
+  if (editor?.completing) {
+    game.draft = { type:'salary', rows:[...editor.wages], completion:{rows:structuredClone(editor.rows),houseForm:structuredClone(editor.houseForm),step:editor.step,editingHouse:editor.editingHouse,returnToSummary:editor.returnToSummary,reserves:editor.reserves,wagesReviewed:editor.wagesReviewed} };
+    save(); return;
+  }
   if (editor?.index === null) {
     game.draft = { type: editor.type, rows: structuredClone(editor.rows) };
-    if (editor.wizard) Object.assign(game.draft, { houseForm: structuredClone(editor.houseForm), step: editor.step, editingHouse: editor.editingHouse, returnToSummary: editor.returnToSummary });
+    if (editor.wizard) Object.assign(game.draft, { houseForm: structuredClone(editor.houseForm), step: editor.step, editingHouse: editor.editingHouse, returnToSummary: editor.returnToSummary, wages:[...editor.wages], reserves:editor.reserves, wagesReviewed:editor.wagesReviewed });
     save();
   }
 }
 function checkEditor() {
+  if (editor.wizard) {
+    const settlement = previewRound();
+    if (settlement.needsReserve) throw new Error('Bitte zuerst im Lohnschritt die Reservekarten aufdecken.');
+    if (settlement.issues.length) throw new Error(settlement.issues.join(' '));
+    return settlement.candidate;
+  }
   if (editor.type === 'sale') editor.rows.forEach(calculateSale);
   else editor.rows.forEach(n => { if (!Number.isSafeInteger(n) || n < 0 || n > 1000000) throw new Error('Bitte eine gültige Mitarbeiterzahl eingeben.'); });
   const candidate = structuredClone(game);
@@ -264,6 +310,11 @@ app.addEventListener('input', event => {
   if (input.dataset.achievement !== undefined) {
     game.players[+input.dataset.player].milestones[input.dataset.achievement] = input.checked;
     save(); return;
+  }
+  if (input.dataset.wage !== undefined && editor?.wizard) {
+    if (!input.validity.valid || !Number.isFinite(input.valueAsNumber)) return;
+    editor.wages[+input.dataset.wage] = input.valueAsNumber;
+    refreshWages(); persistDraft(); return;
   }
   if (input.dataset.house !== undefined && editor?.wizard) {
     const key = input.dataset.house;
@@ -321,7 +372,7 @@ app.addEventListener('click', async event => {
       case 'open-round':
         beginEditor(); screen = editor.wizard ? 'sale' : 'entry'; persistDraft(); window.scrollTo(0,0); break;
       case 'leave-round':
-        persistDraft(); screen = editor.index === null ? 'table' : 'log'; editor = null; break;
+        persistDraft(); screen = editor.index === null || editor.completing ? 'table' : 'log'; editor = null; break;
       case 'house-player':
         if (!validInputs()) return;
         editor.houseForm.player = +button.dataset.index; persistDraft(); break;
@@ -346,10 +397,17 @@ app.addEventListener('click', async event => {
         editor.rows[i].cfo = !editor.rows[i].cfo;
         refreshSaleCard(i); persistDraft(); return;
       }
+      case 'wage-count': {
+        if (!validInputs()) return;
+        const i = +button.dataset.index;
+        editor.wages[i] = Math.max(0,Math.min(1000000,editor.wages[i] + +button.dataset.delta));
+        app.querySelector(`[data-wage="${i}"]`).value = editor.wages[i];
+        refreshWages(); persistDraft(); return;
+      }
       case 'save-house': {
         const returnToSummary = editor.returnToSummary;
         if (!storeHouse()) return;
-        if (returnToSummary) { editor.step = 'summary'; editor.returnToSummary = false; }
+        if (returnToSummary) { editor.step = previewRound().needsReserve ? 'wages' : 'summary'; editor.returnToSummary = false; }
         persistDraft(); window.scrollTo(0,0); break;
       }
       case 'sales-step': {
@@ -358,8 +416,13 @@ app.addEventListener('click', async event => {
           if (!storeHouse()) return;
         }
         syncHouseRows();
-        if (button.dataset.step === 'summary') checkEditor();
-        editor.step = button.dataset.step;
+        let nextStep = button.dataset.step;
+        if (nextStep === 'summary') {
+          if (editor.step === 'wages') editor.wagesReviewed = true;
+          if (!editor.wagesReviewed || previewRound().needsReserve) nextStep = 'wages';
+          else checkEditor();
+        }
+        editor.step = nextStep;
         editor.returnToSummary = false;
         persistDraft(); window.scrollTo(0,0); break;
       }
@@ -381,9 +444,9 @@ app.addEventListener('click', async event => {
       }
       case 'back-input': review = false; break;
       case 'commit': {
-        const editing = editor.index !== null;
+        const editing = editor.index !== null && !editor.completing;
         const candidate = checkEditor();
-        if (!editing && editor.type === 'sale') candidate.players.forEach((p,i) => { p.milestones = { ...editor.rows[i].milestones }; });
+        if (editor.index === null && editor.type === 'sale') candidate.players.forEach((p,i) => { p.milestones = { ...editor.rows[i].milestones }; });
         game = candidate; editor = null; save(); screen = editing ? 'log' : 'table'; notify(editing ? 'Buchung korrigiert. Alle Kontostände wurden neu berechnet.' : 'Buchung gespeichert.'); break;
       }
       case 'edit': beginEditor(+button.dataset.index); screen = editor.wizard ? 'sale' : 'entry'; window.scrollTo(0,0); break;
@@ -393,9 +456,20 @@ app.addEventListener('click', async event => {
         if (values.some(n => ![100,200,300].includes(n))) throw new Error('Bitte die Reservekarte jedes Spielers auswählen.');
         game.reserves = values; editor = null; save(); break;
       }
+      case 'round-reserve': {
+        const values = [...app.querySelectorAll('[data-reserve]')].map(input => +input.value);
+        if (values.length !== game.players.length || values.some(n => ![100,200,300].includes(n))) throw new Error('Bitte die Reservekarte jedes Spielers auswählen.');
+        editor.reserves = values; editor.wagesReviewed = false; persistDraft(); break;
+      }
       case 'undo':
-        if (!confirm('Die letzte Buchung zurücknehmen? Danach kannst du die Eingaben neu erfassen.')) return;
-        { const last = game.events.pop(); game.draft = { type: last.type, rows: structuredClone(last.rows), step: 'summary' }; }
+        if (!confirm(`${game.events.at(-1).combined ? 'Die letzte Runde mit Verkäufen und Löhnen' : 'Die letzte Buchung'} zurücknehmen? Danach kannst du die Eingaben neu erfassen.`)) return;
+        {
+          const last = game.events.pop();
+          if (last.type === 'salary' && last.combined && game.events.at(-1)?.combined) {
+            const sale = game.events.pop();
+            game.draft = {type:'sale',rows:structuredClone(sale.rows),wages:[...last.rows],wagesReviewed:true,step:'summary'};
+          } else game.draft = { type: last.type, rows: structuredClone(last.rows), step: 'summary' };
+        }
         save(); screen = 'table'; editor = null; break;
       case 'export': {
         const blob = new Blob([JSON.stringify(game,null,2)], { type: 'application/json' });

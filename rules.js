@@ -94,6 +94,35 @@ export function account(game) {
   }
   return { bank, balances, firstBreak, secondBreak, needsReserve: firstBreak !== null && !game.reserves, issues: [...new Set(issues)] };
 }
+export function roundSettlement(game, rows, wages, index = null, reserves = game.reserves) {
+  if (rows.length !== game.players.length || wages.length !== game.players.length) throw new Error('Ungültige Anzahl Spieler.');
+  wages.forEach(n => integer(n));
+  const position = index === null ? game.events.length : index;
+  integer(position, game.events.length);
+  if (position % 2 !== 0 || position > game.events.length || (index !== null && game.events[position]?.type !== 'sale')) throw new Error('Ungültige Verkaufsrunde.');
+  if (reserves !== null && (!Array.isArray(reserves) || reserves.length !== game.players.length || reserves.some(n => ![100,200,300].includes(n)))) throw new Error('Ungültige Reservekarten.');
+  const round = Math.floor(position / 2) + 1;
+  const oldSale = game.events[position];
+  const oldSalary = game.events[position + 1]?.type === 'salary' ? game.events[position + 1] : null;
+  const prefix = game.events.slice(0, position);
+  const suffix = game.events.slice(position + (oldSalary ? 2 : oldSale ? 1 : 0));
+  const time = new Date().toISOString();
+  const sale = { ...oldSale, type:'sale', round, rows:structuredClone(rows), createdAt:oldSale?.createdAt || time, combined:true, ...(oldSale ? {updatedAt:time} : {}) };
+  const candidate = { ...structuredClone(game), reserves:reserves && [...reserves] };
+  const before = account({ ...candidate, events:prefix });
+  const afterSales = account({ ...candidate, events:[...prefix,sale] });
+  const incomes = rows.map(row => calculateSale(row).total);
+  if (afterSales.needsReserve) return {candidate:null,before,afterSales,incomes,expenses:null,balances:null,needsReserve:true,ended:false,issues:[]};
+  const ended = afterSales.secondBreak !== null;
+  const expenses = wages.map(n => ended ? 0 : n * 5);
+  const salary = { ...oldSalary, type:'salary', round, rows:[...wages], createdAt:oldSalary?.createdAt || time, combined:true, ...(oldSalary ? {updatedAt:time} : {}) };
+  const events = [...prefix,sale,...(ended ? [] : [salary])];
+  const after = account({ ...candidate, events });
+  candidate.events = [...events,...suffix];
+  if (index === null || (position === game.events.length - 1 && game.draft?.type === 'salary')) candidate.draft = null;
+  const issues = account(candidate).issues;
+  return {candidate,before,afterSales,incomes,expenses,balances:after.balances,needsReserve:false,ended,issues};
+}
 export function validateGame(game) {
   if (!game || game.version !== 1 || !Array.isArray(game.players) || game.players.length < 2 || game.players.length > 5) throw new Error('Kein gültiger GameScores-Spielstand.');
   game.players.forEach(p => {
@@ -125,12 +154,22 @@ export function validateGame(game) {
         if (row.houses?.some(h => h.player !== player)) throw new Error('Ungültige Spielerzuordnung eines Hauses.');
       }
     });
+    if (game.draft.wages !== undefined) {
+      if (type !== 'sale' || !Array.isArray(game.draft.wages) || game.draft.wages.length !== game.players.length) throw new Error('Ungültiger Lohnentwurf.');
+      game.draft.wages.forEach(n => integer(n));
+    }
+    if (game.draft.reserves !== undefined && game.draft.reserves !== null && (!Array.isArray(game.draft.reserves) || game.draft.reserves.length !== game.players.length || game.draft.reserves.some(n => ![100,200,300].includes(n)))) throw new Error('Ungültige Reservekarten im Entwurf.');
     if (game.draft.houseForm !== undefined) {
       const h = game.draft.houseForm;
       if (type !== 'sale' || !h || typeof h.number !== 'string' || h.number.length > 24 || !['normal','garden'].includes(h.type)) throw new Error('Ungültiger Hausentwurf.');
       if (h.player !== null) integer(h.player, game.players.length - 1);
       integer(h.price,100);
       GOODS.forEach(([key]) => integer(h[key]));
+    }
+    if (game.draft.completion !== undefined) {
+      const completion = game.draft.completion;
+      if (type !== 'salary' || !completion || game.events.at(-1)?.type !== 'sale') throw new Error('Ungültiger Rundenentwurf.');
+      validateGame({...game,events:game.events.slice(0,-1),draft:{type:'sale',rows:completion.rows,houseForm:completion.houseForm,reserves:completion.reserves,wages:game.draft.rows}});
     }
   }
   account(game);
