@@ -162,7 +162,7 @@ function refreshHousePrices() {
 }
 function renderSales() {
   const step = editor.step;
-  app.innerHTML = `${roundHeader()}<div class="sales-heading"><div><p class="eyebrow">RUNDE ABRECHNEN</p><h1>${step === 'houses' ? 'Ein Haus nach dem anderen.' : step === 'extras' ? 'Bedienungen & CFO.' : step === 'wages' ? 'Jetzt die Löhne erfassen.' : 'Ein letzter Blick auf die Runde.'}</h1><p>${step === 'houses' ? 'Wer hat geliefert, was wurde verkauft und hat das Haus einen Garten?' : step === 'extras' ? 'Trinkgeld und CFO werden einmal je Spieler für die gesamte Runde berechnet.' : step === 'wages' ? 'Wie viele Mitarbeiter müssen tatsächlich bezahlt werden? Je Person werden 5 $ abgezogen.' : 'Einnahmen, Ausgaben und neue Kontostände prüfen. Erst mit deiner Bestätigung wird die Runde gebucht.'}</p></div></div>
+  app.innerHTML = `${roundHeader()}<h1 class="round-title">Runde abrechnen</h1>
     <nav class="wizard-steps" aria-label="Rundenabrechnung">${[['houses','Häuser'],['extras','Bedienung & CFO'],['wages','Löhne'],['summary','Übersicht']].map(([key,label],i) => `<button data-action="sales-step" data-step="${key}" class="${step === key ? 'active' : ''}" ${step === key ? 'aria-current="step"' : ''}><b>${i + 1}</b>${label}</button>`).join('')}</nav>
     <div id="sales-workspace"></div>`;
   const target = document.querySelector('#sales-workspace');
@@ -308,6 +308,7 @@ function logRoundDetails(round) {
 }
 function render() {
   document.body.classList.toggle('fcm-theme', screen !== 'home');
+  document.body.classList.toggle('sales-round', screen === 'sale');
   document.body.classList.toggle('playing', !['home','setup'].includes(screen));
   if (screen === 'home') home();
   else if (screen === 'setup') setup();

@@ -390,3 +390,19 @@ body.fcm-theme{--green:#225b5e;--muted:#59656a;--line:#c9caba;--paper:#fffcf2;--
   .fcm-theme .ledger-amounts{font-size:13px;gap:5px}
   .fcm-theme .ledger-amounts>strong{font-size:16px}
 }
+
+/* Keep round navigation small so the working cards lead the page. */
+.fcm-theme.sales-round main{padding-top:10px}
+.fcm-theme .round-title{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.fcm-theme.sales-round .round-top{border-bottom:0;padding-bottom:0;margin-bottom:4px;gap:8px 18px;min-height:44px}
+.fcm-theme.sales-round .wizard-steps{margin-bottom:14px;gap:24px}
+.fcm-theme.sales-round .wizard-steps button{min-height:46px;padding:4px 0 8px}
+.fcm-theme.sales-round .house-sidebar{padding-top:0}
+@media(max-width:760px){
+  .fcm-theme.sales-round .round-top{display:grid;grid-template-columns:auto minmax(0,1fr);gap:0 12px;margin-bottom:6px}
+  .fcm-theme.sales-round .round-top>span:not(.draft-badge){text-align:right}
+  .fcm-theme.sales-round .draft-badge{grid-column:1 / -1;justify-self:end;padding:2px 7px;font-size:12px;margin:0}
+  .fcm-theme.sales-round .wizard-steps{gap:6px;margin-bottom:14px}
+  .fcm-theme.sales-round .wizard-steps button{min-height:70px;padding:6px 0 8px;gap:5px;font-size:14px}
+  .fcm-theme.sales-round .wizard-steps b{width:26px;height:26px}
+}
