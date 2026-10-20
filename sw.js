@@ -1,7 +1,10 @@
-const CACHE = 'gamescores-v1';
+const CACHE = 'gamescores-v2';
 const FILES = ['./', './index.html', './style.css', './app.js', './rules.js', './icon.svg', './manifest.webmanifest'];
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES)));
+  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES)).then(() => self.skipWaiting()));
+});
+self.addEventListener('message', event => {
+  if (event.data === 'ACTIVATE_UPDATE') self.skipWaiting();
 });
 self.addEventListener('activate', event => {
   event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('gamescores-') && key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim()));

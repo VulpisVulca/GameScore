@@ -1,4 +1,4 @@
-import { GOODS, MILESTONES, COLORS, emptySale, calculateSale, account, validateGame } from './rules.js';
+import { GOODS, MILESTONES, COLORS, emptySale, calculateSale, calculateHouse, houseRows, account, validateGame } from './rules.js';
 
 const KEY = 'gamescores.fcm.v1';
 const app = document.querySelector('#app');
@@ -57,6 +57,20 @@ function beginEditor(index = null) {
   const type = index === null ? (game.events.length % 2 ? 'salary' : 'sale') : game.events[index].type;
   editor = { index, type, rows: structuredClone(index !== null ? game.events[index].rows : game.draft?.type === type ? game.draft.rows : game.players.map(p => type === 'sale' ? emptySale(p.milestones) : 0)) };
   review = false;
+  if (type === 'sale') {
+    // Old aggregate-only records stay editable without inventing house details.
+    const legacy = editor.rows.some(row => !Array.isArray(row.houses) && GOODS.some(([key]) => row[key] > 0));
+    editor.wizard = !legacy;
+    if (editor.wizard) {
+      editor.houses = editor.rows.flatMap((row, player) => (row.houses || []).map(house => ({ ...house, player }))).sort((a,b) => (a.order ?? 0) - (b.order ?? 0));
+      if (index === null) editor.rows.forEach((row, i) => { row.milestones = { ...game.players[i].milestones }; });
+      editor.houseForm = index === null && game.draft?.houseForm ? structuredClone(game.draft.houseForm) : newHouse();
+      editor.step = index !== null ? 'summary' : ['houses', 'extras', 'summary'].includes(game.draft?.step) ? game.draft.step : 'houses';
+      editor.returnToSummary = index === null && game.draft?.returnToSummary === true;
+      editor.editingHouse = index === null && Number.isInteger(game.draft?.editingHouse) && editor.houses[game.draft.editingHouse] ? game.draft.editingHouse : null;
+      syncHouseRows();
+    }
+  }
 }
 function currentRound() { return editor?.index !== null && editor ? game.events[editor.index].round : Math.floor(game.events.length / 2) + 1; }
 function dashboard() {
@@ -67,7 +81,7 @@ function dashboard() {
   app.innerHTML = `<div class="table-top"><div><p class="eyebrow">DEIN SPIELTISCH</p><h1 class="table-title">Food Chain Magnate</h1></div><div class="table-actions"><button class="text-button" data-action="export">↓ Export</button><button class="text-button" data-action="home">Spielauswahl</button></div></div>
     <div class="bank-bar"><div><span class="eyebrow">BANKBESTAND</span><strong>${money(a.bank)}</strong></div><span>${a.firstBreak === null ? 'Reserve noch verdeckt' : a.needsReserve ? 'Reservekarten aufdecken' : `Reserve: ${money(game.reserves.reduce((s,n) => s+n,0))} · ${a.secondBreak === null ? '1. Bankbruch' : '2. Bankbruch'}`}</span><span class="round-pill">${ended ? 'Partie beendet' : `Runde ${round}`}</span></div>
     <section class="accounts">${game.players.map((p,i) => `<div class="account" style="--player-color:${p.color}"><span>${playerName(p)}</span><strong>${money(a.balances[i])}</strong></div>`).join('')}</section>
-    <nav class="tabs"><button class="${screen === 'table' ? 'active' : ''}" data-action="table">${ended ? 'Ergebnis' : 'Aktuelle Runde'}</button><button class="${screen === 'log' ? 'active' : ''}" data-action="log">Protokoll <span>${game.events.length}</span></button></nav><div id="workspace"></div>`;
+    <nav class="tabs"><button class="${screen === 'table' ? 'active' : ''}" data-action="table">${ended ? 'Ergebnis' : 'Spieltisch'}</button><button class="${screen === 'log' ? 'active' : ''}" data-action="log">Protokoll <span>${game.events.length}</span></button></nav><div id="workspace"></div>`;
   const workspace = document.querySelector('#workspace');
   if (screen === 'log') { renderLog(workspace); return; }
   if (a.needsReserve) { renderReserve(workspace); return; }
@@ -76,8 +90,68 @@ function dashboard() {
     workspace.innerHTML = `<section class="panel"><p class="eyebrow">DIE BANK IST ZUM ZWEITEN MAL GEBROCHEN</p><h2>Das Geschäft ist gemacht.</h2><p>Alle Einnahmen sind ausgezahlt. In dieser Runde werden keine Löhne mehr gezahlt.</p>${ranked.map((p,i) => `<div class="result-row"><span>${i+1}. ${playerName(p)}</span><strong>${money(p.balance)}</strong></div>`).join('')}<p class="hint">Bei Gleichstand entscheidet die frühere Position in der Spielreihenfolge.</p><button data-action="export">Partie sichern</button></section>`;
     return;
   }
-  if (!editor) beginEditor();
-  renderEditor(workspace);
+  renderTable(workspace);
+}
+function renderTable(target) {
+  const salaryDue = game.events.length % 2 === 1;
+  target.innerHTML = `<section class="round-launch"><div><span class="eyebrow">${salaryDue ? 'VERKAUF ABGESCHLOSSEN' : 'BEREIT FÜR DIE NÄCHSTE VERKAUFSRUNDE'}</span><h2>${salaryDue ? 'Jetzt die Löhne abrechnen.' : 'Der Spieltisch ist bereit.'}</h2><p>${salaryDue ? 'Die Einnahmen sind gutgeschrieben. Als Nächstes folgen die tatsächlich zu bezahlenden Mitarbeiter.' : 'Meilensteine unten auswählen. Verkäufe werden separat Haus für Haus erfasst.'}</p></div><button data-action="open-round">${game.draft ? 'Eingabe fortsetzen' : salaryDue ? 'Lohnrunde öffnen' : 'Verkaufsrunde öffnen'} →</button></section>
+    <div class="milestone-heading"><h2>Meilensteine</h2><span>Auswahl wird automatisch gespeichert · gilt für die nächste Verkaufsbuchung</span></div>
+    <section class="achievement-grid">${game.players.map((p,i) => `<article class="panel achievement-card" style="--player-color:${p.color}"><h3>${playerName(p)}</h3><div class="milestones">${MILESTONES.map(([key,label,hint]) => `<label class="check"><input type="checkbox" data-player="${i}" data-achievement="${key}" ${p.milestones[key] ? 'checked' : ''}><span>${label}<small>${hint}</small></span></label>`).join('')}</div></article>`).join('')}</section><p class="hint">Den 100-$-Meilenstein nach der erreichten Verkaufsrunde auswählen: Der CFO-Bonus zählt ab dem nächsten Verkauf. Mehrere Spieler können denselben Meilenstein erhalten.</p>`;
+}
+function roundHeader() {
+  return `<div class="round-top"><button class="text-button" data-action="leave-round">← ${editor.index === null ? 'Spieltisch' : 'Protokoll'}</button><span>Food Chain Magnate · Runde ${currentRound()}</span><span class="draft-badge">${editor.index === null ? 'Entwurf · noch nicht gebucht' : 'Buchung bearbeiten'}</span></div>`;
+}
+function newHouse() {
+  return { number: '', player: null, type: 'normal', price: 10, ...Object.fromEntries(GOODS.map(([key]) => [key, 0])) };
+}
+function syncHouseRows() {
+  editor.rows = houseRows(editor.rows, editor.houses);
+}
+function houseDescription(house) {
+  return GOODS.filter(([key]) => house[key]).map(([key,label]) => `${house[key]} ${label.split(' · ')[0]}`).join(' · ');
+}
+function houseList(editable = true) {
+  return editor.houses.length ? `<div class="house-list">${editor.houses.map((house,i) => `<article class="house-item"><div class="house-number"><span>${house.type === 'garden' ? '♧' : '⌂'}</span><strong>${esc(house.number || `Haus ${i + 1}`)}</strong><small>${house.type === 'garden' ? 'Mit Garten' : 'Ohne Garten'}</small></div><div class="house-detail"><strong>${playerName(game.players[house.player])}</strong><span>${houseDescription(house)}</span></div><strong>${money(calculateHouse(house, editor.rows[house.player].milestones).total)}</strong>${editable ? `<div class="house-actions"><button class="text-button" data-action="edit-house" data-index="${i}" aria-label="${esc(house.number || `Haus ${i + 1}`)} bearbeiten">Bearbeiten</button><button class="text-button danger" data-action="remove-house" data-index="${i}" aria-label="${esc(house.number || `Haus ${i + 1}`)} entfernen">Entfernen</button></div>` : ''}</article>`).join('')}</div>` : '<div class="empty-houses"><span>⌂</span><p>Noch kein Haus erfasst.</p><small>Verkäufe hinzufügen oder nur Bedienungen abrechnen.</small></div>';
+}
+function housePreview() {
+  if (editor.houseForm.player === null) return 'Spieler auswählen';
+  try { return money(calculateHouse(editor.houseForm, editor.rows[editor.houseForm.player].milestones).total); }
+  catch { return '0 $'; }
+}
+function renderSales() {
+  const step = editor.step;
+  app.innerHTML = `${roundHeader()}<div class="sales-heading"><div><p class="eyebrow">VERKAUFSRUNDE</p><h1>${step === 'houses' ? 'Ein Haus nach dem anderen.' : step === 'extras' ? 'Bedienungen & CFO.' : 'Ein letzter Blick auf die Runde.'}</h1><p>${step === 'houses' ? 'Wer hat geliefert, was wurde verkauft und hat das Haus einen Garten?' : step === 'extras' ? 'Trinkgeld und CFO werden einmal je Spieler für die gesamte Runde berechnet.' : 'Alle Häuser und Einnahmen prüfen. Erst mit deiner Bestätigung wird Geld gebucht.'}</p></div></div>
+    <nav class="wizard-steps" aria-label="Verkaufsrunde"><button data-action="sales-step" data-step="houses" class="${step === 'houses' ? 'active' : ''}" ${step === 'houses' ? 'aria-current="step"' : ''}><b>1</b> Häuser</button><button data-action="sales-step" data-step="extras" class="${step === 'extras' ? 'active' : ''}" ${step === 'extras' ? 'aria-current="step"' : ''}><b>2</b> Bedienungen & CFO</button><button data-action="sales-step" data-step="summary" class="${step === 'summary' ? 'active' : ''}" ${step === 'summary' ? 'aria-current="step"' : ''}><b>3</b> Übersicht</button></nav>
+    <div id="sales-workspace"></div>`;
+  const target = document.querySelector('#sales-workspace');
+  if (step === 'houses') {
+    const h = editor.houseForm;
+    target.innerHTML = `<div class="house-layout"><section class="panel house-form"><div class="form-title"><h2>${editor.editingHouse === null ? `Verkauf ${editor.houses.length + 1}` : 'Verkauf bearbeiten'}</h2><label>Hausnummer / Bezeichnung<input maxlength="24" data-house="number" value="${esc(h.number)}" placeholder="z. B. Haus 7"></label></div><fieldset><legend>1. Wer beliefert das Haus?</legend><div class="player-choices">${game.players.map((p,i) => `<button class="choice ${h.player === i ? 'selected' : ''}" style="--player-color:${p.color}" data-action="house-player" data-index="${i}" aria-pressed="${h.player === i}">${playerName(p)}</button>`).join('')}</div></fieldset><fieldset><legend>2. Was wurde verkauft?</legend><div class="house-goods">${GOODS.map(([key,label,icon]) => `<label><span>${icon} ${label}</span><div class="stepper"><button data-action="house-count" data-field="${key}" data-delta="-1" aria-label="${label} weniger">−</button><input type="number" inputmode="numeric" min="0" max="1000000" step="1" required data-house="${key}" value="${h[key]}" aria-label="Anzahl ${label}"><button data-action="house-count" data-field="${key}" data-delta="1" aria-label="${label} mehr">+</button></div></label>`).join('')}</div></fieldset><fieldset><legend>3. Welches Haus?</legend><div class="house-types">${[['normal','⌂','Ohne Garten','Einfacher Stückpreis'],['garden','♧','Mit Garten','Doppelter Stückpreis']].map(([type,icon,label,hint]) => `<button class="choice ${h.type === type ? 'selected' : ''}" data-action="house-type" data-type="${type}" aria-pressed="${h.type === type}"><span class="type-icon">${icon}</span><span>${label}<small>${hint}</small></span></button>`).join('')}</div></fieldset><div class="house-price"><label>Stückpreis vor −1-$-Meilenstein<input type="number" inputmode="numeric" min="0" max="100" step="1" required data-house="price" value="${h.price}"></label><div><span>Verkauf inkl. Meilensteinen</span><strong id="house-income">${housePreview()}</strong><small>Trinkgeld und CFO folgen in Schritt 2.</small></div></div><div class="house-form-actions">${editor.editingHouse !== null ? '<button class="secondary" data-action="cancel-house">Abbrechen</button>' : ''}<button data-action="save-house">${editor.editingHouse !== null ? 'Verkauf speichern' : 'Haus übernehmen & nächstes'} →</button></div></section><aside class="house-sidebar"><div class="sidebar-heading"><h2>Diese Runde</h2><span>${editor.houses.length} ${editor.houses.length === 1 ? 'Haus' : 'Häuser'}</span></div>${houseList()}<div class="sidebar-total"><span>Warenumsatz inkl. Meilensteinen</span><strong>${money(editor.houses.reduce((sum, house) => sum + calculateHouse(house, editor.rows[house.player].milestones).total, 0))}</strong></div><button class="secondary" data-action="sales-step" data-step="extras">Häuser fertig · weiter →</button></aside></div>`;
+  } else if (step === 'extras') {
+    target.innerHTML = `<div class="entry-grid">${game.players.map((p,i) => `<article class="panel player-entry" style="--player-color:${p.color}"><h3>${playerName(p)}</h3>${numberField('Bedienungen / Waitresses','waitresses',i,editor.rows[i].waitresses)}<p class="hint">${editor.rows[i].milestones.waitress ? 'Meilenstein aktiv: 5 $' : '3 $'} je Bedienung</p><label class="check cfo-option"><input type="checkbox" data-row="${i}" data-field="cfo" ${editor.rows[i].cfo || editor.rows[i].milestones.cfo ? 'checked' : ''} ${editor.rows[i].milestones.cfo ? 'disabled' : ''}> CFO +50 % ${editor.rows[i].milestones.cfo ? '· durch Meilenstein aktiv' : ''}</label><div class="entry-total"><span>Rundeneinnahmen</span><strong id="row-total-${i}">${safeTotal(editor.rows[i])}</strong></div></article>`).join('')}</div><div class="commit-bar"><button class="secondary" data-action="sales-step" data-step="houses">← Häuser</button><button data-action="sales-step" data-step="summary">Gesamtübersicht prüfen →</button></div>`;
+  } else {
+    target.innerHTML = `<section class="panel summary-houses"><div class="sidebar-heading"><h2>Alle Hausverkäufe</h2><button class="secondary" data-action="add-house">+ Weiteres Haus</button></div>${houseList()}</section><div class="summary-heading"><h2>Einnahmen pro Spieler</h2><button class="text-button" data-action="sales-step" data-step="extras">Bedienungen & CFO bearbeiten</button></div>${renderReview()}<div class="commit-bar"><span>${editor.index === null ? 'Alle Einnahmen werden gemeinsam gutgeschrieben.' : 'Die Korrektur berechnet alle folgenden Kontostände neu.'}</span><button data-action="commit">${editor.index === null ? 'Verkaufsrunde bestätigen' : 'Änderung speichern'} ✓</button></div>`;
+  }
+}
+function houseHasGoods() { return GOODS.some(([key]) => editor.houseForm[key] > 0); }
+function validInputs() {
+  const invalid = app.querySelector('input:invalid');
+  if (invalid) { invalid.reportValidity(); return false; }
+  return true;
+}
+function storeHouse() {
+  if (!validInputs()) return false;
+  const house = editor.houseForm;
+  if (house.player === null || !game.players[house.player]) throw new Error('Bitte den Spieler auswählen, der dieses Haus beliefert.');
+  calculateHouse(house, editor.rows[house.player].milestones);
+  const order = editor.editingHouse === null ? Math.max(-1, ...editor.houses.map(h => h.order ?? 0)) + 1 : editor.houses[editor.editingHouse].order;
+  const saved = { ...house, order, number: house.number.trim() || `Haus ${(order ?? editor.editingHouse) + 1}` };
+  if (editor.editingHouse === null) editor.houses.push(saved);
+  else editor.houses[editor.editingHouse] = saved;
+  editor.houseForm = newHouse();
+  editor.editingHouse = null;
+  syncHouseRows();
+  return true;
 }
 function numberField(label, key, row, value, max = 1000000) {
   return `<label>${label}<input type="number" inputmode="numeric" min="0" max="${max}" step="1" required data-row="${row}" data-field="${key}" value="${value}"></label>`;
@@ -111,17 +185,27 @@ function renderLog(target) {
   target.innerHTML = `<div class="phase-heading"><div><p class="eyebrow">JEDE BUCHUNG BLEIBT NACHVOLLZIEHBAR</p><h2>Das Geschäftsbuch</h2><p>Vergangene Eingaben bearbeiten. Konten und Bank werden neu berechnet.</p></div></div>${!game.events.length ? '<section class="panel"><p>Noch keine Buchungen. Los geht’s mit dem ersten Verkauf.</p></section>' : [...game.events].reverse().map((event, reverseIndex) => {
     const index = game.events.length - 1 - reverseIndex;
     const sale = event.type === 'sale';
-    return `<section class="panel log-event"><div class="log-heading"><div><span class="eyebrow">RUNDE ${event.round}</span><h3>${sale ? 'Verkauf' : 'Lohnzahlung'}</h3></div><span>${event.updatedAt ? 'Bearbeitet · ' : ''}${esc(new Date(event.updatedAt || event.createdAt).toLocaleString('de-DE'))}</span><button class="secondary" data-action="edit" data-index="${index}">Bearbeiten</button></div>${game.players.map((p,i) => `<div class="log-row"><span>${playerName(p)}</span><span class="log-detail">${sale ? GOODS.map(([key,label]) => `${event.rows[i][key]} ${label}`).join(' · ') + ` · ${event.rows[i].waitresses} Bedienungen · CFO ${event.rows[i].cfo || event.rows[i].milestones.cfo ? 'ja' : 'nein'}` : `${event.rows[i]} Mitarbeiter × 5 $`}</span><strong class="${sale ? 'positive' : ''}">${sale ? '+' : '−'}${money(sale ? calculateSale(event.rows[i]).total : event.rows[i]*5)}</strong></div>`).join('')}</section>`;
+    return `<section class="panel log-event"><div class="log-heading"><div><span class="eyebrow">RUNDE ${event.round}</span><h3>${sale ? 'Verkauf' : 'Lohnzahlung'}</h3></div><span>${event.updatedAt ? 'Bearbeitet · ' : ''}${esc(new Date(event.updatedAt || event.createdAt).toLocaleString('de-DE'))}</span><button class="secondary" data-action="edit" data-index="${index}">Bearbeiten</button></div>${game.players.map((p,i) => `<div class="log-row"><span>${playerName(p)}</span><span class="log-detail">${sale ? GOODS.map(([key,label]) => `${event.rows[i][key]} ${label}`).join(' · ') + ` · ${event.rows[i].waitresses} Bedienungen · CFO ${event.rows[i].cfo || event.rows[i].milestones.cfo ? 'ja' : 'nein'}` : `${event.rows[i]} Mitarbeiter × 5 $`}</span><strong class="${sale ? 'positive' : ''}">${sale ? '+' : '−'}${money(sale ? calculateSale(event.rows[i]).total : event.rows[i]*5)}</strong></div>${sale && event.rows[i].houses?.length ? `<details class="log-houses"><summary>${event.rows[i].houses.length} Hausverkäufe anzeigen</summary>${event.rows[i].houses.map(h => `<p><strong>${esc(h.number)}</strong> · ${h.type === 'garden' ? 'Mit Garten' : 'Ohne Garten'} · ${houseDescription(h)} · ${money(calculateHouse(h,event.rows[i].milestones).total)}</p>`).join('')}</details>` : ''}`).join('')}</section>`;
   }).join('')}${game.events.length ? '<button class="text-button danger" data-action="undo">Letzte Buchung zurücknehmen</button>' : ''}`;
 }
 function render() {
+  document.body.classList.toggle('playing', !['home','setup'].includes(screen));
   if (screen === 'home') home();
   else if (screen === 'setup') setup();
+  else if (game && editor && screen === 'sale') renderSales();
+  else if (game && editor && screen === 'entry') {
+    app.innerHTML = `${roundHeader()}<div id="workspace"></div>`;
+    renderEditor(document.querySelector('#workspace'));
+  }
   else if (game) dashboard();
   else { screen = 'home'; home(); }
 }
 function persistDraft() {
-  if (editor?.index === null) { game.draft = { type: editor.type, rows: structuredClone(editor.rows) }; save(); }
+  if (editor?.index === null) {
+    game.draft = { type: editor.type, rows: structuredClone(editor.rows) };
+    if (editor.wizard) Object.assign(game.draft, { houseForm: structuredClone(editor.houseForm), step: editor.step, editingHouse: editor.editingHouse, returnToSummary: editor.returnToSummary });
+    save();
+  }
 }
 function checkEditor() {
   if (editor.type === 'sale') editor.rows.forEach(calculateSale);
@@ -130,7 +214,7 @@ function checkEditor() {
   const event = { type: editor.type, round: currentRound(), rows: structuredClone(editor.rows), createdAt: new Date().toISOString() };
   if (editor.index === null) candidate.events.push(event);
   else candidate.events[editor.index] = { ...candidate.events[editor.index], ...event, createdAt: candidate.events[editor.index].createdAt, updatedAt: new Date().toISOString() };
-  candidate.draft = null;
+  if (editor.index === null) candidate.draft = null;
   const result = account(candidate);
   if (result.issues.length) throw new Error(result.issues.join(' '));
   if (editor.index !== null && result.needsReserve && editor.index !== candidate.events.length - 1) throw new Error('Diese Änderung benötigt Reservekarten. Bitte zuerst die späteren Buchungen zurücknehmen.');
@@ -139,6 +223,17 @@ function checkEditor() {
 app.addEventListener('input', event => {
   const input = event.target;
   if (input.dataset.setupName !== undefined) { setupPlayers[+input.dataset.setupName].name = input.value; return; }
+  if (input.dataset.achievement !== undefined) {
+    game.players[+input.dataset.player].milestones[input.dataset.achievement] = input.checked;
+    save(); return;
+  }
+  if (input.dataset.house !== undefined && editor?.wizard) {
+    const key = input.dataset.house;
+    if (key === 'number') editor.houseForm.number = input.value;
+    else { if (!input.validity.valid || !Number.isFinite(input.valueAsNumber)) return; editor.houseForm[key] = input.valueAsNumber; }
+    document.querySelector('#house-income').textContent = housePreview();
+    persistDraft(); return;
+  }
   if (input.dataset.row === undefined || !editor) return;
   const i = +input.dataset.row;
   if (input.dataset.milestone) {
@@ -178,6 +273,49 @@ app.addEventListener('click', async event => {
       }
       case 'resume': case 'table': screen = 'table'; editor = null; review = false; break;
       case 'log': screen = 'log'; editor = null; break;
+      case 'open-round':
+        beginEditor(); screen = editor.wizard ? 'sale' : 'entry'; persistDraft(); window.scrollTo(0,0); break;
+      case 'leave-round':
+        persistDraft(); screen = editor.index === null ? 'table' : 'log'; editor = null; break;
+      case 'house-player':
+        if (!validInputs()) return;
+        editor.houseForm.player = +button.dataset.index; persistDraft(); break;
+      case 'house-type':
+        if (!validInputs()) return;
+        editor.houseForm.type = button.dataset.type; persistDraft(); break;
+      case 'house-count': {
+        if (!validInputs()) return;
+        const key = button.dataset.field;
+        editor.houseForm[key] = Math.max(0,Math.min(1000000,editor.houseForm[key] + +button.dataset.delta)); persistDraft(); break;
+      }
+      case 'save-house': {
+        const returnToSummary = editor.returnToSummary;
+        if (!storeHouse()) return;
+        if (returnToSummary) { editor.step = 'summary'; editor.returnToSummary = false; }
+        persistDraft(); window.scrollTo(0,0); break;
+      }
+      case 'sales-step': {
+        if (!validInputs()) return;
+        if (editor.step === 'houses' && (houseHasGoods() || editor.editingHouse !== null)) {
+          if (!storeHouse()) return;
+        }
+        syncHouseRows();
+        if (button.dataset.step === 'summary') checkEditor();
+        editor.step = button.dataset.step;
+        editor.returnToSummary = false;
+        persistDraft(); window.scrollTo(0,0); break;
+      }
+      case 'add-house':
+        editor.houseForm = newHouse(); editor.editingHouse = null; editor.returnToSummary = true; editor.step = 'houses'; persistDraft(); window.scrollTo(0,0); break;
+      case 'edit-house':
+        if (editor.step === 'houses' && (houseHasGoods() || editor.editingHouse !== null)) throw new Error('Bitte den aktuellen Verkauf zuerst speichern oder abbrechen.');
+        editor.returnToSummary = editor.step === 'summary'; editor.editingHouse = +button.dataset.index; editor.houseForm = structuredClone(editor.houses[editor.editingHouse]); editor.step = 'houses'; persistDraft(); window.scrollTo(0,0); break;
+      case 'cancel-house':
+        editor.houseForm = newHouse(); editor.editingHouse = null; if (editor.returnToSummary) editor.step = 'summary'; editor.returnToSummary = false; persistDraft(); break;
+      case 'remove-house':
+        if (editor.step === 'houses' && (houseHasGoods() || editor.editingHouse !== null)) throw new Error('Bitte den aktuellen Verkauf zuerst speichern oder abbrechen.');
+        if (!confirm('Diesen Hausverkauf aus der Runde entfernen?')) return;
+        editor.houses.splice(+button.dataset.index,1); syncHouseRows(); persistDraft(); break;
       case 'review': {
         const invalid = app.querySelector('input:invalid');
         if (invalid) { invalid.reportValidity(); return; }
@@ -190,7 +328,7 @@ app.addEventListener('click', async event => {
         if (!editing && editor.type === 'sale') candidate.players.forEach((p,i) => { p.milestones = { ...editor.rows[i].milestones }; });
         game = candidate; editor = null; save(); screen = editing ? 'log' : 'table'; notify(editing ? 'Buchung korrigiert. Alle Kontostände wurden neu berechnet.' : 'Buchung gespeichert.'); break;
       }
-      case 'edit': beginEditor(+button.dataset.index); screen = 'table'; break;
+      case 'edit': beginEditor(+button.dataset.index); screen = editor.wizard ? 'sale' : 'entry'; window.scrollTo(0,0); break;
       case 'cancel-edit': editor = null; screen = 'log'; break;
       case 'reserve': {
         const values = [...app.querySelectorAll('[data-reserve]')].map(input => +input.value);
@@ -199,7 +337,7 @@ app.addEventListener('click', async event => {
       }
       case 'undo':
         if (!confirm('Die letzte Buchung zurücknehmen? Danach kannst du die Eingaben neu erfassen.')) return;
-        { const last = game.events.pop(); game.draft = { type: last.type, rows: structuredClone(last.rows) }; }
+        { const last = game.events.pop(); game.draft = { type: last.type, rows: structuredClone(last.rows), step: 'summary' }; }
         save(); screen = 'table'; editor = null; break;
       case 'export': {
         const blob = new Blob([JSON.stringify(game,null,2)], { type: 'application/json' });

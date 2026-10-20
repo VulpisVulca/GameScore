@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MILESTONES, COLORS, emptySale, calculateSale, account, validateGame } from '../rules.js';
+import { MILESTONES, COLORS, emptySale, calculateSale, calculateHouse, houseRows, account, validateGame } from '../rules.js';
 
 const milestones = extra => ({ ...Object.fromEntries(MILESTONES.map(([key]) => [key, false])), ...extra });
 const sale = extra => ({ ...emptySale(milestones()), ...extra });
@@ -82,4 +82,42 @@ test('Import validiert Farben, Spieler, Reservekarten, Rundensequenz und Eingabe
   const duplicate = game([]); duplicate.players[1].color = duplicate.players[0].color; invalid.push(duplicate);
   const badMilestone = game([]); badMilestone.players[0].milestones = {}; invalid.push(badMilestone);
   invalid.forEach(state => assert.throws(() => validateGame(state)));
+});
+
+const house = extra => ({number:'Haus 1',player:0,type:'normal',price:10,burger:0,pizza:0,beer:0,lemonade:0,soda:0,...extra});
+test('Hausverkäufe mit unterschiedlichen Preisen und Garten korrekt pro Spieler summieren', () => {
+  const configs = [sale({waitresses:1,cfo:true,milestones:milestones({burger:true,waitress:true})}),sale({milestones:milestones({pizza:true})})];
+  const rows = houseRows(configs,[house({burger:1}),house({number:'Haus 2',burger:1,type:'garden',price:20}),house({number:'Haus 3',player:1,pizza:2,type:'garden',price:7})]);
+  assert.equal(rows[0].burger,2);
+  assert.equal(rows[0].garden,1);
+  assert.deepEqual(calculateSale(rows[0]),{quantity:2,price:10,revenue:50,bonus:10,tips:5,cfo:33,total:98});
+  assert.equal(calculateSale(rows[1]).total,38);
+});
+test('CFO wird über alle Häuser und Trinkgelder einmal aufgerundet', () => {
+  const [row] = houseRows([sale({cfo:true,waitresses:1})],[house({burger:1,price:11}),house({number:'Haus 2',pizza:1,price:11})]);
+  assert.equal(calculateSale(row).cfo,13);
+  assert.equal(calculateSale(row).total,38);
+});
+test('Hausbearbeitung und Spielerwechsel verändern beide Konten nachvollziehbar', () => {
+  const houses = [house({burger:2}),house({number:'Haus 2',player:1,pizza:1,type:'garden'})];
+  const configs = [sale({}),sale({})];
+  const state = game([{type:'sale',round:1,rows:houseRows(configs,houses)}]);
+  assert.deepEqual(account(state).balances,[20,20]);
+  houses[0].player=1; houses[0].burger=3;
+  state.events[0].rows=houseRows(configs,houses);
+  assert.deepEqual(account(state).balances,[0,50]);
+  assert.equal(account(state).bank,50);
+  assert.equal(validateGame(state),state);
+});
+test('Leere Häuser, fremde Spieler und widersprüchliche Hausdaten werden abgewiesen', () => {
+  assert.throws(()=>calculateHouse(house({})));
+  assert.throws(()=>calculateHouse(house({type:'unknown',burger:1})));
+  assert.throws(()=>houseRows([sale({})],[house({player:1,burger:1})]));
+  const [row]=houseRows([sale({})],[house({burger:1})]);
+  row.burger=2;
+  assert.throws(()=>calculateSale(row));
+});
+test('Nur Bedienungen ohne Hausverkäufe bleiben möglich', () => {
+  const [row]=houseRows([sale({waitresses:3,cfo:true})],[]);
+  assert.equal(calculateSale(row).total,14);
 });

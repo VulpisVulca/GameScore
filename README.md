@@ -31,12 +31,14 @@ Repository: https://github.com/jukrauss/GameScore · GitHub Pages: https://jukra
 ## Spielablauf
 
 - Spielauswahl → Setup mit Namen und eindeutigen Farben. Konten starten bei 0 $, die Bank bei 50 $ pro Spieler.
-- Verkäufe: Burger, Pizza, Bier (braun), Limonade (gelb), Softdrinks (rot), Bedienungen und CFO. Verkaufsrelevante Meilensteine separat aktivieren; diese werden für spätere Runden übernommen.
-- Optionaler Stückpreis (vor dem −1-$-Meilenstein) für Preismanager, Discount Manager und Luxusmanager. Standard 10 $. Mitarbeiter werden nicht verwaltet.
-- Optional die Gesamtzahl der Waren eingeben, die an Häuser mit Garten verkauft wurden. Diese erhalten einen weiteren Stückpreis, ohne Verdopplung der Meilensteinboni. Keine einzelnen Häuser nötig.
-- Übersicht aller Spieler prüfen und die gesamte Verkaufsphase bestätigen. CFO: 50 % auf sämtliche Rundeneinnahmen einschließlich Trinkgeld, aufgerundet, nur einmal.
+- Der kompakte Spieltisch zeigt Bank, Konten, Rundenstatus und direkt auswählbare Meilensteine. Noch keine Verkaufseingaben auf dieser Ansicht.
+- **Verkaufsrunde öffnen** startet eine getrennte Ansicht mit drei Schritten: Häuser → Bedienungen & CFO → Gesamtübersicht.
+- Pro Haus den liefernden Spieler auswählen, verkaufte Burger, Pizza, Bier (braun), Limonade (gelb) und Softdrinks (rot) erfassen und „Ohne Garten“ oder „Mit Garten“ wählen. Eine Hausnummer oder Bezeichnung ist optional. „Haus übernehmen & nächstes“ fügt den Verkauf hinzu und öffnet eine leere Eingabe für das nächste Haus.
+- Der Stückpreis je Haus (vor dem −1-$-Meilenstein) ist anpassbar, Standard 10 $. Ein Garten verdoppelt nur diesen Stückpreis, nicht die Meilensteinboni. Mitarbeiter werden nicht verwaltet.
+- Nach den Häusern Bedienungen und CFO je Spieler erfassen. Der CFO ist durch den entsprechenden Meilenstein automatisch aktiv. Der 50-%-Bonus zählt einmal auf sämtliche Rundeneinnahmen einschließlich Trinkgeld und wird aufgerundet.
+- In der Gesamtübersicht lassen sich einzelne Hausverkäufe bearbeiten, entfernen oder ergänzen. Warenmengen, Trinkgelder, Meilensteinboni und CFO-Boni sind pro Spieler aufgeschlüsselt. Erst „Verkaufsrunde bestätigen“ bucht die Einnahmen und kehrt zum Spieltisch zurück.
 - Bei erstem Bankbruch Reservekarten pro Spieler mit 100/200/300 $ aufdecken und hinzufügen. Ein bereits ausgezahlter Fehlbetrag wird verrechnet. Die Karten werden nicht vorzeitig abgefragt; CEO-Slots verbleiben am physischen Tisch.
-- Danach tatsächliche Anzahl bezahlter Mitarbeiter eingeben (5 $ je Person), Vorschau prüfen und bestätigen. Rabatte werden von den Spielern vorher berücksichtigt. Löhne fließen zurück in die Bank. Ungedeckte Lohnzahlungen sind nicht zulässig.
+- Danach am Spieltisch die Lohnrunde separat öffnen, tatsächliche Anzahl bezahlter Mitarbeiter eingeben (5 $ je Person), Vorschau prüfen und bestätigen. Rabatte werden von den Spielern vorher berücksichtigt. Löhne fließen zurück in die Bank. Ungedeckte Lohnzahlungen sind nicht zulässig.
 - Beim zweiten Bankbruch werden sämtliche Verkaufseinnahmen ausgezahlt. Die Partie endet vor der Lohnphase. Gleichstände löst die physische Spielreihenfolge auf.
 - Den 100-$-Meilenstein manuell erst in der Folgerunde aktivieren; die App vergibt Meilensteine nicht selbst. Mehrere Spieler können denselben Meilenstein erhalten.
 
@@ -44,9 +46,11 @@ Repository: https://github.com/jukrauss/GameScore · GitHub Pages: https://jukra
 
 Das Protokoll speichert die Eingaben einschließlich Stückpreis, Meilensteinen und CFO der jeweiligen Runde. Korrekturen berechnen Bank und sämtliche Kontostände neu. Spätere Meilensteinänderungen verändern keine älteren Buchungen. Historische Meilensteinkorrekturen ändern nur den bearbeiteten Verkauf; spätere Verkäufe müssen bei Bedarf ebenfalls korrigiert werden. Änderungen, die ungedeckte Löhne oder Buchungen nach einem vorgezogenen Spielende verursachen, werden abgewiesen. Dazu spätere Buchungen vom Ende her zurücknehmen und neu erfassen.
 
+Neue Buchungen enthalten sämtliche Hausverkäufe, die im Protokoll pro Spieler aufklappbar sind. Vorhandene Spielstände bleiben kompatibel: Alte Buchungen ohne Hausdaten werden weiterhin als Summeneingaben bearbeitet. Hausreihenfolge, aktuelle Eingabe und Fortschritt im Verkaufsassistenten werden auch beim Verlassen oder Neuladen erhalten.
+
 Eingaben der laufenden Runde werden automatisch lokal gespeichert. Export/Import als JSON ermöglicht Backups und manuellen Gerätewechsel. Beim Import wird die bisherige Partie nach Bestätigung ersetzt. Nur eine Partie liegt gleichzeitig im lokalen Speicher; vor einer neuen Partie exportieren.
 
-Nach Anzeige „Offline bereit“ ist die komplette App lokal gecacht. Offline-Betrieb funktioniert auf demselben Browser und Gerät, solange Cache und Website-Daten erhalten bleiben. Private Browserfenster sind nicht für dauerhafte Speicherung geeignet. Ein neues App-Release muss `CACHE` in `sw.js` erhöhen; die neue Version aktiviert sich, sobald die bisherigen Tabs geschlossen sind. Spielstände liegen getrennt vom App-Cache und bleiben bei Updates erhalten.
+Nach Anzeige „Offline bereit“ ist die komplette App lokal gecacht. Offline-Betrieb funktioniert auf demselben Browser und Gerät, solange Cache und Website-Daten erhalten bleiben. Private Browserfenster sind nicht für dauerhafte Speicherung geeignet. Ein neues App-Release muss `CACHE` in `sw.js` erhöhen; nach vollständigem Download wird der neue Cache aktiviert. Geöffnete Seiten zeigen beim nächsten Neuladen die neue Version. Spielstände liegen getrennt vom App-Cache und bleiben bei Updates erhalten. Falls noch eine ältere Ansicht erscheint, nach einigen Sekunden erneut laden; keine Website-Daten löschen.
 
 Gleichzeitige Synchronisierung mehrerer Geräte ist noch nicht implementiert. Dafür wäre z. B. ein separater WebSocket- oder Datenbankdienst nötig; GitHub Pages selbst dient nur statische Dateien aus. Der lokale Betrieb benötigt diesen Dienst nicht.
 
