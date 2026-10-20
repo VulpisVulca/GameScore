@@ -26,7 +26,7 @@ npm test
 
 Die Anwendung verwendet relative Pfade und funktioniert auch unter `https://name.github.io/repository/`. Der Workflow prüft zuerst die Abrechnungslogik und veröffentlicht ausschließlich die statischen Anwendungsdateien, lokalen Schriftarten und `.nojekyll`.
 
-Repository: https://github.com/jukrauss/GameScore · GitHub Pages: https://jukrauss.github.io/GameScore/
+Repository: https://github.com/VulpisVulca/GameScore · GitHub Pages: https://vulpisvulca.github.io/GameScore/
 
 ## Spielablauf
 
