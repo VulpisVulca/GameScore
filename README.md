@@ -24,7 +24,7 @@ npm test
 2. Unter **Settings → Pages → Build and deployment → Source** die Option **GitHub Actions** wählen.
 3. Den Workflow „Deploy GameScores to GitHub Pages“ bei Bedarf unter Actions manuell starten.
 
-Die Anwendung verwendet relative Pfade und funktioniert auch unter `https://name.github.io/repository/`. Der Workflow prüft zuerst die Abrechnungslogik und veröffentlicht ausschließlich die sieben statischen Anwendungsdateien plus `.nojekyll`.
+Die Anwendung verwendet relative Pfade und funktioniert auch unter `https://name.github.io/repository/`. Der Workflow prüft zuerst die Abrechnungslogik und veröffentlicht ausschließlich die statischen Anwendungsdateien, lokalen Schriftarten und `.nojekyll`.
 
 Repository: https://github.com/jukrauss/GameScore · GitHub Pages: https://jukrauss.github.io/GameScore/
 
@@ -59,5 +59,11 @@ Eingaben der laufenden Runde werden automatisch lokal gespeichert. Export/Import
 Nach Anzeige „Offline bereit“ ist die komplette App lokal gecacht. Offline-Betrieb funktioniert auf demselben Browser und Gerät, solange Cache und Website-Daten erhalten bleiben. Private Browserfenster sind nicht für dauerhafte Speicherung geeignet. Ein neues App-Release muss `CACHE` in `sw.js` erhöhen; nach vollständigem Download wird der neue Cache aktiviert. Geöffnete Seiten zeigen beim nächsten Neuladen die neue Version. Spielstände liegen getrennt vom App-Cache und bleiben bei Updates erhalten. Falls noch eine ältere Ansicht erscheint, nach einigen Sekunden erneut laden; keine Website-Daten löschen.
 
 Gleichzeitige Synchronisierung mehrerer Geräte ist noch nicht implementiert. Dafür wäre z. B. ein separater WebSocket- oder Datenbankdienst nötig; GitHub Pages selbst dient nur statische Dateien aus. Der lokale Betrieb benötigt diesen Dienst nicht.
+
+## Gestaltung und Schriftarten
+
+Nach der Spielauswahl erhalten Setup und Spielansichten eine eigene Oberfläche in Creme, Korallrot und Türkis, mit kräftigen Kartenrändern, plastischen Schaltflächen und größerer Schrift. Die Spielauswahl bleibt unabhängig davon gestaltet. Die Gestaltung orientiert sich am [Special-Edition-Regelheft von Lucky Duck Games](https://luckyduckgames.com/usa/index.php?controller=attachment&id_attachment=1676); Illustrationen werden nicht aus dem Regelheft übernommen.
+
+`fcm-theme.css` kapselt die Spielgestaltung unter `.fcm-theme`. Barlow und Lobster werden lokal aus `assets/fonts/` geladen und gemeinsam mit der Anwendung offline gespeichert. Beide Schriftarten stehen unter der SIL Open Font License; die Lizenztexte liegen unter `assets/fonts/Barlow-OFL.txt` und `assets/fonts/Lobster-OFL.txt`. Es gibt keine Abfragen an externe Font-Dienste.
 
 Regelgrundlage: [Food Chain Magnate, englisches Grundspiel-Regelheft](https://splottercon.com/wp-content/uploads/2023/07/FCM_Rules_EN_v3.pdf). Unabhängiges Fanprojekt; keine offiziellen Spielgrafiken enthalten.

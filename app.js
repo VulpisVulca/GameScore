@@ -307,6 +307,7 @@ function logRoundDetails(round) {
   }).join('')}</div>${round.salary && !round.sale.rows.every(row => Array.isArray(row.houses)) ? `<button class="text-button" data-action="edit" data-index="${round.index + 1}">Alte Lohnbuchung bearbeiten</button>` : ''}`;
 }
 function render() {
+  document.body.classList.toggle('fcm-theme', screen !== 'home');
   document.body.classList.toggle('playing', !['home','setup'].includes(screen));
   if (screen === 'home') home();
   else if (screen === 'setup') setup();
