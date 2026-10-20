@@ -134,6 +134,32 @@ function housePreview() {
   try { return money(calculateHouse(editor.houseForm, editor.rows[editor.houseForm.player].milestones).total); }
   catch { return '0 $'; }
 }
+const MILESTONE_TAGS = {burger:'Burger +5 $',pizza:'Pizza +5 $',drink:'Getränke +5 $',waitress:'Waitress 5 $',price:'Stückpreis −1 $',cfo:'CFO +50 %'};
+function comparisonPrice(i) {
+  const raw = editor.houseForm.player === i ? editor.houseForm.price : editor.rows[i].price;
+  return raw - (editor.rows[i].milestones.price ? 1 : 0);
+}
+function playerChoices() {
+  return `<div class="player-options">${game.players.map((p,i) => `<div class="player-option"><button class="choice ${editor.houseForm.player === i ? 'selected' : ''}" style="--player-color:${p.color}" data-action="house-player" data-index="${i}" aria-pressed="${editor.houseForm.player === i}"><span class="player-choice-name">${playerName(p)}</span><small class="player-unit-price" data-player-price="${i}">${money(comparisonPrice(i))} / Ware</small></button><div class="milestone-tags" aria-label="Meilensteine von ${esc(p.name)}">${MILESTONES.filter(([key]) => editor.rows[i].milestones[key]).map(([key,label,hint]) => `<span class="milestone-tag" title="${esc(label)}: ${esc(hint)}">${MILESTONE_TAGS[key]}</span>`).join('') || '<span class="no-milestones">Keine Meilensteine</span>'}</div></div>`).join('')}</div>`;
+}
+function goodsUnitPrice(key) {
+  const i = editor.houseForm.player;
+  if (i === null) return 'Spieler wählen';
+  const m = editor.rows[i].milestones;
+  const bonus = key === 'burger' ? m.burger : key === 'pizza' ? m.pizza : m.drink;
+  return `${money(comparisonPrice(i) * (editor.houseForm.type === 'garden' ? 2 : 1) + (bonus ? 5 : 0))} / Stück`;
+}
+function priceComparison() {
+  return `<section class="price-comparison"><div class="sidebar-heading"><h2>Preisvergleich</h2></div><p class="comparison-intro">Stückpreise aller Spieler auf einen Blick.</p><div class="comparison-columns"><span>Spieler</span><span>Basispreis</span><span>Stückpreis</span></div>${game.players.map((p,i) => `<div class="comparison-row"><span>${playerName(p)}</span><label><span class="sr-only">Basispreis vor Preis-Meilenstein für ${esc(p.name)}</span><input type="number" inputmode="numeric" min="${editor.rows[i].milestones.price ? 1 : 0}" max="100" step="1" required data-comparison-price="${i}" value="${editor.houseForm.player === i ? editor.houseForm.price : editor.rows[i].price}"></label><strong data-comparison-unit="${i}">${money(comparisonPrice(i))}</strong></div>`).join('')}<p class="hint">Basispreis an Mitarbeiter anpassen. Der −1-$-Meilenstein ist im Stückpreis bereits enthalten. Warenboni und CFO erhöhen die Einnahmen.</p></section>`;
+}
+function refreshHousePrices() {
+  game.players.forEach((_,i) => {
+    document.querySelector(`[data-player-price="${i}"]`).textContent = `${money(comparisonPrice(i))} / Ware`;
+    document.querySelector(`[data-comparison-unit="${i}"]`).textContent = money(comparisonPrice(i));
+  });
+  GOODS.forEach(([key]) => { document.querySelector(`[data-goods-price="${key}"]`).textContent = goodsUnitPrice(key); });
+  document.querySelector('#house-income').textContent = housePreview();
+}
 function renderSales() {
   const step = editor.step;
   app.innerHTML = `${roundHeader()}<div class="sales-heading"><div><p class="eyebrow">RUNDE ABRECHNEN</p><h1>${step === 'houses' ? 'Ein Haus nach dem anderen.' : step === 'extras' ? 'Bedienungen & CFO.' : step === 'wages' ? 'Jetzt die Löhne erfassen.' : 'Ein letzter Blick auf die Runde.'}</h1><p>${step === 'houses' ? 'Wer hat geliefert, was wurde verkauft und hat das Haus einen Garten?' : step === 'extras' ? 'Trinkgeld und CFO werden einmal je Spieler für die gesamte Runde berechnet.' : step === 'wages' ? 'Wie viele Mitarbeiter müssen tatsächlich bezahlt werden? Je Person werden 5 $ abgezogen.' : 'Einnahmen, Ausgaben und neue Kontostände prüfen. Erst mit deiner Bestätigung wird die Runde gebucht.'}</p></div></div>
@@ -142,7 +168,7 @@ function renderSales() {
   const target = document.querySelector('#sales-workspace');
   if (step === 'houses') {
     const h = editor.houseForm;
-    target.innerHTML = `<div class="house-layout"><section class="panel house-form"><div class="form-title"><h2>${editor.editingHouse === null ? `Verkauf ${editor.houses.length + 1}` : 'Verkauf bearbeiten'}</h2><label>Hausnummer / Bezeichnung<input maxlength="24" data-house="number" value="${esc(h.number)}" placeholder="z. B. Haus 7"></label></div><fieldset><legend>1. Wer beliefert das Haus?</legend><div class="player-choices">${game.players.map((p,i) => `<button class="choice ${h.player === i ? 'selected' : ''}" style="--player-color:${p.color}" data-action="house-player" data-index="${i}" aria-pressed="${h.player === i}">${playerName(p)}</button>`).join('')}</div></fieldset><fieldset><legend>2. Was wurde verkauft?</legend><div class="house-goods">${GOODS.map(([key,label,icon]) => `<label><span>${icon} ${label}</span><div class="stepper"><button data-action="house-count" data-field="${key}" data-delta="-1" aria-label="${label} weniger">−</button><input type="number" inputmode="numeric" min="0" max="1000000" step="1" required data-house="${key}" value="${h[key]}" aria-label="Anzahl ${label}"><button data-action="house-count" data-field="${key}" data-delta="1" aria-label="${label} mehr">+</button></div></label>`).join('')}</div></fieldset><fieldset><legend>3. Welches Haus?</legend><div class="house-types">${[['normal','⌂','Ohne Garten','Einfacher Stückpreis'],['garden','♧','Mit Garten','Doppelter Stückpreis']].map(([type,icon,label,hint]) => `<button class="choice ${h.type === type ? 'selected' : ''}" data-action="house-type" data-type="${type}" aria-pressed="${h.type === type}"><span class="type-icon">${icon}</span><span>${label}<small>${hint}</small></span></button>`).join('')}</div></fieldset><div class="house-price"><label>Stückpreis vor −1-$-Meilenstein<input type="number" inputmode="numeric" min="0" max="100" step="1" required data-house="price" value="${h.price}"></label><div><span>Verkauf inkl. Meilensteinen</span><strong id="house-income">${housePreview()}</strong><small>Trinkgeld und CFO folgen in Schritt 2.</small></div></div><div class="house-form-actions">${editor.editingHouse !== null ? '<button class="secondary" data-action="cancel-house">Abbrechen</button>' : ''}<button data-action="save-house">${editor.editingHouse !== null ? 'Verkauf speichern' : 'Haus übernehmen & nächstes'} →</button></div></section><aside class="house-sidebar"><div class="sidebar-heading"><h2>Diese Runde</h2><span>${editor.houses.length} ${editor.houses.length === 1 ? 'Haus' : 'Häuser'}</span></div>${houseList()}<div class="sidebar-total"><span>Warenumsatz inkl. Meilensteinen</span><strong>${money(editor.houses.reduce((sum, house) => sum + calculateHouse(house, editor.rows[house.player].milestones).total, 0))}</strong></div><button class="secondary" data-action="sales-step" data-step="extras">Häuser fertig · weiter →</button></aside></div>`;
+    target.innerHTML = `<div class="house-layout"><section class="panel house-form"><div class="form-title"><h2>${editor.editingHouse === null ? `Verkauf ${editor.houses.length + 1}` : 'Verkauf bearbeiten'}</h2><label>Hausnummer / Bezeichnung<input maxlength="24" data-house="number" value="${esc(h.number)}" placeholder="z. B. Haus 7"></label></div><fieldset><legend>1. Wer beliefert das Haus?</legend>${playerChoices()}</fieldset><fieldset><legend>2. Was wurde verkauft?</legend><div class="house-goods">${GOODS.map(([key,label,icon]) => `<label><span>${icon} ${label}</span><small class="goods-unit-price" data-goods-price="${key}">${goodsUnitPrice(key)}</small><div class="stepper"><button data-action="house-count" data-field="${key}" data-delta="-1" aria-label="${label} weniger">−</button><input type="number" inputmode="numeric" min="0" max="1000000" step="1" required data-house="${key}" value="${h[key]}" aria-label="Anzahl ${label}"><button data-action="house-count" data-field="${key}" data-delta="1" aria-label="${label} mehr">+</button></div></label>`).join('')}</div><p class="goods-price-note">Erlös je Stück inkl. Meilenstein- und Gartenbonus, ohne CFO.</p></fieldset><fieldset><legend>3. Welches Haus?</legend><div class="house-types">${[['normal','⌂','Ohne Garten','Einfacher Stückpreis'],['garden','♧','Mit Garten','Doppelter Stückpreis']].map(([type,icon,label,hint]) => `<button class="choice ${h.type === type ? 'selected' : ''}" data-action="house-type" data-type="${type}" aria-pressed="${h.type === type}"><span class="type-icon">${icon}</span><span>${label}<small>${hint}</small></span></button>`).join('')}</div></fieldset><div class="house-price"><label>Stückpreis vor −1-$-Meilenstein<input type="number" inputmode="numeric" min="${h.player !== null && editor.rows[h.player].milestones.price ? 1 : 0}" max="100" step="1" required data-house="price" value="${h.price}"></label><div><span>Verkauf inkl. Meilensteinen</span><strong id="house-income">${housePreview()}</strong><small>Trinkgeld und CFO folgen in Schritt 2.</small></div></div><div class="house-form-actions">${editor.editingHouse !== null ? '<button class="secondary" data-action="cancel-house">Abbrechen</button>' : ''}<button data-action="save-house">${editor.editingHouse !== null ? 'Verkauf speichern' : 'Haus übernehmen & nächstes'} →</button></div></section><aside class="house-sidebar">${priceComparison()}<div class="sidebar-heading"><h2>Diese Runde</h2><span>${editor.houses.length} ${editor.houses.length === 1 ? 'Haus' : 'Häuser'}</span></div>${houseList()}<div class="sidebar-total"><span>Warenumsatz inkl. Meilensteinen</span><strong>${money(editor.houses.reduce((sum, house) => sum + calculateHouse(house, editor.rows[house.player].milestones).total, 0))}</strong></div><button class="secondary" data-action="sales-step" data-step="extras">Häuser fertig · weiter →</button></aside></div>`;
   } else if (step === 'extras') {
     target.innerHTML = `<div class="entry-grid">${game.players.map((p,i) => `<article class="panel player-entry" style="--player-color:${p.color}"><h3>${playerName(p)}</h3>${waitressField(editor.rows[i],i)}${cfoButton(editor.rows[i],i)}${roundCalculation(editor.rows[i],i)}</article>`).join('')}</div><div class="commit-bar"><button class="secondary" data-action="sales-step" data-step="houses">← Häuser</button><button data-action="sales-step" data-step="wages">Weiter zu den Löhnen →</button></div>`;
   } else if (step === 'wages') {
@@ -334,11 +360,25 @@ app.addEventListener('input', event => {
     editor.wages[+input.dataset.wage] = input.valueAsNumber;
     refreshWages(); persistDraft(); return;
   }
+  if (input.dataset.comparisonPrice !== undefined && editor?.wizard) {
+    if (!input.validity.valid || !Number.isFinite(input.valueAsNumber)) return;
+    const i = +input.dataset.comparisonPrice;
+    editor.rows[i].price = input.valueAsNumber;
+    if (editor.houseForm.player === i) {
+      editor.houseForm.price = input.valueAsNumber;
+      document.querySelector('[data-house="price"]').value = input.valueAsNumber;
+    }
+    refreshHousePrices(); persistDraft(); return;
+  }
   if (input.dataset.house !== undefined && editor?.wizard) {
     const key = input.dataset.house;
     if (key === 'number') editor.houseForm.number = input.value;
     else { if (!input.validity.valid || !Number.isFinite(input.valueAsNumber)) return; editor.houseForm[key] = input.valueAsNumber; }
-    document.querySelector('#house-income').textContent = housePreview();
+    if (key === 'price' && editor.houseForm.player !== null) {
+      editor.rows[editor.houseForm.player].price = editor.houseForm.price;
+      document.querySelector(`[data-comparison-price="${editor.houseForm.player}"]`).value = editor.houseForm.price;
+    }
+    refreshHousePrices();
     persistDraft(); return;
   }
   if (input.dataset.row === undefined || !editor) return;
@@ -400,6 +440,7 @@ app.addEventListener('click', async event => {
         persistDraft(); screen = editor.index === null || editor.completing ? 'table' : 'log'; editor = null; break;
       case 'house-player':
         if (!validInputs()) return;
+        if (editor.houseForm.player !== +button.dataset.index) editor.houseForm.price = editor.rows[+button.dataset.index].price;
         editor.houseForm.player = +button.dataset.index; persistDraft(); break;
       case 'house-type':
         if (!validInputs()) return;
