@@ -1,3 +1,4 @@
+import { renderStatistics, renderAwards } from './statistics-view.js';
 import { GOODS, MILESTONES, COLORS, emptySale, calculateSale, calculateHouse, houseRows, account, roundSettlement, validateGame } from './rules.js';
 
 const KEY = 'gamescores.fcm.v1';
@@ -11,6 +12,7 @@ let setupCount = 3;
 let setupPlayers = Array.from({ length: 5 }, (_, i) => ({ name: `Spieler ${i + 1}`, color: COLORS[i] }));
 let editor = null;
 let review = false;
+let statisticsMetric = 'balance';
 let storageFailed = false;
 try {
   const stored = localStorage.getItem(KEY);
@@ -97,13 +99,16 @@ function dashboard() {
   app.innerHTML = `<div class="table-top"><div><p class="eyebrow">DEIN SPIELTISCH</p><h1 class="table-title">Food Chain Magnate</h1></div><div class="table-actions"><button class="text-button" data-action="export">↓ Export</button><button class="text-button" data-action="home">Spielauswahl</button></div></div>
     <div class="bank-bar"><div><span class="eyebrow">BANKBESTAND</span><strong>${money(a.bank)}</strong></div><span>${a.firstBreak === null ? 'Reserve noch verdeckt' : a.needsReserve ? 'Reservekarten aufdecken' : `Reserve: ${money(game.reserves.reduce((s,n) => s+n,0))} · ${a.secondBreak === null ? '1. Bankbruch' : '2. Bankbruch'}`}</span><span class="round-pill">${ended ? 'Partie beendet' : `Runde ${round}`}</span></div>
     <section class="accounts">${game.players.map((p,i) => `<div class="account" style="--player-color:${p.color}"><span>${playerName(p)}</span><strong>${money(a.balances[i])}</strong></div>`).join('')}</section>
-    <nav class="tabs"><button class="${screen === 'table' ? 'active' : ''}" data-action="table">${ended ? 'Ergebnis' : 'Spieltisch'}</button><button class="${screen === 'log' ? 'active' : ''}" data-action="log">Protokoll <span>${Math.ceil(game.events.length / 2)}</span></button></nav><div id="workspace"></div>`;
+    <nav class="tabs"><button class="${screen === 'table' ? 'active' : ''}" data-action="table">${ended ? 'Ergebnis' : 'Spieltisch'}</button><button class="${screen === 'log' ? 'active' : ''}" data-action="log">Protokoll <span>${Math.ceil(game.events.length / 2)}</span></button>${ended ? `<button class="${screen === 'statistics' ? 'active' : ''}" data-action="statistics">Statistiken</button><button class="${screen === 'awards' ? 'active' : ''}" data-action="awards">Achievements</button>` : ''}</nav><div id="workspace"></div>`;
   const workspace = document.querySelector('#workspace');
   if (screen === 'log') { renderLog(workspace); return; }
+  if (ended && screen === 'statistics') { workspace.innerHTML = renderStatistics(game,statisticsMetric); return; }
+  if (ended && screen === 'awards') { workspace.innerHTML = renderAwards(game); return; }
   if (a.needsReserve) { renderReserve(workspace); return; }
   if (ended && !editor) {
     const ranked = game.players.map((p,i) => ({ ...p, balance: a.balances[i] })).sort((x,y) => y.balance - x.balance);
-    workspace.innerHTML = `<section class="panel"><p class="eyebrow">DIE BANK IST ZUM ZWEITEN MAL GEBROCHEN</p><h2>Das Geschäft ist gemacht.</h2><p>Alle Einnahmen sind ausgezahlt. In dieser Runde werden keine Löhne mehr gezahlt.</p>${ranked.map((p,i) => `<div class="result-row"><span>${i+1}. ${playerName(p)}</span><strong>${money(p.balance)}</strong></div>`).join('')}<p class="hint">Bei Gleichstand entscheidet die frühere Position in der Spielreihenfolge.</p><button data-action="export">Partie sichern</button></section>`;
+    const tied = ranked.filter(p => p.balance === ranked[0].balance).length > 1;
+    workspace.innerHTML = `<section class="panel"><p class="eyebrow">DIE BANK IST ZUM ZWEITEN MAL GEBROCHEN</p><h2>Das Geschäft ist gemacht.</h2><p>Alle Einnahmen sind ausgezahlt. In dieser Runde werden keine Löhne mehr gezahlt.</p>${ranked.map((p,i) => `<div class="result-row ${p.balance === ranked[0].balance ? 'winning-result' : ''}"><span>${p.balance === ranked[0].balance ? (tied ? 'Gleichstand &middot; ' : 'Gewinner &middot; ') : `${i+1}. `}${playerName(p)}</span><strong>${money(p.balance)}</strong></div>`).join('')}<p class="hint">Bei Gleichstand entscheidet die frühere Position in der Spielreihenfolge.</p><button data-action="export">Partie sichern</button></section>`;
     return;
   }
   renderTable(workspace);
@@ -187,6 +192,10 @@ function renderRoundWages(target) {
   const settlement = previewRound();
   if (settlement.needsReserve) {
     renderReserve(target, true);
+    return;
+  }
+  if (settlement.ended) {
+    target.innerHTML = '<section class="panel final-round-notice"><span class="final-round-icon" aria-hidden="true">&#9733;</span><h2>Das Spiel ist zu Ende.</h2><p>Die Bank ist zum zweiten Mal gebrochen. Es werden keine L&ouml;hne mehr gezahlt.</p><p>Pr&uuml;ft jetzt die letzte Runde. Gewinner und Endst&auml;nde werden nach der Best&auml;tigung aufgedeckt.</p></section><div class="commit-bar"><button class="secondary" data-action="sales-step" data-step="extras">&larr; Bedienung &amp; CFO</button><button data-action="sales-step" data-step="summary">Letzte Runde pr&uuml;fen &rarr;</button></div>';
     return;
   }
   target.innerHTML = `${settlement.ended ? '<p class="round-warning">Zweiter Bankbruch: In dieser Runde werden keine Löhne mehr gezahlt. Alle Einnahmen werden vollständig gutgeschrieben.</p>' : ''}<div class="entry-grid">${game.players.map((p,i) => `<article class="panel player-entry" style="--player-color:${p.color}"><h3>${playerName(p)}</h3>${settlement.ended ? '<p class="hint">Löhne entfallen bei Spielende.</p>' : `<label class="waitress-field"><span>Zu bezahlende Mitarbeiter</span><div class="stepper"><button data-action="wage-count" data-index="${i}" data-delta="-1" aria-label="Ein Mitarbeiter weniger für ${esc(p.name)}">−</button><input type="number" inputmode="numeric" min="0" max="1000000" step="1" required data-wage="${i}" value="${editor.wages[i]}" aria-label="Zu bezahlende Mitarbeiter für ${esc(p.name)}"><button data-action="wage-count" data-index="${i}" data-delta="1" aria-label="Ein Mitarbeiter mehr für ${esc(p.name)}">+</button></div><small>5 $ je Mitarbeiter · Rabatte vorher selbst berücksichtigen</small></label>`}<div class="round-calculation" id="wage-calculation-${i}" aria-live="polite">${wageCardCalculation(i,settlement)}</div></article>`).join('')}</div><p class="round-warning" id="wage-issues" ${settlement.issues.length ? '' : 'hidden'}>${esc(settlement.issues.join(' '))}</p><div class="commit-bar"><button class="secondary" data-action="sales-step" data-step="extras">← Bedienung & CFO</button><button data-action="sales-step" data-step="summary">Gesamtübersicht prüfen →</button></div>`;
@@ -273,9 +282,10 @@ function safeTotal(row) { try { return money(calculateSale(row).total); } catch 
 function renderReview() {
   const sale = editor.type === 'sale';
   const settlement = sale && editor.wizard ? previewRound() : null;
-  return `<section class="panel review"><div class="table-scroll"><table><thead><tr><th>Spieler</th>${sale ? GOODS.map(([,label]) => `<th>${label}</th>`).join('') + '<th>Bedienungen</th><th>Warenumsatz¹</th><th>Meilensteine</th><th>Trinkgeld</th><th>CFO</th>' : '<th>Mitarbeiter</th>'}<th>${sale ? 'Einnahmen' : 'Lohn'}</th>${settlement ? '<th>Ausgaben / Löhne</th><th>Neuer Stand</th>' : ''}</tr></thead><tbody>${game.players.map((p,i) => {
+  const revealBalance = settlement && !settlement.ended;
+  return `<section class="panel review"><div class="table-scroll"><table><thead><tr><th>Spieler</th>${sale ? GOODS.map(([,label]) => `<th>${label}</th>`).join('') + '<th>Bedienungen</th><th>Warenumsatz¹</th><th>Meilensteine</th><th>Trinkgeld</th><th>CFO</th>' : '<th>Mitarbeiter</th>'}<th>${sale ? 'Einnahmen' : 'Lohn'}</th>${settlement ? '<th>Ausgaben / Löhne</th>' + (revealBalance ? '<th>Neuer Stand</th>' : '') : ''}</tr></thead><tbody>${game.players.map((p,i) => {
     const r = editor.rows[i]; const c = sale ? calculateSale(r) : null;
-    return `<tr><th>${playerName(p)}</th>${sale ? GOODS.map(([key]) => `<td>${r[key]}</td>`).join('') + `<td>${r.waitresses}</td><td>${money(c.revenue)}</td><td>${money(c.bonus)}</td><td>${money(c.tips)}</td><td>${money(c.cfo)}</td>` : `<td>${r}</td>`}<td class="${settlement ? 'income-amount' : 'amount'}">${money(sale ? c.total : r*5)}</td>${settlement ? `<td class="expense-amount">${money(settlement.expenses[i])}</td><td class="amount new-balance">${money(settlement.balances[i])}</td>` : ''}</tr>`;
+    return `<tr><th>${playerName(p)}</th>${sale ? GOODS.map(([key]) => `<td>${r[key]}</td>`).join('') + `<td>${r.waitresses}</td><td>${money(c.revenue)}</td><td>${money(c.bonus)}</td><td>${money(c.tips)}</td><td>${money(c.cfo)}</td>` : `<td>${r}</td>`}<td class="${settlement ? 'income-amount' : 'amount'}">${money(sale ? c.total : r*5)}</td>${settlement ? `<td class="expense-amount">${money(settlement.expenses[i])}</td>${revealBalance ? `<td class="amount new-balance">${money(settlement.balances[i])}</td>` : ''}` : ''}</tr>`;
   }).join('')}</tbody></table></div>${sale ? '<p class="hint">¹ Mit eingestelltem Stückpreis und gegebenenfalls Gartenbonus. CFO wird einmal auf alle Rundeneinnahmen berechnet und aufgerundet.</p>' : ''}</section>`;
 }
 function renderReserve(target, preview = false) {
@@ -424,6 +434,12 @@ app.addEventListener('click', async event => {
       }
       case 'resume': case 'table': screen = 'table'; editor = null; review = false; break;
       case 'log': screen = 'log'; editor = null; break;
+      case 'statistics': case 'awards':
+        if (account(game).secondBreak === null) return;
+        screen = button.dataset.action; editor = null; break;
+      case 'statistics-metric':
+        if (!['balance','income','net','wages'].includes(button.dataset.metric)) return;
+        statisticsMetric = button.dataset.metric; break;
       case 'toggle-log-details': {
         const details = document.querySelector(`#log-details-${button.dataset.index}`);
         details.hidden = !details.hidden;

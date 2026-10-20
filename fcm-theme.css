@@ -184,6 +184,62 @@ body.fcm-theme{--green:#225b5e;--muted:#59656a;--line:#c9caba;--paper:#fffcf2;--
 .fcm-theme .reserve-total{display:flex;justify-content:space-between;align-items:center;gap:18px;border-top:2px solid #bdcbb5;padding:18px 0;margin-bottom:10px;font-size:19px;font-weight:600}
 .fcm-theme .reserve-total small{display:block;font-size:15px;font-weight:400;color:#526164;margin-top:5px}
 .fcm-theme .reserve-total>strong{font-size:32px;color:#24565e;white-space:nowrap}
+.fcm-theme .tabs{flex-wrap:wrap;gap:8px 24px}
+.fcm-theme .final-round-notice{text-align:center;max-width:780px;margin:0 auto;padding:32px 24px}
+.fcm-theme .final-round-notice h2{font-size:38px;margin:10px 0 20px}
+.fcm-theme .final-round-notice p{font-size:19px;line-height:1.6;max-width:580px;margin:12px auto}
+.fcm-theme .final-round-icon{display:inline-grid;place-items:center;width:58px;height:58px;font-size:34px;color:#fff6da;background:linear-gradient(#e0ad46,#b87523);border:4px double #fff3ce;border-radius:50%;box-shadow:0 0 0 1px #b68a43,0 3px 0 #bbae89}
+.fcm-theme .winning-result{background:#e8efdb;border:1px solid #b2bc93;border-left:5px solid #c49a3d;padding:18px 14px;border-radius:9px;font-weight:700}
+.fcm-theme .stats-heading{margin-bottom:20px}
+.fcm-theme .stats-heading h2{margin-bottom:8px}
+.fcm-theme .stats-heading p{font-size:16px;color:#526164;margin:0}
+.fcm-theme .stats-timeline,.fcm-theme .wage-comparison{margin-bottom:28px}
+.fcm-theme .chart-controls{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+.fcm-theme .chart-controls button{font-size:15px;min-height:44px;padding:9px 13px}
+.fcm-theme .chart-controls .is-active{background:linear-gradient(#448b89,#235b5c);color:#fffdf2;border-color:#164a4e;box-shadow:0 3px 0 #244f55}
+.fcm-theme .stats-chart-scroll{overflow-x:auto}
+.fcm-theme .timeline-chart{display:block;width:100%;min-width:520px;max-height:440px}
+.fcm-theme .timeline-chart text{font:15px FCMBarlow,sans-serif;fill:#425d61}
+.fcm-theme .chart-grid{stroke:#c8cdbb;stroke-width:1}
+.fcm-theme .chart-legend{display:flex;flex-wrap:wrap;gap:12px 22px;margin:12px 0 20px;font-weight:600}
+.fcm-theme .comparison-player{padding:16px 0;border-top:1px solid #ccd0bc;display:grid;grid-template-columns:minmax(90px,150px) minmax(80px,1fr) minmax(190px,1fr);gap:10px 18px;align-items:center}
+.fcm-theme .comparison-player>strong{grid-row:span 2;overflow-wrap:anywhere}
+.fcm-theme .comparison-player>span{font-size:16px}
+.fcm-theme .stat-bar{height:22px;background:#e4e5d7;border-radius:5px;overflow:hidden;box-shadow:inset 0 1px 2px #364d3022}
+.fcm-theme .stat-bar>span{display:block;height:100%;border-radius:5px;min-width:0}
+.fcm-theme .wage-bar>span{background:repeating-linear-gradient(45deg,#8a7c63,#8a7c63 5px,#ab9e84 5px,#ab9e84 10px)}
+.fcm-theme .stats-pies{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:22px;margin:20px 0}
+.fcm-theme .income-pie{min-width:0}
+.fcm-theme .income-pie h3{margin-bottom:18px}
+.fcm-theme .pie-layout{display:grid;grid-template-columns:minmax(120px,180px) minmax(0,1fr);gap:18px;align-items:center}
+.fcm-theme .pie-layout svg{display:block;width:100%}
+.fcm-theme .pie-layout svg text{font:10px FCMBarlow,sans-serif;fill:#425d61}
+.fcm-theme .pie-layout svg .pie-total{font-size:12px;font-weight:700}
+.fcm-theme .pie-layout dl{margin:0;font-size:16px}
+.fcm-theme .pie-layout dl>div{display:flex;justify-content:space-between;gap:10px;padding:5px 0}
+.fcm-theme .pie-layout dd{margin:0;text-align:right;font-weight:600}
+.fcm-theme .pie-layout dd small{display:block;font-size:13px;font-weight:400;color:#526164}
+.fcm-theme .chart-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:7px}
+.fcm-theme .award-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr));gap:22px}
+.fcm-theme .award-card{position:relative;border-top:4px solid #c69b46}
+.fcm-theme .award-card h3{margin:12px 0 7px;font-size:23px}
+.fcm-theme .award-card p{font-size:16px;color:#526164;min-height:46px;margin-bottom:12px}
+.fcm-theme .award-medal{color:#b58025;font-size:30px;line-height:1}
+.fcm-theme .award-value{font-size:32px;color:#24565e;display:block;margin:8px 0 14px}
+.fcm-theme .award-winners{display:flex;flex-wrap:wrap;gap:10px 16px;font-weight:700;font-size:18px}
+.fcm-theme .award-card>small{display:block;font-size:14px;color:#526164;margin-top:10px}
+@media(max-width:760px){
+  .fcm-theme .tabs{gap:6px 18px}
+  .fcm-theme .tabs button{font-size:16px}
+  .fcm-theme .comparison-player{grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:7px 12px}
+  .fcm-theme .comparison-player>strong{grid-column:1/-1;grid-row:auto}
+  .fcm-theme .comparison-player>span{font-size:15px}
+  .fcm-theme .stats-timeline{padding:18px 12px}
+  .fcm-theme .pie-layout{grid-template-columns:1fr}
+  .fcm-theme .pie-layout svg{max-width:210px;margin:auto}
+  .fcm-theme .final-round-notice{padding:24px 18px}
+  .fcm-theme .winning-result{gap:12px;flex-wrap:wrap}
+}
 .fcm-theme .ledger-heading h2{font-size:31px}
 .fcm-theme .ledger-heading p{font-size:14px;color:#346e55}
 .fcm-theme .ledger-scroll{border:1px solid #9fb5a4;border-bottom:3px solid #bbc5ae;border-radius:10px;background:#fffdf2;box-shadow:0 3px 0 #ded9c4}

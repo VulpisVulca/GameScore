@@ -46,6 +46,12 @@ Repository: https://github.com/jukrauss/GameScore · GitHub Pages: https://jukra
 
 ## Korrekturen und Speicherung
 
+Beim zweiten Bankbruch zeigt der Lohnschritt ausschließlich die Spielende-Info. Die letzte Rundenübersicht enthält keine Endkontostände. Erst nach „Runde bestätigen“ erscheinen Gewinner und Endstände.
+
+Nach Spielende stehen neben Ergebnis und Protokoll die Tabs „Statistiken“ und „Achievements“ bereit. Der Rundenverlauf lässt sich zwischen Kontostand, Rundeneinnahmen, Gewinn nach Löhnen und Löhnen umschalten; alle Werte sind zusätzlich als Tabelle verfügbar. Balken vergleichen Gesamteinnahmen und Lohnzahlungen, Kuchendiagramme zeigen die Einnahmequellen pro Spieler. Warenumsätze enthalten Garten- und Waren-Meilensteinboni; CFO und Trinkgeld bleiben separate Einnahmequellen. Bei alten Summenbuchungen ohne einzelne Häuser werden gemischte Gartenumsätze anteilig verteilt und als Schätzung gekennzeichnet.
+
+Achievements zeichnen unter anderem CFO- und Trinkgeldeinnahmen, Menge und Umsatz jeder Warenart, Gesamteinnahmen, Lohnzahlungen, belieferte Häuser, Gartenhäuser, Waren-Meilensteinboni sowie die besten Runden vor und nach Löhnen aus. Bei Gleichstand erhalten alle beteiligten Spieler die Auszeichnung; Kategorien ohne Leistung werden ausgelassen. Alle Auswertungen werden aus dem Protokoll berechnet, berücksichtigen Korrekturen und funktionieren offline ohne externe Diagrammbibliothek.
+
 Das Protokoll speichert die Eingaben einschließlich Stückpreis, Meilensteinen und CFO der jeweiligen Runde. Korrekturen berechnen Bank und sämtliche Kontostände neu. Spätere Meilensteinänderungen verändern keine älteren Buchungen. Historische Meilensteinkorrekturen ändern nur den bearbeiteten Verkauf; spätere Verkäufe müssen bei Bedarf ebenfalls korrigiert werden. Änderungen, die ungedeckte Löhne oder Buchungen nach einem vorgezogenen Spielende verursachen, werden abgewiesen. Dazu spätere Buchungen vom Ende her zurücknehmen und neu erfassen.
 
 Neue Buchungen enthalten sämtliche Hausverkäufe, die im Protokoll pro Spieler aufklappbar sind. Vorhandene Spielstände bleiben kompatibel: Alte Buchungen ohne Hausdaten werden weiterhin als Summeneingaben bearbeitet. Hausreihenfolge, aktuelle Eingabe und Fortschritt im Verkaufsassistenten werden auch beim Verlassen oder Neuladen erhalten.

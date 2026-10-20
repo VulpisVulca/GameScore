@@ -25,7 +25,7 @@ jobs:
       - name: Prepare static site
         run: |
           mkdir public
-          cp index.html app.js rules.js style.css fcm-theme.css sw.js icon.svg manifest.webmanifest public/
+          cp index.html app.js rules.js statistics.js statistics-view.js style.css fcm-theme.css sw.js icon.svg manifest.webmanifest public/
           cp -R assets public/
           touch public/.nojekyll
       - uses: actions/configure-pages@v5
