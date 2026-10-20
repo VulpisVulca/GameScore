@@ -1,5 +1,5 @@
-const CACHE = 'gamescores-v15';
-const FILES = ['./', './index.html', './style.css', './fcm-theme.css', './app.js', './rules.js', './statistics.js', './statistics-view.js', './icon.svg', './manifest.webmanifest', './assets/fonts/Barlow-Regular.ttf', './assets/fonts/Barlow-SemiBold.ttf', './assets/fonts/Barlow-Bold.ttf', './assets/fonts/Lobster-Regular.ttf'];
+const CACHE = 'gamescores-v16';
+const FILES = ['./', './index.html', './style.css', './fcm-theme.css', './app.js', './rules.js', './i18n.js', './locales/en.js', './manifest.en.webmanifest', './statistics.js', './statistics-view.js', './icon.svg', './manifest.webmanifest', './assets/fonts/Barlow-Regular.ttf', './assets/fonts/Barlow-SemiBold.ttf', './assets/fonts/Barlow-Bold.ttf', './assets/fonts/Lobster-Regular.ttf'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES)).then(() => self.skipWaiting()));
 });

@@ -44,13 +44,23 @@ Repository: https://github.com/jukrauss/GameScore · GitHub Pages: https://jukra
 - Beim zweiten Bankbruch werden sämtliche Verkaufseinnahmen ausgezahlt. Die Partie endet vor der Lohnphase. Gleichstände löst die physische Spielreihenfolge auf.
 - Den 100-$-Meilenstein manuell erst in der Folgerunde aktivieren; die App vergibt Meilensteine nicht selbst. Mehrere Spieler können denselben Meilenstein erhalten.
 
-## Korrekturen und Speicherung
+## Sprachen
+
+Vor der Spielauswahl lässt sich zwischen Deutsch und Englisch wechseln. Die Auswahl wird unter `gamescores.language` unabhängig von der Partie auf dem Gerät gespeichert und gilt auch nach einem Neustart sowie offline. Über die Spielauswahl ist sie jederzeit wieder erreichbar.
+
+Die Sprache gilt für Spielablauf, Meilensteine, Eingabehinweise, Fehlermeldungen, Protokoll, Statistiken, Achievements und Installationsbeschreibung. Zahlen und Datumsangaben werden mit dem jeweiligen Gebietsschema formatiert. Namen und gespeicherte Hausbezeichnungen bleiben unverändert; Exporte enthalten die bisherigen, sprachunabhängigen Spieldaten.
+
+`i18n.js` stellt `t()` für einfache Texte und `html` für übersetzbare Vorlagen bereit. Deutsche Quelltexte dienen als Übersetzungsschlüssel; die englischen Texte liegen zentral in `locales/en.js`. Platzhalter wie `{0}` dürfen in Übersetzungen umgestellt, aber nicht entfernt werden. Eingesetzte Werte werden erst nach der Übersetzung eingefügt: Benutzertexte werden nicht nach deutschen Wörtern durchsucht. Bei neuen Oberflächentexten auch die englische Übersetzung ergänzen. Beide Sprachen und beide Web-App-Manifeste werden im Offline-Cache gespeichert.
+
+## Spielende und Auswertungen
 
 Beim zweiten Bankbruch zeigt der Lohnschritt ausschließlich die Spielende-Info. Die letzte Rundenübersicht enthält keine Endkontostände. Erst nach „Runde bestätigen“ erscheinen Gewinner und Endstände.
 
 Nach Spielende stehen neben Ergebnis und Protokoll die Tabs „Statistiken“ und „Achievements“ bereit. Der Rundenverlauf lässt sich zwischen Kontostand, Rundeneinnahmen, Gewinn nach Löhnen und Löhnen umschalten; alle Werte sind zusätzlich als Tabelle verfügbar. Balken vergleichen Gesamteinnahmen und Lohnzahlungen, Kuchendiagramme zeigen die Einnahmequellen pro Spieler. Warenumsätze enthalten Garten- und Waren-Meilensteinboni; CFO und Trinkgeld bleiben separate Einnahmequellen. Bei alten Summenbuchungen ohne einzelne Häuser werden gemischte Gartenumsätze anteilig verteilt und als Schätzung gekennzeichnet.
 
 Achievements zeichnen unter anderem CFO- und Trinkgeldeinnahmen, Menge und Umsatz jeder Warenart, Gesamteinnahmen, Lohnzahlungen, belieferte Häuser, Gartenhäuser, Waren-Meilensteinboni sowie die besten Runden vor und nach Löhnen aus. Bei Gleichstand erhalten alle beteiligten Spieler die Auszeichnung; Kategorien ohne Leistung werden ausgelassen. Alle Auswertungen werden aus dem Protokoll berechnet, berücksichtigen Korrekturen und funktionieren offline ohne externe Diagrammbibliothek.
+
+## Korrekturen und Speicherung
 
 Das Protokoll speichert die Eingaben einschließlich Stückpreis, Meilensteinen und CFO der jeweiligen Runde. Korrekturen berechnen Bank und sämtliche Kontostände neu. Spätere Meilensteinänderungen verändern keine älteren Buchungen. Historische Meilensteinkorrekturen ändern nur den bearbeiteten Verkauf; spätere Verkäufe müssen bei Bedarf ebenfalls korrigiert werden. Änderungen, die ungedeckte Löhne oder Buchungen nach einem vorgezogenen Spielende verursachen, werden abgewiesen. Dazu spätere Buchungen vom Ende her zurücknehmen und neu erfassen.
 

@@ -1,3 +1,4 @@
+import { t, html } from './i18n.js';
 import { GOODS, calculateSale } from './rules.js';
 
 // Rebuild from the ledger so historical corrections also update every chart.
@@ -55,19 +56,19 @@ export function gameAwards(stats) {
     result.push({title,value:best,unit,detail,winners:values.flatMap((value,i) => value === best ? [i] : [])});
   }
   const {players,rounds} = stats;
-  award('Finanzgenie',players.map(p => p.cfo),'$','Meistes Geld mit CFO');
-  award('Trinkgeldkönig',players.map(p => p.tips),'$','Meistes Geld mit Bedienungen');
+  award(t('Finanzgenie'),players.map(p => p.cfo),'$',t('Meistes Geld mit CFO'));
+  award(t('Trinkgeldkönig'),players.map(p => p.tips),'$',t('Meistes Geld mit Bedienungen'));
   for (const [key,label] of GOODS) {
-    const name = label.split(' · ')[0];
-    award(`${name}-Verkaufsprofi`,players.map(p => p.goods[key].quantity),'Stück',`Meiste ${name} verkauft`);
-    award(`${name}-Magnat`,players.map(p => p.goods[key].income),'$',`Meistes Geld mit ${name}`);
+    const name = t(label.split(' · ')[0]);
+    award(html`${name}-Verkaufsprofi`,players.map(p => p.goods[key].quantity),t('Stück'),html`Meiste ${name} verkauft`);
+    award(html`${name}-Magnat`,players.map(p => p.goods[key].income),'$',html`Meistes Geld mit ${name}`);
   }
-  award('Umsatzriese',players.map(p => p.income),'$','Höchste Gesamteinnahmen');
-  award('Personalchef',players.map(p => p.wages),'$','Meiste Löhne gezahlt');
-  award('Lieferheld',players.map(p => p.houses),'Häuser','Meiste Häuser beliefert');
-  award('Gartenprofi',players.map(p => p.gardens),'Häuser','Meiste Häuser mit Garten beliefert');
-  award('Meilensteinprofi',players.map(p => p.bonus),'$','Meistes Geld durch Waren-Meilensteine');
-  for (const [key,title,detail] of [['income','Rekordrunde','Höchste Einnahmen in einer Runde'],['net','Gewinnsprung','Höchster Rundengewinn nach Löhnen']]) {
+  award(t('Umsatzriese'),players.map(p => p.income),'$',t('Höchste Gesamteinnahmen'));
+  award(t('Personalchef'),players.map(p => p.wages),'$',t('Meiste Löhne gezahlt'));
+  award(t('Lieferheld'),players.map(p => p.houses),t('Häuser'),t('Meiste Häuser beliefert'));
+  award(t('Gartenprofi'),players.map(p => p.gardens),t('Häuser'),t('Meiste Häuser mit Garten beliefert'));
+  award(t('Meilensteinprofi'),players.map(p => p.bonus),'$',t('Meistes Geld durch Waren-Meilensteine'));
+  for (const [key,title,detail] of [['income',t('Rekordrunde'),t('Höchste Einnahmen in einer Runde')],['net',t('Gewinnsprung'),t('Höchster Rundengewinn nach Löhnen')]]) {
     const best = Math.max(0,...rounds.flatMap(r => r.players.map(p => p[key])));
     if (best > 0) result.push({title,value:best,unit:'$',detail,winners:players.flatMap((_,i) => rounds.some(r => r.players[i][key] === best) ? [i] : []),
       rounds:rounds.filter(r => r.players.some(p => p[key] === best)).map(r => r.number)});
