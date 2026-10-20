@@ -42,6 +42,10 @@ function title(kicker, heading, text = '') {
   return `<div class="page-heading"><p class="eyebrow">${kicker}</p><h1>${heading}</h1>${text ? `<p class="subtitle">${text}</p>` : ''}</div>`;
 }
 function playerName(p) { return `<span class="player-dot" style="background:${p.color}"></span>${esc(p.name)}`; }
+function readSetupPlayers() {
+  app.querySelectorAll('[data-setup-name]').forEach(input => { setupPlayers[+input.dataset.setupName].name = input.value; });
+  app.querySelectorAll('[data-setup-color]').forEach(input => { setupPlayers[+input.dataset.setupColor].color = input.value; });
+}
 function home() {
   app.innerHTML = `${title('WENIGER RECHNEN. MEHR SPIELEN.', 'Dein Abend. Dein Spieltisch.', 'Wähle ein Spiel und lass das Kleingeld in der Schachtel.')}
     ${game ? `<section class="resume"><div><span class="eyebrow">DEINE LETZTE PARTIE</span><h2>Food Chain Magnate</h2><p>${game.players.map(p => esc(p.name)).join(' · ')} · Runde ${Math.floor(game.events.length / 2) + 1}</p></div><button data-action="resume">Partie fortsetzen <span>→</span></button></section>` : ''}
@@ -255,7 +259,8 @@ app.addEventListener('input', event => {
 });
 app.addEventListener('change', event => {
   const input = event.target;
-  if (input.id === 'player-count') { setupCount = +input.value; setup(); }
+  if (input.dataset.setupName !== undefined) setupPlayers[+input.dataset.setupName].name = input.value;
+  if (input.id === 'player-count') { readSetupPlayers(); setupCount = +input.value; setup(); }
   if (input.dataset.setupColor !== undefined) { setupPlayers[+input.dataset.setupColor].color = input.value; input.style.borderLeftColor = input.value; }
 });
 app.addEventListener('click', async event => {
@@ -264,8 +269,16 @@ app.addEventListener('click', async event => {
   try {
     switch (button.dataset.action) {
       case 'home': screen = 'home'; editor = null; break;
-      case 'setup': screen = 'setup'; break;
+      case 'setup':
+        if (game) {
+          setupCount = game.players.length;
+          game.players.forEach((player, i) => { setupPlayers[i] = { name: player.name, color: player.color }; });
+        }
+        screen = 'setup'; break;
       case 'start': {
+        // Autofill and some mobile keyboards do not reliably emit input events.
+        // The visible setup fields are authoritative when starting the game.
+        readSetupPlayers();
         const players = setupPlayers.slice(0,setupCount).map(p => ({ name: p.name.trim(), color: p.color, milestones: milestones() }));
         const next = validateGame({ version: 1, players, reserves: null, events: [], draft: null });
         if (game && !confirm('Die bisherige Partie auf diesem Gerät ersetzen? Vorher bei Bedarf exportieren.')) return;
