@@ -290,6 +290,7 @@ export const en = {
   'Bitte die Reservekarte jedes Spielers auswählen.':'Please select each player’s reserve card.',
   'Bitte zuerst im Lohnschritt die Reservekarten aufdecken.':'Please reveal the reserve cards in the salary step first.',
   'Bitte eine gültige Mitarbeiterzahl eingeben.':'Please enter a valid number of employees.',
+  'Bitte für jeden Spieler einen Namen eingeben.':'Please enter a name for every player.',
   'Bitte eine gültige Zahl im angezeigten Bereich eingeben.':'Please enter a valid number within the indicated range.',
   'Diese Änderung benötigt Reservekarten. Bitte zuerst die späteren Buchungen zurücknehmen.':'This change requires reserve cards. Please undo later entries first.',
   'Die Datei ist zu groß (maximal 5 MB).':'The file is too large (maximum 5 MB).',

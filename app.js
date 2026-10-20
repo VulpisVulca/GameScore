@@ -10,7 +10,7 @@ const milestones = () => Object.fromEntries(MILESTONES.map(([key]) => [key, fals
 let game = null;
 let screen = 'home';
 let setupCount = 3;
-let setupPlayers = Array.from({ length: 5 }, (_, i) => ({ name: html`Spieler ${i + 1}`, color: COLORS[i] }));
+let setupPlayers = Array.from({ length: 5 }, (_, i) => ({ name: '', color: COLORS[i] }));
 let editor = null;
 let review = false;
 let statisticsMetric = 'balance';
@@ -64,14 +64,14 @@ function languagePicker() {
 }
 function home() {
   app.innerHTML = html`${languagePicker()}${title(t('WENIGER RECHNEN. MEHR SPIELEN.'), t('Dein Abend. Dein Spieltisch.'), t('Wähle ein Spiel und lass das Kleingeld in der Schachtel.'))}
-    ${game ? html`<section class="resume"><div><span class="eyebrow">DEINE LETZTE PARTIE</span><h2>Food Chain Magnate</h2><p>${game.players.map(p => esc(p.name)).join(' · ')} · Runde ${Math.floor(game.events.length / 2) + 1}</p></div><button data-action="resume">Partie fortsetzen <span>→</span></button></section>` : ''}
+    ${game ? html`<section class="resume"><div><span class="eyebrow">DEINE LETZTE PARTIE</span><h2>Food Chain Magnate</h2><p>${game.players.map(p => esc(p.name)).join(' · ')} · ${html`Runde ${Math.floor(game.events.length / 2) + 1}`}</p></div><button data-action="resume">Partie fortsetzen <span>→</span></button></section>` : ''}
     <div class="section-label">DEINE SPIELE <span>01</span></div>
     <section class="game-grid"><article class="game-card"><div class="game-art"><div class="art-tag">DAS GRUNDSPIEL</div><div class="diner-sign">FOOD CHAIN<br><strong>MAGNATE</strong><span>BURGERS · PIZZA · BIG BUSINESS</span></div><div class="awning"></div><div class="art-bottom"><span>OPEN</span><span>🍔 &nbsp; 🍕 &nbsp; 🥤</span></div></div><div class="game-info"><div class="eyebrow">WIRTSCHAFT · 2–5 SPIELER</div><h2>Food Chain Magnate</h2><p>Verkäufe, Gehälter und die ganze Bank.<br>Alles auf einem Spieltisch.</p><button data-action="setup">Neue Partie <span>↗</span></button></div></article><article class="coming"><span class="coming-icon">＋</span><h2>Platz für mehr Spielabende</h2><p>Weitere Spiele kommen nach und nach dazu.</p></article></section>
     <div class="home-features"><span>◉ Ein Gerät für alle</span><span>↺ Jederzeit korrigieren</span><span>◇ Auch offline spielbar</span></div><div class="file-actions"><button class="text-button" data-action="import">Spielstand importieren</button>${game ? htmlText('<button class="text-button" data-action="export">Spielstand exportieren</button>') : ''}</div>`;
 }
 function setup() {
   app.innerHTML = html`<button class="text-button" data-action="home">← Spielauswahl</button>${title(t('FOOD CHAIN MAGNATE · NEUE PARTIE'), t('Wer sitzt am Tisch?'), t('Namen und Farben wählen. Die Bank bereiten wir vor.'))}
-    <section class="panel setup"><label class="count-label">Anzahl der Spieler <select id="player-count">${[2,3,4,5].map(n => html`<option ${n === setupCount ? 'selected' : ''}>${n}</option>`).join('')}</select></label><div class="setup-players">${setupPlayers.slice(0, setupCount).map((p,i) => html`<div class="setup-row"><span class="row-number">0${i+1}</span><label>Name<input data-setup-name="${i}" maxlength="40" value="${esc(p.name)}" required></label><label>Farbe<select data-setup-color="${i}" style="border-left:6px solid ${p.color}">${COLORS.map((color,j) => html`<option value="${color}" ${p.color === color ? 'selected' : ''}>${[t('Rot'),t('Gelb'),t('Blau'),t('Grün'),t('Violett')][j]}</option>`).join('')}</select></label></div>`).join('')}</div><div class="bank-start"><div><span class="eyebrow">DIE BANK STARTET MIT</span><strong>${money(setupCount * 50)}</strong></div><p>50 $ pro Spieler · Spielerkonten starten bei 0 $.<br>Reservekarten bleiben bis zum ersten Bankbruch geheim.</p></div>${game ? htmlText('<p class="hint">Beim Start wird die bisherige Partie ersetzt. Exportiere sie vorher, wenn du sie behalten möchtest.</p><button class="text-button" data-action="export">Bisherige Partie exportieren</button>') : ''}<button data-action="start">Partie starten →</button></section>`;
+    <section class="panel setup"><label class="count-label">Anzahl der Spieler <select id="player-count">${[2,3,4,5].map(n => html`<option ${n === setupCount ? 'selected' : ''}>${n}</option>`).join('')}</select></label><div class="setup-players">${setupPlayers.slice(0, setupCount).map((p,i) => html`<div class="setup-row"><span class="row-number">0${i+1}</span><label>Name<input data-setup-name="${i}" maxlength="40" value="${esc(p.name)}" placeholder="Spieler ${i+1}" autocomplete="off" required></label><label>Farbe<select data-setup-color="${i}" style="border-left:6px solid ${p.color}">${COLORS.map((color,j) => html`<option value="${color}" ${p.color === color ? 'selected' : ''}>${[t('Rot'),t('Gelb'),t('Blau'),t('Grün'),t('Violett')][j]}</option>`).join('')}</select></label></div>`).join('')}</div><div class="bank-start"><div><span class="eyebrow">DIE BANK STARTET MIT</span><strong>${money(setupCount * 50)}</strong></div><p>50 $ pro Spieler · Spielerkonten starten bei 0 $.<br>Reservekarten bleiben bis zum ersten Bankbruch geheim.</p></div>${game ? htmlText('<p class="hint">Beim Start wird die bisherige Partie ersetzt. Exportiere sie vorher, wenn du sie behalten möchtest.</p><button class="text-button" data-action="export">Bisherige Partie exportieren</button>') : ''}<button data-action="start">Partie starten →</button></section>`;
 }
 function beginEditor(index = null) {
   // Complete older, already booked sales in the same four-step round editor.
@@ -442,26 +442,25 @@ app.addEventListener('click', async event => {
   try {
     switch (button.dataset.action) {
       case 'language': {
-        const previous = getLanguage();
         setLanguage(button.dataset.language);
-        if (!game) setupPlayers.forEach((p,i) => {
-          const oldDefault = (previous === 'de' ? 'Spieler ' : 'Player ') + (i+1);
-          if (p.name === oldDefault) p.name = html`Spieler ${i+1}`;
-        });
         document.querySelector('#notice').classList.remove('visible');
         break;
       }
       case 'home': screen = 'home'; editor = null; break;
       case 'setup':
-        if (game) {
-          setupCount = game.players.length;
-          game.players.forEach((player, i) => { setupPlayers[i] = { name: player.name, color: player.color }; });
-        }
+        setupCount = game?.players.length ?? 3;
+        setupPlayers = Array.from({ length: 5 }, (_,i) => ({ name:'', color:COLORS[i] }));
         screen = 'setup'; break;
       case 'start': {
         // Autofill and some mobile keyboards do not reliably emit input events.
         // The visible setup fields are authoritative when starting the game.
         readSetupPlayers();
+        const missingName = [...app.querySelectorAll('[data-setup-name]')].find(input => !input.value.trim());
+        if (missingName) {
+          missingName.setCustomValidity(t('Bitte für jeden Spieler einen Namen eingeben.'));
+          missingName.reportValidity();
+          return;
+        }
         const players = setupPlayers.slice(0,setupCount).map(p => ({ name: p.name.trim(), color: p.color, milestones: milestones() }));
         const next = validateGame({ version: 1, players, reserves: null, events: [], draft: null });
         if (game && !confirm(t('Die bisherige Partie auf diesem Gerät ersetzen? Vorher bei Bedarf exportieren.'))) return;
