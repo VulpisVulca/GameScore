@@ -176,6 +176,14 @@ body.fcm-theme{--green:#225b5e;--muted:#59656a;--line:#c9caba;--paper:#fffcf2;--
 .fcm-theme .round-warning{font-size:16px;border:1px solid #b6a06c;border-left:5px solid #ba753b;background:#f8eed4;color:#6a4f22;box-shadow:0 2px 0 #d8c9a3}
 .fcm-theme .reserve>p{font-size:17px;color:#526164;line-height:1.55}
 .fcm-theme .reserve-grid label{font-size:17px;font-weight:600}
+.fcm-theme .reserve-grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:24px}
+.fcm-theme .reserve-player>strong{display:block;font-size:18px;margin-bottom:10px}
+.fcm-theme .reserve-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.fcm-theme .reserve-options button{padding:12px 5px;min-height:52px;font-size:20px;white-space:nowrap}
+.fcm-theme .reserve-options .is-selected,.fcm-theme .reserve-options .is-selected:hover{background:linear-gradient(#468865,#286446);border-color:#24593e;color:#fffdf2;box-shadow:inset 0 1px 0 #cde4b966,0 3px 0 #254f3a}
+.fcm-theme .reserve-total{display:flex;justify-content:space-between;align-items:center;gap:18px;border-top:2px solid #bdcbb5;padding:18px 0;margin-bottom:10px;font-size:19px;font-weight:600}
+.fcm-theme .reserve-total small{display:block;font-size:15px;font-weight:400;color:#526164;margin-top:5px}
+.fcm-theme .reserve-total>strong{font-size:32px;color:#24565e;white-space:nowrap}
 .fcm-theme .ledger-heading h2{font-size:31px}
 .fcm-theme .ledger-heading p{font-size:14px;color:#346e55}
 .fcm-theme .ledger-scroll{border:1px solid #9fb5a4;border-bottom:3px solid #bbc5ae;border-radius:10px;background:#fffdf2;box-shadow:0 3px 0 #ded9c4}

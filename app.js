@@ -279,7 +279,7 @@ function renderReview() {
   }).join('')}</tbody></table></div>${sale ? '<p class="hint">¹ Mit eingestelltem Stückpreis und gegebenenfalls Gartenbonus. CFO wird einmal auf alle Rundeneinnahmen berechnet und aufgerundet.</p>' : ''}</section>`;
 }
 function renderReserve(target, preview = false) {
-  target.innerHTML = `<section class="panel reserve"><p class="eyebrow">ERSTER BANKBRUCH</p><h2>Zeit, die Reserve aufzudecken.</h2><p>Wählt den Geldbetrag der zu Beginn verdeckt gewählten Karte jedes Spielers. ${preview ? 'Die Bank reicht für die erfassten Verkäufe nicht aus. Die Reserve wird für die Vorschau berücksichtigt und erst mit der Runde gebucht.' : 'Noch ausstehende Einnahmen werden vollständig ausgezahlt.'}</p><div class="reserve-grid">${game.players.map((p,i) => `<label>${playerName(p)}<select data-reserve="${i}"><option value="">Karte wählen …</option>${[100,200,300].map(n => `<option value="${n}">${money(n)}</option>`).join('')}</select></label>`).join('')}</div><button data-action="${preview ? 'round-reserve' : 'reserve'}">${preview ? 'Reserve für Vorschau übernehmen' : 'Reserve der Bank hinzufügen'}</button></section>`;
+  target.innerHTML = `<section class="panel reserve"><p class="eyebrow">ERSTER BANKBRUCH</p><h2>Zeit, die Reserve aufzudecken.</h2><p>Wählt den Geldbetrag der zu Beginn verdeckt gewählten Karte jedes Spielers. ${preview ? 'Die Bank reicht für die erfassten Verkäufe nicht aus. Die Reserve wird für die Vorschau berücksichtigt und erst mit der Runde gebucht.' : 'Noch ausstehende Einnahmen werden vollständig ausgezahlt.'}</p><div class="reserve-grid">${game.players.map((p,i) => `<div class="reserve-player" role="group" aria-label="Reservekarte f&uuml;r ${esc(p.name)}"><strong>${playerName(p)}</strong><input type="hidden" data-reserve="${i}" value=""><div class="reserve-options">${[100,200,300].map(n => `<button class="secondary" data-action="reserve-card" data-index="${i}" data-value="${n}" aria-pressed="false">${money(n)}</button>`).join('')}</div></div>`).join('')}</div><div class="reserve-total" aria-live="polite"><span>Neue Bankreserve<small id="reserve-equation">Bitte pro Spieler eine Karte w&auml;hlen.</small></span><strong id="reserve-total">${money(0)}</strong></div><button data-action="${preview ? 'round-reserve' : 'reserve'}">${preview ? 'Reserve für Vorschau übernehmen' : 'Reserve der Bank hinzufügen'}</button></section>`;
 }
 function renderLog(target) {
   const balances = game.players.map(() => 0);
@@ -521,6 +521,20 @@ app.addEventListener('click', async event => {
       }
       case 'edit': beginEditor(+button.dataset.index); screen = editor.wizard ? 'sale' : 'entry'; window.scrollTo(0,0); break;
       case 'cancel-edit': editor = null; screen = 'log'; break;
+      case 'reserve-card': {
+        const index = +button.dataset.index;
+        app.querySelector('[data-reserve="' + index + '"]').value = button.dataset.value;
+        app.querySelectorAll('[data-action="reserve-card"][data-index="' + index + '"]').forEach(option => {
+          const selected = option === button;
+          option.classList.toggle('is-selected', selected);
+          option.setAttribute('aria-pressed', String(selected));
+        });
+        const values = [...app.querySelectorAll('[data-reserve]')].map(input => +input.value);
+        const selected = values.filter(value => value > 0);
+        document.querySelector('#reserve-total').textContent = money(selected.reduce((sum,value) => sum + value,0));
+        document.querySelector('#reserve-equation').textContent = selected.map(money).join(' + ') + ' (' + selected.length + '/' + game.players.length + ')';
+        return;
+      }
       case 'reserve': {
         const values = [...app.querySelectorAll('[data-reserve]')].map(input => +input.value);
         if (values.some(n => ![100,200,300].includes(n))) throw new Error('Bitte die Reservekarte jedes Spielers auswählen.');
