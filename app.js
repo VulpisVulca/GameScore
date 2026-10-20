@@ -94,11 +94,15 @@ function currentRound() { return editor?.index !== null && editor ? game.events[
 function dashboard() {
   const a = account(game);
   const ended = a.secondBreak !== null;
+  const distribution = ended && screen === 'statistics';
+  const totalMoney = a.balances.reduce((sum,value) => sum + value,0);
+  const shares = a.balances.map(value => totalMoney ? value / totalMoney * 100 : 0);
+  const percent = value => value.toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1}) + ' %';
   const last = game.events.at(-1);
   const round = last ? last.round + (last.type === 'salary' ? 1 : 0) : 1;
   app.innerHTML = `<div class="table-top"><div><p class="eyebrow">DEIN SPIELTISCH</p><h1 class="table-title">Food Chain Magnate</h1></div><div class="table-actions"><button class="text-button" data-action="export">↓ Export</button><button class="text-button" data-action="home">Spielauswahl</button></div></div>
-    <div class="bank-bar"><div><span class="eyebrow">BANKBESTAND</span><strong>${money(a.bank)}</strong></div><span>${a.firstBreak === null ? 'Reserve noch verdeckt' : a.needsReserve ? 'Reservekarten aufdecken' : `Reserve: ${money(game.reserves.reduce((s,n) => s+n,0))} · ${a.secondBreak === null ? '1. Bankbruch' : '2. Bankbruch'}`}</span><span class="round-pill">${ended ? 'Partie beendet' : `Runde ${round}`}</span></div>
-    <section class="accounts">${game.players.map((p,i) => `<div class="account" style="--player-color:${p.color}"><span>${playerName(p)}</span><strong>${money(a.balances[i])}</strong></div>`).join('')}</section>
+    ${distribution ? `<section class="money-distribution" aria-label="Prozentuale Verteilung des Endgeldes"><div class="distribution-heading"><strong>Geldverteilung am Spielende</strong><span>Gesamt: ${money(totalMoney)}</span></div><div class="distribution-bar">${game.players.map((p,i) => `<div style="width:${shares[i]}%;background:${p.color}" role="img" aria-label="${esc(p.name)}: ${percent(shares[i])}" title="${esc(p.name)}: ${money(a.balances[i])} (${percent(shares[i])})">${shares[i]>=10 ? percent(shares[i]) : ''}</div>`).join('')}</div></section>` : `<div class="bank-bar"><div><span class="eyebrow">BANKBESTAND</span><strong>${money(a.bank)}</strong></div><span>${a.firstBreak === null ? 'Reserve noch verdeckt' : a.needsReserve ? 'Reservekarten aufdecken' : `Reserve: ${money(game.reserves.reduce((s,n) => s+n,0))} · ${a.secondBreak === null ? '1. Bankbruch' : '2. Bankbruch'}`}</span><span class="round-pill">${ended ? 'Partie beendet' : `Runde ${round}`}</span></div>`}
+    <section class="accounts">${game.players.map((p,i) => `<div class="account" style="--player-color:${p.color}"><span>${playerName(p)}</span>${distribution ? `<div class="account-share"><strong>${money(a.balances[i])}</strong><small>${percent(shares[i])}</small></div>` : `<strong>${money(a.balances[i])}</strong>`}</div>`).join('')}</section>
     <nav class="tabs"><button class="${screen === 'table' ? 'active' : ''}" data-action="table">${ended ? 'Ergebnis' : 'Spieltisch'}</button><button class="${screen === 'log' ? 'active' : ''}" data-action="log">Protokoll <span>${Math.ceil(game.events.length / 2)}</span></button>${ended ? `<button class="${screen === 'statistics' ? 'active' : ''}" data-action="statistics">Statistiken</button><button class="${screen === 'awards' ? 'active' : ''}" data-action="awards">Achievements</button>` : ''}</nav><div id="workspace"></div>`;
   const workspace = document.querySelector('#workspace');
   if (screen === 'log') { renderLog(workspace); return; }

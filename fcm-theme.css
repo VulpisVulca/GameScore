@@ -190,6 +190,17 @@ body.fcm-theme{--green:#225b5e;--muted:#59656a;--line:#c9caba;--paper:#fffcf2;--
 .fcm-theme .final-round-notice p{font-size:19px;line-height:1.6;max-width:580px;margin:12px auto}
 .fcm-theme .final-round-icon{display:inline-grid;place-items:center;width:58px;height:58px;font-size:34px;color:#fff6da;background:linear-gradient(#e0ad46,#b87523);border:4px double #fff3ce;border-radius:50%;box-shadow:0 0 0 1px #b68a43,0 3px 0 #bbae89}
 .fcm-theme .winning-result{background:#e8efdb;border:1px solid #b2bc93;border-left:5px solid #c49a3d;padding:18px 14px;border-radius:9px;font-weight:700}
+.fcm-theme .money-distribution{padding:14px 18px;border:2px solid #244f55;border-radius:10px;background:linear-gradient(120deg,#326d70,#204c55);box-shadow:inset 0 1px 0 #ffffff70,0 3px 0 #a8b3a1;color:#fffbe9}
+.fcm-theme .distribution-heading{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px 18px;font-size:17px;margin-bottom:12px}
+.fcm-theme .distribution-heading>span{font-size:16px}
+.fcm-theme .distribution-bar{display:flex;height:35px;border-radius:6px;overflow:hidden;background:#ffffff20;box-shadow:0 1px 0 #ffffff40}
+.fcm-theme .distribution-bar>div{display:flex;align-items:center;justify-content:center;min-width:0;overflow:hidden;white-space:nowrap;color:#fff;font-size:16px;font-weight:700;text-shadow:0 1px 3px #000;box-shadow:inset -1px 0 #ffffff60}
+.fcm-theme .account-share{margin-left:auto;text-align:right}
+.fcm-theme .account-share small{display:block;font-size:18px;font-weight:700;color:#315f64;margin-top:2px}
+@media(max-width:760px){
+  .fcm-theme .money-distribution{padding:12px}
+  .fcm-theme .distribution-bar>div{font-size:13px}
+}
 .fcm-theme .stats-heading{margin-bottom:20px}
 .fcm-theme .stats-heading h2{margin-bottom:8px}
 .fcm-theme .stats-heading p{font-size:16px;color:#526164;margin:0}
