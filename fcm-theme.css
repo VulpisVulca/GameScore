@@ -119,11 +119,13 @@ body.fcm-theme{--green:#225b5e;--muted:#59656a;--line:#c9caba;--paper:#fffcf2;--
 .fcm-theme .sidebar-heading>span{font-size:15px;color:#4d6062}
 .fcm-theme .price-comparison{padding:20px;margin-bottom:26px;border-top:5px solid #70a9a0}
 .fcm-theme .comparison-intro{font-size:16px;line-height:1.5}
-.fcm-theme .comparison-columns,.fcm-theme .comparison-row{grid-template-columns:minmax(0,1fr) 80px 80px;gap:12px}
+.fcm-theme .comparison-columns,.fcm-theme .comparison-row{grid-template-columns:minmax(0,1fr) 150px 80px;gap:12px}
 .fcm-theme .comparison-columns{font-size:13px;font-weight:600;color:#4a6062;border-bottom:2px solid #b5c7b6;padding-bottom:8px}
 .fcm-theme .comparison-row{padding:12px 0;border-color:#cbd3bf}
 .fcm-theme .comparison-row>span{font-size:17px;font-weight:600}
 .fcm-theme .comparison-row input{font-size:22px;min-height:46px}
+.fcm-theme .comparison-row .stepper input{font-size:24px;padding:5px 0;min-height:48px;margin:0}
+.fcm-theme .comparison-row .stepper button{min-width:43px;min-height:48px}
 .fcm-theme .comparison-row>strong{font-size:24px;color:#24565e}
 .fcm-theme .house-item{padding:15px 16px;gap:13px;margin-bottom:13px}
 .fcm-theme .house-number strong{font-size:16px}
@@ -299,7 +301,7 @@ body.fcm-theme{--green:#225b5e;--muted:#59656a;--line:#c9caba;--paper:#fffcf2;--
   .fcm-theme .house-form-actions{margin-top:20px;padding-top:19px;gap:12px;flex-direction:column}
   .fcm-theme .house-form-actions button{font-size:17px;padding:13px 15px;min-height:50px}
   .fcm-theme .price-comparison{padding:18px 16px}
-  .fcm-theme .comparison-columns,.fcm-theme .comparison-row{grid-template-columns:minmax(0,1fr) 69px 72px;gap:9px}
+  .fcm-theme .comparison-columns,.fcm-theme .comparison-row{grid-template-columns:minmax(0,1fr) 142px 65px;gap:8px}
   .fcm-theme .comparison-columns{font-size:13px}
   .fcm-theme .comparison-row>span{font-size:16px;line-height:1.35}
   .fcm-theme .comparison-row input{font-size:22px;padding:8px 5px}
@@ -382,7 +384,8 @@ body.fcm-theme{--green:#225b5e;--muted:#59656a;--line:#c9caba;--paper:#fffcf2;--
   .fcm-theme .house-goods label>span{min-height:0}
   .fcm-theme .cfo-toggle{flex-wrap:wrap}
   .fcm-theme .cfo-state{margin-left:42px}
-  .fcm-theme .comparison-columns,.fcm-theme .comparison-row{grid-template-columns:minmax(0,1fr) 61px 65px;gap:6px}
+  .fcm-theme .comparison-columns,.fcm-theme .comparison-row{grid-template-columns:minmax(0,1fr) 134px 58px;gap:6px}
+  .fcm-theme .comparison-row .stepper button{min-width:40px}
   .fcm-theme .ledger-player-mobile{font-size:14px}
   .fcm-theme .ledger-amounts{font-size:13px;gap:5px}
   .fcm-theme .ledger-amounts>strong{font-size:16px}

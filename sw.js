@@ -1,4 +1,4 @@
-const CACHE = 'gamescores-v8';
+const CACHE = 'gamescores-v9';
 const FILES = ['./', './index.html', './style.css', './fcm-theme.css', './app.js', './rules.js', './icon.svg', './manifest.webmanifest', './assets/fonts/Barlow-Regular.ttf', './assets/fonts/Barlow-SemiBold.ttf', './assets/fonts/Barlow-Bold.ttf', './assets/fonts/Lobster-Regular.ttf'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES)).then(() => self.skipWaiting()));

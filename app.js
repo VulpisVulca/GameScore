@@ -150,7 +150,7 @@ function goodsUnitPrice(key) {
   return `${money(comparisonPrice(i) * (editor.houseForm.type === 'garden' ? 2 : 1) + (bonus ? 5 : 0))} / Stück`;
 }
 function priceComparison() {
-  return `<section class="price-comparison"><div class="sidebar-heading"><h2>Preisvergleich</h2></div><p class="comparison-intro">Stückpreise aller Spieler auf einen Blick.</p><div class="comparison-columns"><span>Spieler</span><span>Basispreis</span><span>Stückpreis</span></div>${game.players.map((p,i) => `<div class="comparison-row"><span>${playerName(p)}</span><label><span class="sr-only">Basispreis vor Preis-Meilenstein für ${esc(p.name)}</span><input type="number" inputmode="numeric" min="${editor.rows[i].milestones.price ? 1 : 0}" max="100" step="1" required data-comparison-price="${i}" value="${editor.houseForm.player === i ? editor.houseForm.price : editor.rows[i].price}"></label><strong data-comparison-unit="${i}">${money(comparisonPrice(i))}</strong></div>`).join('')}<p class="hint">Basispreis an Mitarbeiter anpassen. Der −1-$-Meilenstein ist im Stückpreis bereits enthalten. Warenboni und CFO erhöhen die Einnahmen.</p></section>`;
+  return `<section class="price-comparison"><div class="sidebar-heading"><h2>Preisvergleich</h2></div><p class="comparison-intro">Stückpreise aller Spieler auf einen Blick.</p><div class="comparison-columns"><span>Spieler</span><span>Basispreis</span><span>Stückpreis</span></div>${game.players.map((p,i) => `<div class="comparison-row"><span>${playerName(p)}</span><label><span class="sr-only">Basispreis vor Preis-Meilenstein für ${esc(p.name)}</span><div class="stepper"><button type="button" data-action="price-count" data-index="${i}" data-delta="-1" aria-label="Basispreis für ${esc(p.name)} um 1 Dollar senken">−</button><input type="number" inputmode="numeric" min="${editor.rows[i].milestones.price ? 1 : 0}" max="100" step="1" required data-comparison-price="${i}" value="${editor.houseForm.player === i ? editor.houseForm.price : editor.rows[i].price}"><button type="button" data-action="price-count" data-index="${i}" data-delta="1" aria-label="Basispreis für ${esc(p.name)} um 1 Dollar erhöhen">+</button></div></label><strong data-comparison-unit="${i}">${money(comparisonPrice(i))}</strong></div>`).join('')}<p class="hint">Basispreis an Mitarbeiter anpassen. Der −1-$-Meilenstein ist im Stückpreis bereits enthalten. Warenboni und CFO erhöhen die Einnahmen.</p></section>`;
 }
 function refreshHousePrices() {
   game.players.forEach((_,i) => {
@@ -450,6 +450,13 @@ app.addEventListener('click', async event => {
         if (!validInputs()) return;
         const key = button.dataset.field;
         editor.houseForm[key] = Math.max(0,Math.min(1000000,editor.houseForm[key] + +button.dataset.delta)); persistDraft(); break;
+      }
+      case 'price-count': {
+        if (!validInputs()) return;
+        const input = app.querySelector(`[data-comparison-price="${button.dataset.index}"]`);
+        input.value = Math.max(+input.min,Math.min(+input.max,input.valueAsNumber + +button.dataset.delta));
+        input.dispatchEvent(new Event('input',{bubbles:true}));
+        return;
       }
       case 'waitress-count': {
         if (!validInputs()) return;
