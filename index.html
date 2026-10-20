@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#193e36">
+  <meta name="description" content="Dein digitaler Spieltisch. Food Chain Magnate ohne Bargeld, auch offline.">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./style.css">
+  <title>GameScores · Dein Spieltisch</title>
+</head>
+<body>
+  <header><a class="brand" href="#home"><span class="brand-icon">▦</span> GameScores<span class="brand-tag">AM SPIELTISCH</span></a><span id="connection" class="status">Lokal gespeichert</span></header>
+  <main id="app"></main>
+  <footer>Für gemeinsame Abende. <span>Spielstände bleiben auf diesem Gerät.</span><span id="offline-status"></span></footer>
+  <div id="notice" role="status" aria-live="polite"></div>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
