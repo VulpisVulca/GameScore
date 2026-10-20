@@ -148,7 +148,7 @@ export const en = {
   'Haus übernehmen & nächstes':'Add house & next',
   'Diese Runde':'This round',
   'Warenumsatz inkl. Meilensteinen':'Product revenue including milestones',
-  'Häuser fertig · weiter →':'Houses done · next →',
+  'Essenszeit abschließen →':'Finish Dinnertime →',
   '← Häuser':'← Houses',
   'Weiter zu den Löhnen →':'Continue to salaries →',
   'Alle Hausverkäufe':'All house sales',
