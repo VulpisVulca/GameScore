@@ -108,7 +108,7 @@ body.fcm-theme{--green:#225b5e;--muted:#59656a;--line:#c9caba;--paper:#fffcf2;--
 .fcm-theme .house-types .choice{padding:13px 15px;min-height:72px;gap:12px;font-size:17px}
 .fcm-theme .house-types .type-icon{font-size:31px}
 .fcm-theme .choice small,.fcm-theme .house-types small{font-size:14px;line-height:1.4;color:#4d6560}
-.fcm-theme .house-price{border-top:2px solid #c1cbb8;padding-top:18px;gap:18px}
+.fcm-theme .house-price{border-top:2px solid #c1cbb8;padding-top:18px;gap:18px;justify-content:flex-end}
 .fcm-theme .house-price>label{font-size:14px;max-width:200px;line-height:1.45}
 .fcm-theme .house-price>div>span{font-size:14px;color:#4f6063}
 .fcm-theme .house-price strong{font-size:30px;font-weight:700}
