@@ -602,3 +602,5 @@ body.fcm-theme{--green:#225b5e;--muted:#59656a;--line:#c9caba;--paper:#fffcf2;--
 .fcm-theme .house-detail>span{grid-column:1 / -1;grid-row:3}
 .fcm-theme .house-item>strong{grid-column:2;grid-row:1}
 }
+
+.fcm-theme .fry-chef-field{display:block;margin-top:14px}

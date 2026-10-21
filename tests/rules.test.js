@@ -10,7 +10,7 @@ const wages = (round, a, b) => ({type:'salary',round,rows:[a,b]});
 
 test('Umsatz je Warenart, alle Boni, Trinkgeld und einmaliger aufgerundeter CFO', () => {
   const result = calculateSale(sale({ burger: 2, pizza: 1, beer: 1, lemonade: 2, soda: 3, waitresses: 1, cfo: true, milestones: milestones({burger:true,pizza:true,drink:true}) }));
-  assert.deepEqual(result, {quantity:9,coffee:0,price:10,revenue:90,coffeeRevenue:0,bonus:45,tips:3,cfo:69,total:207});
+  assert.deepEqual(result, {quantity:9,coffee:0,price:10,revenue:90,coffeeRevenue:0,bonus:45,tips:3,fry:0,fryHouses:0,cfo:69,total:207});
 });
 test('permanenter CFO wird ohne Checkbox angewandt und nicht mit CFO gestapelt', () => {
   const row = sale({ waitresses:1,milestones:milestones({cfo:true}) });
@@ -90,7 +90,7 @@ test('Hausverkäufe mit unterschiedlichen Preisen und Garten korrekt pro Spieler
   const rows = houseRows(configs,[house({burger:1}),house({number:'Haus 2',burger:1,type:'garden',price:20}),house({number:'Haus 3',player:1,pizza:2,type:'garden',price:7})]);
   assert.equal(rows[0].burger,2);
   assert.equal(rows[0].garden,1);
-  assert.deepEqual(calculateSale(rows[0]),{quantity:2,coffee:0,price:10,revenue:50,coffeeRevenue:0,bonus:10,tips:5,cfo:33,total:98});
+  assert.deepEqual(calculateSale(rows[0]),{quantity:2,coffee:0,price:10,revenue:50,coffeeRevenue:0,bonus:10,tips:5,fry:0,fryHouses:2,cfo:33,total:98});
   assert.equal(calculateSale(rows[1]).total,38);
 });
 test('CFO wird über alle Häuser und Trinkgelder einmal aufgerundet', () => {

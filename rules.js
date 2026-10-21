@@ -44,7 +44,7 @@ export function integer(value, max = 1000000) {
   return value;
 }
 export function emptySale(milestones = {}) {
-  return { burger: 0, pizza: 0, beer: 0, lemonade: 0, soda: 0, coffee:0, coffeeGarden:0, waitresses: 0, price: 10, garden: 0, cfo: false, demand:0, milestones: { ...milestones } };
+  return { burger: 0, pizza: 0, beer: 0, lemonade: 0, soda: 0, coffee:0, coffeeGarden:0, waitresses: 0, fryChefs:0, price: 10, garden: 0, cfo: false, demand:0, milestones: { ...milestones } };
 }
 export function calculateHouse(house, milestones = {}) {
   if (!house || !['normal', 'garden'].includes(house.type) || typeof house.number !== 'string' || house.number.length > 24) throw new Error(t('Bitte ein gültiges Haus auswählen.'));
@@ -63,7 +63,7 @@ export function calculateHouse(house, milestones = {}) {
 }
 export function houseRows(configs, houses) {
   if (!Array.isArray(houses) || houses.length > 1000) throw new Error(t('Zu viele Hausverkäufe.'));
-  const rows = configs.map(config => ({ ...emptySale(config.milestones), waitresses: config.waitresses, cfo: config.cfo, price: config.price, demand:config.demand ?? 0, houses: [] }));
+  const rows = configs.map(config => ({ ...emptySale(config.milestones), waitresses: config.waitresses, fryChefs:config.fryChefs ?? 0, cfo: config.cfo, price: config.price, demand:config.demand ?? 0, houses: [] }));
   for (const house of houses) {
     const player = integer(house.player, rows.length - 1);
     const row = rows[player];
@@ -108,9 +108,13 @@ export function calculateSale(sale) {
     if (coffeeCount!==coffee || gardenCoffee!==coffeeGarden) throw new Error(t('Kaffeeverkäufe und Übersicht stimmen nicht überein.'));
   }
   const bonus = (m.burger ? sale.burger * 5 : 0) + (m.pizza ? sale.pizza * 5 : 0) + (m.drink ? (sale.beer + sale.lemonade + sale.soda) * 5 : 0);
+  const fryChefs=integer(sale.fryChefs ?? 0);
+  if (fryChefs && !Array.isArray(sale.houses) && quantity) throw new Error(t('Friteusenköche benötigen erfasste Hausverkäufe.'));
+  const fryHouses=new Set((sale.houses || []).filter(h=>!isCoffeeSale(h)).map(h=>houseId(h.number) ?? h.number.trim())).size;
+  const fry=fryChefs*fryHouses*10;
   const tips = integer(sale.waitresses) * (m.waitress ? 5 : 3);
-  const cfo = sale.cfo || m.cfo ? Math.ceil((revenue + coffeeRevenue + bonus + tips) / 2) : 0;
-  return { quantity, coffee, price, revenue, coffeeRevenue, bonus, tips, cfo, total: revenue + coffeeRevenue + bonus + tips + cfo };
+  const cfo = sale.cfo || m.cfo ? Math.ceil((revenue + coffeeRevenue + bonus + tips + fry) / 2) : 0;
+  return { quantity, coffee, price, revenue, coffeeRevenue, bonus, tips, fry, fryHouses, cfo, total: revenue + coffeeRevenue + bonus + tips + fry + cfo };
 }
 export function account(game) {
   const balances = game.players.map(() => 0);
@@ -188,7 +192,7 @@ export function roundSettlement(game, rows, wages, index = null, reserves = game
 }
 export function validateGame(game) {
   if (!game || game.version !== 1 || !Array.isArray(game.players) || game.players.length < 2 || game.players.length > 6) throw new Error(t('Kein gültiger GameScores-Spielstand.'));
-  if (game.modules!==undefined && (!game.modules || typeof game.modules!=='object' || Array.isArray(game.modules) || Object.entries(game.modules).some(([key,value])=>!['newDistricts','apartments','coffee'].includes(key)||typeof value!=='boolean'))) throw new Error(t('Ungültige Erweiterungsmodule.'));
+  if (game.modules!==undefined && (!game.modules || typeof game.modules!=='object' || Array.isArray(game.modules) || Object.entries(game.modules).some(([key,value])=>!['newDistricts','apartments','coffee','fryChef'].includes(key)||typeof value!=='boolean'))) throw new Error(t('Ungültige Erweiterungsmodule.'));
   const gardenNumbers=houseOptions(game).filter(number=>typeof number==='number'&&!isNativeGarden(number));
   if (game.milestoneSet!==undefined && !['base','new'].includes(game.milestoneSet)) throw new Error(t('Ungültiger Meilensteinsatz.'));
   if (game.builtGardens !== undefined && (!Array.isArray(game.builtGardens) || game.builtGardens.length > gardenNumbers.length || new Set(game.builtGardens).size !== game.builtGardens.length || game.builtGardens.some(number => !gardenNumbers.includes(number)))) throw new Error(t('Ungültige gebaute Gärten.'));
@@ -263,5 +267,7 @@ function validateMilestones(m,newSet) {
   if (m.newSet && (MILESTONES.some(([key])=>m[key]) || NEW_MILESTONES.some(([key])=>typeof m[key]!=='boolean'))) throw new Error(t('Ungültige Meilensteine.'));
 }
 function validateCoffeeModule(row,game) {
+  integer(row.fryChefs ?? 0);
+  if ((row.fryChefs ?? 0)>0 && !game.modules?.fryChef) throw new Error(t('Das Friteusenkoch-Modul ist nicht aktiviert.'));
   if ((row.coffee ?? 0)>0 && !game.modules?.coffee) throw new Error(t('Das Kaffeemodul ist nicht aktiviert.'));
 }

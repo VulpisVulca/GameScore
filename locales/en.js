@@ -1,5 +1,16 @@
 // German source texts are stable translation keys. {0}, {1}, … are values.
 export const en = {
+  'Friteusenkoch':'Fry Chef',
+  'Friteusenköche':'Fry Chefs',
+  'Ein Friteusenkoch weniger für {0}':'One fewer Fry Chef for {0}',
+  'Ein Friteusenkoch mehr für {0}':'One more Fry Chef for {0}',
+  'Anzahl Friteusenköche für {0}':'Number of Fry Chefs for {0}',
+  'Das Friteusenkoch-Modul ist nicht aktiviert.':'The Fry Chef module is not enabled.',
+  'Friteusenköche benötigen erfasste Hausverkäufe.':'Fry Chefs require recorded house sales.',
+  '10 $ je beliefertem Haus und Koch · kein Kaffee':'$10 per house served and chef · excludes coffee',
+  '+ Friteusenköche':'+ Fry Chefs',
+  '{0} × {1} Häuser × 10 $':'{0} × {1} houses × $10',
+  '{0} Friteusenköche · {1} Häuser':'{0} Fry Chefs · {1} houses',
   'Bereits erfasst':'Already recorded',
   'Dieses Haus wurde in dieser Runde bereits erfasst.':'This house has already been recorded this round.',
   "Für dieses Haus":"For this house",

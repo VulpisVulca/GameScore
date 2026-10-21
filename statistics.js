@@ -4,7 +4,7 @@ import { houseId, houseOrder } from './houses.js';
 
 // Rebuild from the ledger so historical corrections also update every chart.
 export function gameStatistics(game) {
-  const players = game.players.map(p => ({ ...p, income:0, wages:0, balance:0, tips:0, cfo:0, marketing:0, quantity:0, houses:0, gardens:0, bonus:0, discount:0,
+  const players = game.players.map(p => ({ ...p, income:0, wages:0, balance:0, tips:0, fry:0, cfo:0, marketing:0, quantity:0, houses:0, gardens:0, bonus:0, discount:0,
     goods:Object.fromEntries(allGoods.map(([key]) => [key,{quantity:0,income:0}])) }));
   const rounds = [];
   const visits=game.players.map(()=>new Map());
@@ -58,7 +58,7 @@ export function gameStatistics(game) {
           p.goods[key].quantity += row[key] ?? 0;
           p.goods[key].income += goods[key];
         }
-        p.income += c.total; p.balance += c.total; p.tips += c.tips; p.cfo += c.cfo;
+        p.income += c.total; p.balance += c.total; p.tips += c.tips; p.fry += c.fry; p.cfo += c.cfo;
         p.quantity += c.quantity+c.coffee; p.bonus += c.bonus;
         p.gardenQuantity=(p.gardenQuantity || 0)+row.garden+(row.coffeeGarden ?? 0);
         round.players.push({income:c.total,wages:0,net:c.total,balance:p.balance});
