@@ -1,9 +1,10 @@
 import { t, html } from './i18n.js';
-import { GOODS, allGoods, isCoffeeSale, calculateSale, salaryRate, marketingIncome } from './rules.js';
+import { applyReservePrices, GOODS, allGoods, isCoffeeSale, calculateSale, salaryRate, marketingIncome } from './rules.js';
 import { houseId, houseOrder, houseMultiplier } from './houses.js';
 
 // Rebuild from the ledger so historical corrections also update every chart.
 export function gameStatistics(game) {
+  game=applyReservePrices(game);
   const players = game.players.map(p => ({ ...p, income:0, wages:0, balance:0, tips:0, fry:0, cfo:0, marketing:0, quantity:0, houses:0, gardens:0, bonus:0, discount:0,
     goods:Object.fromEntries(allGoods.map(([key]) => [key,{quantity:0,income:0}])) }));
   const rounds = [];
@@ -34,7 +35,7 @@ export function gameStatistics(game) {
           for (const house of row.houses) {
             const price = (house.price - (row.milestones.price ? 1 : 0)) * houseMultiplier(house);
             const quantity = GOODS.reduce((sum,[key])=>sum+house[key],0)+(house.coffee ?? 0);
-            p.discount += quantity * Math.max(0,10-(house.price-(row.milestones.price?1:0))) * houseMultiplier(house);
+            p.discount += quantity * Math.max(0,(row.basePrice ?? 10)-(house.price-(row.milestones.price?1:0))) * houseMultiplier(house);
             for (const [key] of allGoods) goods[key] += (house[key] ?? 0) * price;
             const number=houseId(house.number);
             const label=house.number.trim();
@@ -45,7 +46,7 @@ export function gameStatistics(game) {
           p.houses += row.houses.filter(h=>!isCoffeeSale(h)).length;
           p.gardens += row.houses.filter(h => h.type === 'garden'&&!isCoffeeSale(h)).length;
         } else {
-          p.discount += (c.quantity+row.garden+c.coffee+(row.coffeeGarden ?? 0)) * Math.max(0,10-c.price);
+          p.discount += (c.quantity+row.garden+c.coffee+(row.coffeeGarden ?? 0)) * Math.max(0,(row.basePrice ?? 10)-c.price);
           if (c.quantity>0) housesIncomplete=true;
           // Old records know only the total garden quantity, not its products.
           if (row.garden && GOODS.filter(([key]) => row[key] > 0).length > 1) estimated = true;
@@ -79,7 +80,7 @@ export function gameStatistics(game) {
     player.uniqueHouses=visits[i].size;
     player.houseVisits=[...visits[i].values()].map(visit=>({...visit,rounds:[...visit.rounds].sort((a,b)=>a-b)}));
   });
-  return {players,rounds,estimated,firstSale,firstSaleUnavailable,housesIncomplete};
+  return {players,rounds,estimated,firstSale,firstSaleUnavailable,housesIncomplete,variableBasePrice:game.modules?.reservePrices===true};
 }
 
 export function gameAwards(stats) {
@@ -126,7 +127,7 @@ export function gameAwards(stats) {
   if (stats.firstSale) result.push({title:t('Erster Verkauf des Spiels'),detail:t('Erster Warenverkauf in Hausnummern-Reihenfolge'),
     value:stats.firstSale.number,house:stats.firstSale.number,winners:stats.firstSale.winners,rounds:[stats.firstSale.round]});
   award(t('Finanzgenie'),players.map(p => p.cfo),'$',t('Meistes Geld mit CFO'));
-  award(t('Größter Preisnachlass'),players.map(p=>p.discount),'$',t('Kumulierte Rabatte gegenüber 10 $ pro Ware, inklusive Preis-Meilenstein und doppeltem Rabatt bei Gärten'));
+  award(t('Größter Preisnachlass'),players.map(p=>p.discount),'$',t(stats.variableBasePrice?'Kumulierte Rabatte gegenüber dem jeweiligen Grundpreis, inklusive Preis-Meilenstein und Hausfaktor':'Kumulierte Rabatte gegenüber 10 $ pro Ware, inklusive Preis-Meilenstein und doppeltem Rabatt bei Gärten'));
   award(t('Trinkgeldkönig'),players.map(p => p.tips),'$',t('Am meisten Trinkgeld verdient'));
   award(t('Gartenliebling'),players.map(p=>p.gardenQuantity),t('Stück'),t('Meiste Waren an Häuser mit Garten verkauft'));
   award(t('Liebling der Nachbarschaft'),players.map(p=>p.uniqueHouses),t('Häuser'),t('Meiste unterschiedliche Häuser beliefert'));

@@ -37,14 +37,54 @@ export function emptyMilestones(set='base') {
 }
 export const salaryRate = row => row?.milestones?.salary ? 3 : 5;
 export const marketingIncome = row => row?.milestones?.marketeer ? integer(row.demand ?? 0)*5 : 0;
-export const bankRemoval = row => row.milestones.discount && row.price<=7 ? 100 : 0;
+export const bankRemoval = row => row.milestones.discount && row.price<=(row.basePrice ?? 10)-3 ? 100 : 0;
+export const reserveOptions = game => game.modules?.reservePrices ? [5,10,20] : [100,200,300];
+export function reserveBasePrice(cards) {
+  if(!Array.isArray(cards) || !cards.length || cards.some(n=>![5,10,20].includes(n))) return null;
+  const counts=Object.fromEntries([5,10,20].map(n=>[n,cards.filter(value=>value===n).length]));
+  const max=Math.max(...Object.values(counts));
+  return [20,5,10].find(n=>counts[n]===max);
+}
+export const reserveAmount = (game,cards=game.reserves) => !cards ? 0 : game.modules?.reservePrices ? game.players.length*200 : cards.reduce((sum,n)=>sum+n,0);
+function rebaseRow(row,basePrice) {
+  const delta=basePrice-(row.basePrice ?? 10);
+  row.price+=delta;
+  if(row.houses)for(const house of row.houses)house.price+=delta;
+  row.basePrice=basePrice;
+}
+// Keep employee price adjustments while replaying when the first bank break moves.
+export function applyReservePrices(game) {
+  if(!game.modules?.reservePrices) return game;
+  const next=structuredClone(game);
+  let bank=next.players.length*50, broken=false, basePrice=10, lastSaleBase=10;
+  const breakBank=()=>{if(bank<=0&&!broken){broken=true;bank+=reserveAmount(next);basePrice=reserveBasePrice(next.reserves) ?? 10;}};
+  for(let i=0;i<next.events.length;i++) {
+    const event=next.events[i];
+    if(event.type==='sale') {
+      lastSaleBase=basePrice;
+      for(const row of event.rows){rebaseRow(row,basePrice);bank-=bankRemoval(row)+calculateSale(row).total;}
+    } else {
+      event.rows.forEach((count,j)=>{const row=next.events[i-1].rows[j];bank+=count*salaryRate(row)-marketingIncome(row);});
+    }
+    breakBank();
+  }
+  const draft=next.draft?.type==='sale'?next.draft:next.draft?.completion;
+  if(draft) {
+    const target=next.draft.type==='sale'?basePrice:lastSaleBase;
+    const oldBase=draft.rows[draft.houseForm?.player ?? 0]?.basePrice ?? 10;
+    draft.rows.forEach(row=>rebaseRow(row,target));
+    if(draft.houseForm)draft.houseForm.price+=target-oldBase;
+  }
+  return next;
+}
+
 export const COLORS = ['#b34335', '#d3a323', '#336f9b', '#4e8052', '#75548c', '#c55b86'];
 export function integer(value, max = 1000000) {
   if (!Number.isSafeInteger(value) || value < 0 || value > max) throw new Error(t('Bitte eine gültige, nicht negative ganze Zahl eingeben.'));
   return value;
 }
-export function emptySale(milestones = {}) {
-  return { burger: 0, pizza: 0, beer: 0, lemonade: 0, soda: 0, coffee:0, coffeeGarden:0, waitresses: 0, fryChefs:0, price: 10, garden: 0, cfo: false, demand:0, milestones: { ...milestones } };
+export function emptySale(milestones = {},basePrice=10) {
+  return { burger: 0, pizza: 0, beer: 0, lemonade: 0, soda: 0, coffee:0, coffeeGarden:0, waitresses: 0, fryChefs:0, basePrice, price: basePrice, garden: 0, cfo: false, demand:0, milestones: { ...milestones } };
 }
 export function calculateHouse(house, milestones = {}) {
   if (!house || !['normal', 'garden'].includes(house.type) || typeof house.number !== 'string' || house.number.length > 24) throw new Error(t('Bitte ein gültiges Haus auswählen.'));
@@ -64,7 +104,7 @@ export function calculateHouse(house, milestones = {}) {
 }
 export function houseRows(configs, houses) {
   if (!Array.isArray(houses) || houses.length > 1000) throw new Error(t('Zu viele Hausverkäufe.'));
-  const rows = configs.map(config => ({ ...emptySale(config.milestones), waitresses: config.waitresses, fryChefs:config.fryChefs ?? 0, cfo: config.cfo, price: config.price, demand:config.demand ?? 0, houses: [] }));
+  const rows = configs.map(config => ({ ...emptySale(config.milestones), waitresses: config.waitresses, fryChefs:config.fryChefs ?? 0, basePrice:config.basePrice ?? 10, cfo: config.cfo, price: config.price, demand:config.demand ?? 0, houses: [] }));
   for (const house of houses) {
     const player = integer(house.player, rows.length - 1);
     const row = rows[player];
@@ -80,6 +120,7 @@ export function houseRows(configs, houses) {
 }
 export function calculateSale(sale) {
   const m = sale.milestones;
+  if(sale.basePrice!==undefined && ![5,10,20].includes(sale.basePrice)) throw new Error(t('Ungültiger Grundpreis.'));
   const quantity = GOODS.reduce((sum, [key]) => sum + integer(sale[key]), 0);
   integer(sale.demand ?? 0);
   const price = integer(sale.price, 100) - (m.price ? 1 : 0);
@@ -118,6 +159,7 @@ export function calculateSale(sale) {
   return { quantity, coffee, price, revenue, coffeeRevenue, bonus, tips, fry, fryHouses, cfo, total: revenue + coffeeRevenue + bonus + tips + fry + cfo };
 }
 export function account(game) {
+  game=applyReservePrices(game);
   const balances = game.players.map(() => 0);
   let bank = game.players.length * 50;
   let firstBreak = null;
@@ -132,7 +174,7 @@ export function account(game) {
       event.rows.forEach((row, player) => { const total = calculateSale(row).total; balances[player] += total; bank -= total; });
       if (bank <= 0 && firstBreak === null) {
         firstBreak = index;
-        if (game.reserves) bank += game.reserves.reduce((sum, value) => sum + value, 0);
+        if (game.reserves) bank += reserveAmount(game);
       }
       if (bank <= 0 && firstBreak !== null && game.reserves && secondBreak === null) secondBreak = index;
     } else {
@@ -150,12 +192,12 @@ export function account(game) {
       });
       if (bank<=0 && firstBreak===null) {
         firstBreak=index;
-        if (game.reserves) bank+=game.reserves.reduce((sum,n)=>sum+n,0);
+        if (game.reserves) bank+=reserveAmount(game);
       }
       // A later bank break during Marketing ends the game at the next Dinnertime.
     }
   }
-  return { bank, balances, firstBreak, secondBreak, needsReserve: firstBreak !== null && !game.reserves, issues: [...new Set(issues)] };
+  return { bank, balances, firstBreak, secondBreak, basePrice:game.modules?.reservePrices && firstBreak!==null && game.reserves ? reserveBasePrice(game.reserves) : 10, needsReserve: firstBreak !== null && !game.reserves, issues: [...new Set(issues)] };
 }
 export function roundSettlement(game, rows, wages, index = null, reserves = game.reserves) {
   if (rows.length !== game.players.length || wages.length !== game.players.length) throw new Error(t('Ungültige Anzahl Spieler.'));
@@ -165,7 +207,8 @@ export function roundSettlement(game, rows, wages, index = null, reserves = game
   const position = index === null ? game.events.length : index;
   integer(position, game.events.length);
   if (position % 2 !== 0 || position > game.events.length || (index !== null && game.events[position]?.type !== 'sale')) throw new Error(t('Ungültige Verkaufsrunde.'));
-  if (reserves !== null && (!Array.isArray(reserves) || reserves.length !== game.players.length || reserves.some(n => ![100,200,300].includes(n)))) throw new Error(t('Ungültige Reservekarten.'));
+  if(game.modules?.reservePrices){rows=structuredClone(rows);const base=account({...game,events:game.events.slice(0,position),draft:null}).basePrice;rows.forEach(row=>rebaseRow(row,base));}
+  if (reserves !== null && (!Array.isArray(reserves) || reserves.length !== game.players.length || reserves.some(n => !reserveOptions(game).includes(n)))) throw new Error(t('Ungültige Reservekarten.'));
   const round = Math.floor(position / 2) + 1;
   const oldSale = game.events[position];
   const oldSalary = game.events[position + 1]?.type === 'salary' ? game.events[position + 1] : null;
@@ -173,7 +216,7 @@ export function roundSettlement(game, rows, wages, index = null, reserves = game
   const suffix = game.events.slice(position + (oldSalary ? 2 : oldSale ? 1 : 0));
   const time = new Date().toISOString();
   const sale = { ...oldSale, type:'sale', round, rows:structuredClone(rows), createdAt:oldSale?.createdAt || time, combined:true, ...(oldSale ? {updatedAt:time} : {}) };
-  const candidate = { ...structuredClone(game), reserves:reserves && [...reserves] };
+  let candidate = { ...structuredClone(game), reserves:reserves && [...reserves] };
   const before = account({ ...candidate, events:prefix });
   const afterSales = account({ ...candidate, events:[...prefix,sale] });
   const incomes = rows.map(row => calculateSale(row).total);
@@ -188,12 +231,13 @@ export function roundSettlement(game, rows, wages, index = null, reserves = game
   if (after.needsReserve) return {candidate:null,before,afterSales,incomes,expenses,marketing,removed,balances:null,needsReserve:true,ended:false,issues:[]};
   candidate.events = [...events,...suffix];
   if (index === null || (position === game.events.length - 1 && game.draft?.type === 'salary')) candidate.draft = null;
+  candidate=applyReservePrices(candidate);
   const issues = account(candidate).issues;
   return {candidate,before,afterSales,incomes,expenses,marketing,removed,balances:after.balances,needsReserve:false,ended,issues};
 }
 export function validateGame(game) {
   if (!game || game.version !== 1 || !Array.isArray(game.players) || game.players.length < 2 || game.players.length > 6) throw new Error(t('Kein gültiger GameScores-Spielstand.'));
-  if (game.modules!==undefined && (!game.modules || typeof game.modules!=='object' || Array.isArray(game.modules) || Object.entries(game.modules).some(([key,value])=>!['newDistricts','apartments','coffee','fryChef','lobbyist'].includes(key)||typeof value!=='boolean'))) throw new Error(t('Ungültige Erweiterungsmodule.'));
+  if (game.modules!==undefined && (!game.modules || typeof game.modules!=='object' || Array.isArray(game.modules) || Object.entries(game.modules).some(([key,value])=>!['newDistricts','apartments','coffee','fryChef','lobbyist','reservePrices'].includes(key)||typeof value!=='boolean'))) throw new Error(t('Ungültige Erweiterungsmodule.'));
   const options=houseOptions(game);
   if (game.builtParks!==undefined && (!Array.isArray(game.builtParks) || new Set(game.builtParks).size!==game.builtParks.length || game.builtParks.some(id=>!options.includes(id)))) throw new Error(t('Ungültige Parks.'));
   if (game.builtParkRounds!==undefined && (!game.builtParkRounds || typeof game.builtParkRounds!=='object' || Array.isArray(game.builtParkRounds) || Object.entries(game.builtParkRounds).some(([id,round])=>!options.some(option=>String(option)===id) || !Number.isSafeInteger(round) || round<1 || round>10001))) throw new Error(t('Ungültige Park-Baurunden.'));
@@ -207,7 +251,7 @@ export function validateGame(game) {
     validateMilestones(p.milestones,game.milestoneSet==='new');
   });
   if (new Set(game.players.map(p => p.color)).size !== game.players.length) throw new Error(t('Jede Farbe darf nur einmal vergeben sein.'));
-  if (game.reserves !== null && (!Array.isArray(game.reserves) || game.reserves.length !== game.players.length || game.reserves.some(n => ![100, 200, 300].includes(n)))) throw new Error(t('Ungültige Reservekarten.'));
+  if (game.reserves !== null && (!Array.isArray(game.reserves) || game.reserves.length !== game.players.length || game.reserves.some(n => !reserveOptions(game).includes(n)))) throw new Error(t('Ungültige Reservekarten.'));
   if (!Array.isArray(game.events) || game.events.length > 10000) throw new Error(t('Ungültiges Protokoll.'));
   game.events.forEach((event, index) => {
     if (event.type !== (index % 2 ? 'salary' : 'sale') || event.round !== Math.floor(index / 2) + 1 || !Array.isArray(event.rows) || event.rows.length !== game.players.length) throw new Error(t('Ungültige Rundenfolge.'));
@@ -239,7 +283,7 @@ export function validateGame(game) {
       if (type !== 'sale' || !Array.isArray(game.draft.wages) || game.draft.wages.length !== game.players.length) throw new Error(t('Ungültiger Lohnentwurf.'));
       game.draft.wages.forEach(n => integer(n));
     }
-    if (game.draft.reserves !== undefined && game.draft.reserves !== null && (!Array.isArray(game.draft.reserves) || game.draft.reserves.length !== game.players.length || game.draft.reserves.some(n => ![100,200,300].includes(n)))) throw new Error(t('Ungültige Reservekarten im Entwurf.'));
+    if (game.draft.reserves !== undefined && game.draft.reserves !== null && (!Array.isArray(game.draft.reserves) || game.draft.reserves.length !== game.players.length || game.draft.reserves.some(n => !reserveOptions(game).includes(n)))) throw new Error(t('Ungültige Reservekarten im Entwurf.'));
     if (game.draft.removedGardens !== undefined && (!Array.isArray(game.draft.removedGardens) || game.draft.removedGardens.length>gardenNumbers.length || new Set(game.draft.removedGardens).size!==game.draft.removedGardens.length || game.draft.removedGardens.some(number=>!gardenNumbers.includes(number)))) throw new Error(t('Ungültige Gartenkorrektur.'));
     if (game.draft.removedParks!==undefined && (!Array.isArray(game.draft.removedParks) || new Set(game.draft.removedParks).size!==game.draft.removedParks.length || game.draft.removedParks.some(id=>!options.includes(id)) || (game.draft.removedParks.length && !game.modules?.lobbyist))) throw new Error(t('Ungültige Parkkorrektur.'));
     if (game.draft.houseForm !== undefined) {
@@ -267,7 +311,7 @@ export function validateGame(game) {
     }
   }
   account(game);
-  return game;
+  return applyReservePrices(game);
 }
 function validateMilestones(m,newSet) {
   if (!m || MILESTONES.some(([key]) => typeof m[key] !== 'boolean')) throw new Error(t('Ungültige Meilensteine.'));
@@ -276,6 +320,7 @@ function validateMilestones(m,newSet) {
   if (m.newSet && (MILESTONES.some(([key])=>m[key]) || NEW_MILESTONES.some(([key])=>typeof m[key]!=='boolean'))) throw new Error(t('Ungültige Meilensteine.'));
 }
 function validateCoffeeModule(row,game) {
+  if(!game.modules?.reservePrices && row.basePrice!==undefined && row.basePrice!==10)throw new Error(t('Alternative Reservekarten sind nicht aktiviert.'));
   if(row.houses?.some(h=>h.park && !houseOptions(game).includes(houseId(h.number)))) throw new Error(t('Ungültiges Haus für einen Park.'));
   if (!game.modules?.lobbyist && row.houses?.some(h=>h.park)) throw new Error(t('Das Lobbyist-Modul ist nicht aktiviert.'));
   integer(row.fryChefs ?? 0);
