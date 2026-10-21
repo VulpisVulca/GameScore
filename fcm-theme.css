@@ -581,3 +581,5 @@ body.fcm-theme{--green:#225b5e;--muted:#59656a;--line:#c9caba;--paper:#fffcf2;--
 .fcm-theme .coffee-dialog .stepper button {min-width:32px;width:32px;min-height:40px;padding:0;flex:0 0 32px}
 .fcm-theme .coffee-dialog-actions {display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
 .fcm-theme .coffee-dialog-actions button {min-height:44px;padding:9px 12px}
+
+.fcm-theme .house-tile:disabled,.fcm-theme .house-tile:disabled:hover{background:#b9b9b3;color:#565952;border-color:#a1aaa0;box-shadow:none;opacity:1;cursor:not-allowed}

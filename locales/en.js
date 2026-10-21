@@ -1,5 +1,7 @@
 // German source texts are stable translation keys. {0}, {1}, … are values.
 export const en = {
+  'Bereits erfasst':'Already recorded',
+  'Dieses Haus wurde in dieser Runde bereits erfasst.':'This house has already been recorded this round.',
   "Für dieses Haus":"For this house",
   "☕ Kaffee{0}":"☕ Coffee{0}",
   "Übernehmen ✓":"Apply ✓",

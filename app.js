@@ -242,10 +242,11 @@ function editableGarden(label) { return canRemoveBuiltGarden(gardenGame(),label,
 const coffeeForm = () => editor.houseForm.kind==='coffee'||isCoffeeSale(editor.houseForm);
 const mealHouses = () => editor.houses.filter(h=>!isCoffeeSale(h));
 const availableHouses = () => houseOptions(game).filter(id=>!coffeeForm()||mealHouses().some(h=>sameHouse(h.number,id)));
+const houseAlreadyUsed = number => !coffeeForm() && editor.houses.some((house,index)=>index!==editor.editingHouse && !isCoffeeSale(house) && sameHouse(house.number,number));
 const formGoods = () => coffeeForm()?[COFFEE]:GOODS;
 function renderHousePicker() {
   const selected=houseId(editor.houseForm.number);
-  return html`<dialog id="house-picker" class="house-picker" aria-labelledby="house-picker-title"><div class="house-picker-heading"><h2 id="house-picker-title">Haus wählen</h2><button class="text-button" data-action="close-house-picker" aria-label="Schließen">×</button></div><div class="house-picker-legend"><span><i class="house-key"></i>Ohne Garten</span><span><i class="house-key native"></i>Mit Garten</span><span><i class="house-key built"></i>Garten gebaut</span></div><div class="house-number-grid">${availableHouses().map(number=>{const kind=visibleGardenKind(number);return html`<button class="house-tile ${kind==='native'?'native-garden':kind==='built'?'built-garden':''} ${selected===number?'selected':''}" data-action="select-house" data-number="${number}" aria-label="Haus ${number} · ${kind==='native'?t('Mit Garten'):kind==='built'?t('Garten gebaut'):t('Ohne Garten')}" aria-pressed="${selected===number}"><strong>${number}</strong><small>${isApartment(number)?t('Apartment'):kind==='built'?t('Garten gebaut'):kind==='native'?t('Mit Garten'):t('Ohne Garten')}</small></button>`;}).join('')}</div><p class="hint">Gebaute Gärten bleiben für diese Partie gespeichert.</p></dialog>`;
+  return html`<dialog id="house-picker" class="house-picker" aria-labelledby="house-picker-title"><div class="house-picker-heading"><h2 id="house-picker-title">Haus wählen</h2><button class="text-button" data-action="close-house-picker" aria-label="Schließen">×</button></div><div class="house-picker-legend"><span><i class="house-key"></i>Ohne Garten</span><span><i class="house-key native"></i>Mit Garten</span><span><i class="house-key built"></i>Garten gebaut</span></div><div class="house-number-grid">${availableHouses().map(number=>{const kind=visibleGardenKind(number),used=houseAlreadyUsed(number);return html`<button class="house-tile ${kind==='native'?'native-garden':kind==='built'?'built-garden':''} ${selected===number?'selected':''}" data-action="select-house" data-number="${number}" aria-label="Haus ${number} · ${kind==='native'?t('Mit Garten'):kind==='built'?t('Garten gebaut'):t('Ohne Garten')}" aria-pressed="${selected===number}" ${used?'disabled':''}><strong>${number}</strong><small>${used?t('Bereits erfasst'):isApartment(number)?t('Apartment'):kind==='built'?t('Garten gebaut'):kind==='native'?t('Mit Garten'):t('Ohne Garten')}</small></button>`;}).join('')}</div><p class="hint">Gebaute Gärten bleiben für diese Partie gespeichert.</p></dialog>`;
 }
 function housePreview() {
   if (editor.houseForm.player === null) return t('Spieler auswählen');
@@ -355,6 +356,7 @@ function storeHouse() {
   const house = editor.houseForm;
   if (house.player === null || !game.players[house.player]) throw new Error(t('Bitte den Spieler auswählen, der dieses Haus beliefert.'));
   if (!house.number.trim()) throw new Error(t('Bitte eine Hausnummer auswählen.'));
+  if (houseAlreadyUsed(house.number)) throw new Error(t('Dieses Haus wurde in dieser Runde bereits erfasst.'));
   calculateHouse(house, editor.rows[house.player].milestones);
   const old=editor.editingHouse===null?null:editor.houses[editor.editingHouse];
   if (old&&!isCoffeeSale(old)&&!sameHouse(old.number,house.number)) coffeeRecords(old).forEach(h=>{h.number=house.number;h.type=house.type;});
@@ -671,7 +673,7 @@ app.addEventListener('click', async event => {
       case 'close-house-picker': app.querySelector('#house-picker').close(); return;
       case 'select-house': {
         const number=houseId(button.dataset.number);
-        if (!availableHouses().includes(number)) return;
+        if (!availableHouses().includes(number) || houseAlreadyUsed(number)) return;
         editor.houseForm.number=String(number);
         editor.houseForm.type=coffeeForm()?mealHouses().find(h=>sameHouse(h.number,number)).type:visibleGardenKind(number)==='none'?'normal':'garden';
         persistDraft();
