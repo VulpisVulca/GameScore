@@ -1,5 +1,5 @@
 import { t, html } from './i18n.js';
-import { HOUSE_NUMBERS, NATIVE_GARDENS } from './houses.js';
+import { houseOptions, isNativeGarden, isApartment } from './houses.js';
 export const GOODS = [
   ['burger', 'Burger', '🍔'], ['pizza', 'Pizza', '🍕'],
   ['beer', 'Bier · braun', '🟤'], ['lemonade', 'Limonade · gelb', '🟡'], ['soda', 'Softdrinks · rot', '🔴']
@@ -35,6 +35,7 @@ export function emptySale(milestones = {}) {
 }
 export function calculateHouse(house, milestones = {}) {
   if (!house || !['normal', 'garden'].includes(house.type) || typeof house.number !== 'string' || house.number.length > 24) throw new Error(t('Bitte ein gültiges Haus auswählen.'));
+  if (isApartment(house.number) && house.type==='garden') throw new Error(t('Apartments können keinen Garten haben.'));
   if (house.order !== undefined) integer(house.order);
   const quantity = GOODS.reduce((sum, [key]) => sum + integer(house[key]), 0);
   if (!quantity) throw new Error(t('Bitte mindestens eine verkaufte Ware eingeben.'));
@@ -157,9 +158,11 @@ export function roundSettlement(game, rows, wages, index = null, reserves = game
 }
 export function validateGame(game) {
   if (!game || game.version !== 1 || !Array.isArray(game.players) || game.players.length < 2 || game.players.length > 6) throw new Error(t('Kein gültiger GameScores-Spielstand.'));
+  if (game.modules!==undefined && (!game.modules || typeof game.modules!=='object' || Array.isArray(game.modules) || Object.entries(game.modules).some(([key,value])=>!['newDistricts','apartments'].includes(key)||typeof value!=='boolean'))) throw new Error(t('Ungültige Erweiterungsmodule.'));
+  const gardenNumbers=houseOptions(game).filter(number=>typeof number==='number'&&!isNativeGarden(number));
   if (game.milestoneSet!==undefined && !['base','new'].includes(game.milestoneSet)) throw new Error(t('Ungültiger Meilensteinsatz.'));
-  if (game.builtGardens !== undefined && (!Array.isArray(game.builtGardens) || game.builtGardens.length > 11 || new Set(game.builtGardens).size !== game.builtGardens.length || game.builtGardens.some(number => !HOUSE_NUMBERS.includes(number) || NATIVE_GARDENS.includes(number)))) throw new Error(t('Ungültige gebaute Gärten.'));
-  if (game.builtGardenRounds !== undefined && (!game.builtGardenRounds || typeof game.builtGardenRounds!=='object' || Array.isArray(game.builtGardenRounds) || Object.keys(game.builtGardenRounds).length>11 || Object.entries(game.builtGardenRounds).some(([number,round])=>String(Number(number))!==number || !HOUSE_NUMBERS.includes(Number(number)) || NATIVE_GARDENS.includes(Number(number)) || !Number.isSafeInteger(round) || round<1 || round>10001))) throw new Error(t('Ungültige Garten-Baurunden.'));
+  if (game.builtGardens !== undefined && (!Array.isArray(game.builtGardens) || game.builtGardens.length > gardenNumbers.length || new Set(game.builtGardens).size !== game.builtGardens.length || game.builtGardens.some(number => !gardenNumbers.includes(number)))) throw new Error(t('Ungültige gebaute Gärten.'));
+  if (game.builtGardenRounds !== undefined && (!game.builtGardenRounds || typeof game.builtGardenRounds!=='object' || Array.isArray(game.builtGardenRounds) || Object.keys(game.builtGardenRounds).length>gardenNumbers.length || Object.entries(game.builtGardenRounds).some(([number,round])=>String(Number(number))!==number || !gardenNumbers.includes(Number(number)) || !Number.isSafeInteger(round) || round<1 || round>10001))) throw new Error(t('Ungültige Garten-Baurunden.'));
   game.players.forEach(p => {
     if (typeof p.name !== 'string' || !p.name.trim() || p.name.length > 40 || !COLORS.includes(p.color)) throw new Error(t('Ungültige Spielerdaten.'));
     validateMilestones(p.milestones,game.milestoneSet==='new');
@@ -194,10 +197,11 @@ export function validateGame(game) {
       game.draft.wages.forEach(n => integer(n));
     }
     if (game.draft.reserves !== undefined && game.draft.reserves !== null && (!Array.isArray(game.draft.reserves) || game.draft.reserves.length !== game.players.length || game.draft.reserves.some(n => ![100,200,300].includes(n)))) throw new Error(t('Ungültige Reservekarten im Entwurf.'));
-    if (game.draft.removedGardens !== undefined && (!Array.isArray(game.draft.removedGardens) || game.draft.removedGardens.length>11 || new Set(game.draft.removedGardens).size!==game.draft.removedGardens.length || game.draft.removedGardens.some(number=>!HOUSE_NUMBERS.includes(number) || NATIVE_GARDENS.includes(number)))) throw new Error(t('Ungültige Gartenkorrektur.'));
+    if (game.draft.removedGardens !== undefined && (!Array.isArray(game.draft.removedGardens) || game.draft.removedGardens.length>gardenNumbers.length || new Set(game.draft.removedGardens).size!==game.draft.removedGardens.length || game.draft.removedGardens.some(number=>!gardenNumbers.includes(number)))) throw new Error(t('Ungültige Gartenkorrektur.'));
     if (game.draft.houseForm !== undefined) {
       const h = game.draft.houseForm;
       if (type !== 'sale' || !h || typeof h.number !== 'string' || h.number.length > 24 || !['normal','garden'].includes(h.type)) throw new Error(t('Ungültiger Hausentwurf.'));
+      if (isApartment(h.number)&&h.type==='garden') throw new Error(t('Apartments können keinen Garten haben.'));
       if (h.player !== null) integer(h.player, game.players.length - 1);
       integer(h.price,100);
       GOODS.forEach(([key]) => integer(h[key]));

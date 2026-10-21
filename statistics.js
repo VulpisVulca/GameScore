@@ -1,6 +1,6 @@
 import { t, html } from './i18n.js';
 import { GOODS, calculateSale, salaryRate, marketingIncome } from './rules.js';
-import { houseNumber } from './houses.js';
+import { houseId, houseOrder } from './houses.js';
 
 // Rebuild from the ledger so historical corrections also update every chart.
 export function gameStatistics(game) {
@@ -18,10 +18,10 @@ export function gameStatistics(game) {
       const round = { number:event.round, players:[] };
       if (!firstSaleChecked && firstGoodsRound(event)) {
         firstSaleChecked=true;
-        const entries=event.rows.flatMap((row,player)=>(row.houses || []).map(house=>({player,number:houseNumber(house.number)})));
+        const entries=event.rows.flatMap((row,player)=>(row.houses || []).map(house=>({player,number:houseId(house.number)})));
         const complete=event.rows.every(row=>!GOODS.some(([key])=>row[key]>0)||Array.isArray(row.houses));
         if (complete && entries.length && entries.every(house=>house.number!==null)) {
-          const number=Math.min(...entries.map(house=>house.number));
+          const number=[...entries.map(house=>house.number)].sort((a,b)=>houseOrder(a)-houseOrder(b))[0];
           firstSale={number,round:event.round,winners:[...new Set(entries.filter(house=>house.number===number).map(house=>house.player))]};
         } else firstSaleUnavailable=true;
       }
@@ -34,7 +34,7 @@ export function gameStatistics(game) {
             const quantity = GOODS.reduce((sum,[key])=>sum+house[key],0);
             p.discount += quantity * Math.max(0,10-(house.price-(row.milestones.price?1:0))) * (house.type==='garden'?2:1);
             for (const [key] of GOODS) goods[key] += house[key] * price;
-            const number=houseNumber(house.number);
+            const number=houseId(house.number);
             const label=house.number.trim();
             const key=number!==null?'number:'+number:'label:'+label;
             if (!visits[i].has(key)) visits[i].set(key,{number,label,rounds:new Set()});

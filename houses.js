@@ -1,11 +1,26 @@
 export const HOUSE_NUMBERS = Array.from({length:19},(_,i) => i+1);
 export const NATIVE_GARDENS = [1,3,6,9,11,14,17,19];
+export const DISTRICT_HOUSES = [21,22,25];
+export const APARTMENTS = ['π','9¾'];
+export const isNativeGarden = number => NATIVE_GARDENS.includes(number) || number===25;
+export function houseOptions(game) {
+  return [...HOUSE_NUMBERS,...(game.modules?.newDistricts?DISTRICT_HOUSES:[]),...(game.modules?.apartments?APARTMENTS:[])]
+    .sort((a,b)=>houseOrder(a)-houseOrder(b));
+}
+export function houseId(label) {
+  const text=String(label).trim().replace(/^(?:Haus|House|Apartment)\s+/i,'');
+  if (/^(?:π|pi)$/i.test(text)) return 'π';
+  if (/^(?:9¾|9\s+3\s*\/\s*4)$/.test(text)) return '9¾';
+  return houseNumber(text);
+}
+export const isApartment = label => APARTMENTS.includes(houseId(label));
+export const houseOrder = label => houseId(label)==='π'?Math.PI:houseId(label)==='9¾'?9.75:houseNumber(label) ?? Infinity;
 
 // Accept labels used by earlier versions without rewriting saved house names.
 export function houseNumber(label) {
   const match = String(label).trim().match(/^(?:(?:Haus|House)\s+)?(\d{1,2})$/i);
   const number = match ? Number(match[1]) : null;
-  return HOUSE_NUMBERS.includes(number) ? number : null;
+  return [...HOUSE_NUMBERS,...DISTRICT_HOUSES].includes(number) ? number : null;
 }
 
 export function builtGardenNumbers(game) {
@@ -17,15 +32,15 @@ export function builtGardenNumbers(game) {
   if (game.draft?.completion?.houseForm) houses.push(game.draft.completion.houseForm);
   for (const house of houses) {
     const number = houseNumber(house.number);
-    if (number && house.type==='garden' && !NATIVE_GARDENS.includes(number)) numbers.add(number);
+    if (number && houseOptions(game).includes(number) && house.type==='garden' && !isNativeGarden(number)) numbers.add(number);
   }
   return [...numbers].sort((a,b)=>a-b);
 }
 
 export function gardenKind(game, label) {
   const number = houseNumber(label);
-  if (!number) return 'none';
-  if (NATIVE_GARDENS.includes(number)) return 'native';
+  if (!number || !houseOptions(game).includes(number)) return 'none';
+  if (isNativeGarden(number)) return 'native';
   return builtGardenNumbers(game).includes(number) ? 'built' : 'none';
 }
 
@@ -34,7 +49,7 @@ export function builtGardenOrigins(game) {
   const currentRound=Math.floor(game.events.length/2)+1;
   function record(house,round) {
     const number=houseNumber(house.number);
-    if (number && house.type==='garden' && !NATIVE_GARDENS.includes(number)) origins[number]=Math.min(origins[number] ?? Infinity,round);
+    if (number && houseOptions(game).includes(number) && house.type==='garden' && !isNativeGarden(number)) origins[number]=Math.min(origins[number] ?? Infinity,round);
   }
   for (const event of game.events) if (event.type==='sale') {
     for (const row of event.rows) for (const house of row.houses || []) record(house,event.round);

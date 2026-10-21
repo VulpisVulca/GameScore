@@ -557,3 +557,4 @@ body.fcm-theme{--green:#225b5e;--muted:#59656a;--line:#c9caba;--paper:#fffcf2;--
 .fcm-theme .milestone-set {flex-wrap:wrap;gap:.5rem;margin-top:.6rem}
 .fcm-theme .bank-removal strong {display:block;margin-bottom:.5rem}
 .fcm-theme .bank-removal p {margin-bottom:0}
+.fcm-theme .module-settings {flex-wrap:wrap;gap:.5rem;margin-top:.6rem}

@@ -1,5 +1,12 @@
 // German source texts are stable translation keys. {0}, {1}, … are values.
 export const en = {
+  "Erweiterungsmodule":"Expansion modules",
+  "Neue Bezirke":"New Districts",
+  "Apartments":"Apartments",
+  "Apartment":"Apartment",
+  "Apartment {0}":"Apartment {0}",
+  "Apartments können keinen Garten haben.":"Apartments cannot have gardens.",
+  "Ungültige Erweiterungsmodule.":"Invalid expansion modules.",
   "¹ Mit eingestelltem Stückpreis und gegebenenfalls Gartenbonus. CFO zählt auf Waren und Trinkgeld, nicht auf Marketing, und wird einmal aufgerundet.":"¹ At the selected unit price, including garden bonuses where applicable. CFO applies to products and tips, not marketing, and is rounded up once.",
   "Mindestens 3 $ Preisnachlass: je 100 $ pro berechtigtem Spieler.":"At least $3 discount: $100 per qualifying player.",
   "CFO zählt auf Waren und Trinkgeld, nicht auf Marketing, und wird einmal aufgerundet.":"CFO applies to products and tips, not marketing, and is rounded up once.",

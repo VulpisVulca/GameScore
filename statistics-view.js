@@ -1,11 +1,13 @@
 import { t, html, htmlText, locale } from './i18n.js';
 import { GOODS } from './rules.js';
+import { isApartment } from './houses.js';
 import { gameStatistics, gameAwards } from './statistics.js';
 
 const esc = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 const number = n => n.toLocaleString(locale(),{maximumFractionDigits:2});
 const money = n => html`${number(n)} $`;
 const name = p => html`<span class="player-dot" style="background:${p.color}"></span>${esc(p.name)}`;
+const houseName = id => isApartment(id) ? html`Apartment ${id}` : html`Haus ${id}`;
 const sources = [...GOODS.map(([key,label],i) => ({key,label:label.split(' · ')[0],color:['#b34335','#d3a323','#75548c','#4e8052','#336f9b'][i]})),
   {key:'tips',label:'Bedienungen',color:'#359b96'},{key:'cfo',label:'CFO',color:'#cc7749'},{key:'marketing',label:'Marketing',color:'#8c586f'}];
 const metrics = {balance:'Kontostand',income:'Rundeneinnahmen',net:'Gewinn nach Löhnen',wages:'Löhne pro Runde'};
@@ -47,5 +49,5 @@ export function renderStatistics(game, metric='balance') {
 
 export function renderAwards(game) {
   const stats=gameStatistics(game), awards=gameAwards(stats);
-  return html`<div class="stats-heading"><h2>Eure Achievements.</h2><p>Auszeichnungen für diese Partie · bei Gleichstand werden alle ausgezeichnet.</p></div><div class="award-grid">${awards.map(a=>html`<article class="panel award-card"><span class="award-medal" aria-hidden="true">★</span><h3>${a.title}</h3><p>${a.detail}</p><strong class="award-value">${a.positive?'+':''}${a.house?html`Haus ${a.house}`:a.unit==='$'?money(a.value):html`${number(a.value)} ${a.unit}`}</strong><div class="award-winners">${a.winners.map(i=>html`<span>${name(stats.players[i])}</span>`).join('')}</div>${a.rounds?html`<small>Runde ${a.rounds.join(', ')}</small>`:''}${a.houseRecords?html`<div class="award-context">${a.houseRecords.map(record=>html`<small>${name(stats.players[record.player])} · ${record.number?html`Haus ${record.number}`:esc(record.label)} · ${html`Runde ${record.rounds.join(', ')}`}</small>`).join('')}</div>`:''}</article>`).join('')||htmlText('<section class="panel"><p>Nach den ersten Verkäufen erscheinen hier eure Auszeichnungen.</p></section>')}</div>${stats.estimated?htmlText('<p class="hint">Warenumsätze älterer Buchungen mit gemischten Gartenwaren sind anteilig geschätzt.</p>'):''}${stats.housesIncomplete||stats.firstSaleUnavailable?htmlText('<p class="hint">Bei älteren Summenbuchungen fehlen Hausdaten. Hausbezogene Auszeichnungen berücksichtigen nur erfasste Einzelhäuser; der erste Verkauf wird nur bei eindeutigen Hausnummern vergeben.</p>'):''}`;
+  return html`<div class="stats-heading"><h2>Eure Achievements.</h2><p>Auszeichnungen für diese Partie · bei Gleichstand werden alle ausgezeichnet.</p></div><div class="award-grid">${awards.map(a=>html`<article class="panel award-card"><span class="award-medal" aria-hidden="true">★</span><h3>${a.title}</h3><p>${a.detail}</p><strong class="award-value">${a.positive?'+':''}${a.house?houseName(a.house):a.unit==='$'?money(a.value):html`${number(a.value)} ${a.unit}`}</strong><div class="award-winners">${a.winners.map(i=>html`<span>${name(stats.players[i])}</span>`).join('')}</div>${a.rounds?html`<small>Runde ${a.rounds.join(', ')}</small>`:''}${a.houseRecords?html`<div class="award-context">${a.houseRecords.map(record=>html`<small>${name(stats.players[record.player])} · ${record.number?houseName(record.number):esc(record.label)} · ${html`Runde ${record.rounds.join(', ')}`}</small>`).join('')}</div>`:''}</article>`).join('')||htmlText('<section class="panel"><p>Nach den ersten Verkäufen erscheinen hier eure Auszeichnungen.</p></section>')}</div>${stats.estimated?htmlText('<p class="hint">Warenumsätze älterer Buchungen mit gemischten Gartenwaren sind anteilig geschätzt.</p>'):''}${stats.housesIncomplete||stats.firstSaleUnavailable?htmlText('<p class="hint">Bei älteren Summenbuchungen fehlen Hausdaten. Hausbezogene Auszeichnungen berücksichtigen nur erfasste Einzelhäuser; der erste Verkauf wird nur bei eindeutigen Hausnummern vergeben.</p>'):''}`;
 }

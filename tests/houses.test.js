@@ -1,10 +1,79 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { HOUSE_NUMBERS, NATIVE_GARDENS, houseNumber, builtGardenNumbers, gardenKind, builtGardenOrigins, canRemoveBuiltGarden, removeBuiltGarden, gardenKindAtRound } from '../houses.js';
+import { HOUSE_NUMBERS, NATIVE_GARDENS, houseNumber, houseId, houseOptions, isApartment, houseOrder, builtGardenNumbers, gardenKind, builtGardenOrigins, canRemoveBuiltGarden, removeBuiltGarden, gardenKindAtRound } from '../houses.js';
 import { COLORS, MILESTONES, emptySale, houseRows, roundSettlement, validateGame, account } from '../rules.js';
+import { gameStatistics, gameAwards } from '../statistics.js';
 
 const makeGame = () => ({version:1,players:COLORS.map((color,i)=>({name:'Player '+(i+1),color,milestones:Object.fromEntries(MILESTONES.map(([key])=>[key,false]))})),events:[],reserves:null,draft:null,builtGardens:[]});
 const house = extra => ({number:'2',type:'garden',player:0,price:10,burger:1,pizza:0,beer:0,lemonade:0,soda:0,...extra});
+
+test('District and apartment switches independently add the correct house options and ordering',()=>{
+  const g=makeGame();
+  assert.deepEqual(houseOptions(g),HOUSE_NUMBERS);
+  g.modules={newDistricts:true,apartments:false};
+  assert.deepEqual(houseOptions(g),[...HOUSE_NUMBERS,21,22,25]);
+  assert.equal(gardenKind(g,21),'none');
+  assert.equal(gardenKind(g,22),'none');
+  assert.equal(gardenKind(g,25),'native');
+  g.modules={newDistricts:false,apartments:true};
+  assert.equal(houseOptions(g).length,21);
+  assert.equal(houseOptions(g).includes(25),false);
+  assert.deepEqual(houseOptions(g).slice(2,5),[3,'π',4]);
+  assert.deepEqual(houseOptions(g).slice(9,12),[9,'9¾',10]);
+  g.modules.newDistricts=true;
+  assert.equal(houseOptions(g).length,24);
+  assert.equal(houseId('Pi'),'π');
+  assert.equal(houseId('House π'),'π');
+  assert.equal(houseId('9 3/4'),'9¾');
+  assert.equal(isApartment('9¾'),true);
+  assert.equal(houseOrder('π')>3&&houseOrder('π')<4,true);
+});
+
+test('District gardens retain construction-round correction and house 25 always has a native garden',()=>{
+  const g=makeGame();g.modules={newDistricts:true,apartments:true};
+  const rows=houseRows(g.players.map(p=>emptySale(p.milestones)),[house({number:'21'}),house({number:'25'})]);
+  const next=roundSettlement(g,rows,[0,0,0,0,0,0]).candidate;
+  assert.doesNotThrow(()=>validateGame(JSON.parse(JSON.stringify(next))));
+  assert.equal(gardenKind(next,21),'built');
+  assert.equal(canRemoveBuiltGarden(next,21,1),true);
+  assert.equal(canRemoveBuiltGarden(next,25,1),false);
+  const corrected=removeBuiltGarden(next,21,1);
+  assert.equal(gardenKind(corrected,21),'none');
+  assert.equal(account(corrected).balances[0],30);
+  assert.equal(gardenKind(corrected,25),'native');
+  assert.doesNotThrow(()=>validateGame(corrected));
+  g.builtGardens=[21,22];g.builtGardenRounds={21:1,22:1};
+  assert.doesNotThrow(()=>validateGame(g));
+  g.modules.newDistricts=false;
+  assert.throws(()=>validateGame(g));
+});
+
+test('Apartments cannot have gardens, remain distinct in statistics and follow house order for first sale',()=>{
+  const g=makeGame();g.modules={apartments:true,newDistricts:false};
+  const configs=g.players.map(p=>emptySale(p.milestones));
+  assert.throws(()=>houseRows(configs,[house({number:'π'})]));
+  assert.throws(()=>houseRows(configs,[house({number:'9 3/4'})]));
+  const rows=houseRows(configs,[house({number:'4',type:'normal'}),house({number:'π',player:1,type:'normal'}),house({number:'9¾',player:1,type:'normal'})]);
+  g.events=[{type:'sale',round:1,rows},{type:'salary',round:1,rows:[0,0,0,0,0,0]},{type:'sale',round:2,rows}];
+  assert.doesNotThrow(()=>validateGame(g));
+  const stats=gameStatistics(g);
+  assert.equal(stats.firstSale.number,'π');
+  assert.deepEqual(stats.firstSale.winners,[1]);
+  assert.equal(stats.players[1].uniqueHouses,2);
+  assert.equal(stats.players[1].gardens,0);
+  assert.equal(gameAwards(stats).find(a=>a.title==='Stammkundschaft').value,2);
+  g.draft={type:'salary',rows:[0,0,0,0,0,0],completion:{rows,houseForm:house({number:'π'})}};
+  assert.throws(()=>validateGame(g));
+});
+
+test('Import rejects invalid module settings and preserves old games without module fields',()=>{
+  const g=makeGame();
+  for (const modules of [null,[],true,{newDistricts:'yes'},{apartments:1},{unknown:true}]) {
+    g.modules=modules;assert.throws(()=>validateGame(g));
+  }
+  delete g.modules;
+  assert.doesNotThrow(()=>validateGame(g));
+});
 
 test('Exactly 19 numbered houses with the eight specified native gardens', () => {
   assert.deepEqual(HOUSE_NUMBERS,Array.from({length:19},(_,i)=>i+1));
