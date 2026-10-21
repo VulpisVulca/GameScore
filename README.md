@@ -8,6 +8,10 @@
 
 A small bilingual web app for board-game accounting, starting with Food Chain Magnate (base game or new milestones, 2–6 players; six players require the expansion). No backend, account, external services, or runtime dependencies. All entries stay on the shared device.
 
+### Architecture
+
+The app uses native modules with separate views, round state, input handling and storage. A shared accounting report supplies the table, ledger and statistics. See [Architecture](ARCHITECTURE.md) for module boundaries, offline packaging, tests and the rollback checkpoint.
+
 ### Run locally
 
 Use Node.js 24 or newer:
@@ -132,6 +136,10 @@ Rules reference: [Food Chain Magnate English base-game rulebook](https://splotte
 ## Deutsch
 
 Eine kleine zweisprachige Webanwendung für Brettspiel-Abrechnungen, zunächst Food Chain Magnate (Grundspiel oder neue Meilensteine, 2–6 Spieler; zu sechst mit Erweiterung). Ohne Backend, Konto, externe Dienste oder Laufzeitabhängigkeiten. Alle Buchungen und Eingaben bleiben auf dem gemeinsamen Gerät.
+
+### Architektur
+
+Ansichten, Rundenstatus, Eingabesteuerung und Speicherung liegen in getrennten nativen Modulen. Ein gemeinsamer Abrechnungsbericht versorgt Spielerübersicht, Protokoll und Statistik. Details zu Modulen, Offline-Dateien, Tests und Rücksprungpunkt stehen in [Architektur](ARCHITECTURE.md#deutsch).
 
 ### Lokal starten
 
