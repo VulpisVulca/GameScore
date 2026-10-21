@@ -36,7 +36,7 @@ export function gameStatistics(game) {
           for (const house of row.houses) {
             const price = (house.price - (row.milestones.price ? 1 : 0)) * houseMultiplier(house);
             const quantity = mealGoods.reduce((sum,[key])=>sum+(house[key] ?? 0),0)+(house.coffee ?? 0);
-            p.discount += quantity * Math.max(0,(row.basePrice ?? 10)-(house.price-(row.milestones.price?1:0))) * houseMultiplier(house);
+            p.discount += quantity * Math.max(0,(house.basePrice ?? row.basePrice ?? 10)-(house.price-(row.milestones.price?1:0))) * houseMultiplier(house);
             for (const [key] of allGoods) goods[key] += (house[key] ?? 0) * price;
             const number=houseId(house.number);
             const label=house.number.trim();
@@ -60,8 +60,8 @@ export function gameStatistics(game) {
           p.goods[key].quantity += row[key] ?? 0;
           p.goods[key].income += goods[key];
         }
-        const paid=ledger.salePayments[eventIndex][i];p.unpaidLoss+=paid-c.total;
-        p.income += paid; p.balance += paid; p.tips += c.tips; p.fry += c.fry; p.cfo += c.cfo;
+        const paid=ledger.salePayments[eventIndex][i];p.unpaidLoss+=ledger.saleDetails[eventIndex][i].unpaid;
+        p.income += paid; p.balance += paid; p.tips += ledger.saleDetails[eventIndex][i].tips; p.fry += ledger.saleDetails[eventIndex][i].fry; p.cfo += ledger.saleDetails[eventIndex][i].cfo;
         p.quantity += c.quantity+c.coffee; p.bonus += c.bonus;
         p.gardenQuantity=(p.gardenQuantity || 0)+row.garden+(row.coffeeGarden ?? 0);
         round.players.push({income:paid,wages:0,net:paid,balance:p.balance});

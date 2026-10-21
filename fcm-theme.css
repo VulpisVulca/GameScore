@@ -618,3 +618,9 @@ body.fcm-theme{--green:#225b5e;--muted:#59656a;--line:#c9caba;--paper:#fffcf2;--
 
 .fcm-theme .eliminated-label{display:block;font-size:12px;color:#9d3e32;margin-top:3px}
 .fcm-theme .food-addon-buttons>.coffee-form-button,.fcm-theme .food-addon-buttons>.kimchi-toggle{height:44px;min-height:44px;padding:8px;font-size:16px;gap:6px;white-space:nowrap}
+.fcm-theme .sales-bank-status{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 18px;padding:9px 12px;border:1px solid #a8bca9;border-radius:8px;background:#e7eee0;margin-bottom:8px;font-size:16px}
+.fcm-theme .coffee-order{margin-top:8px;font-size:15px}
+.fcm-theme .coffee-order-item{display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid #d3dacb}
+.fcm-theme .coffee-order-item>span{flex:1;min-width:0}
+.fcm-theme .coffee-order-item>button{font-size:18px;min-height:32px;padding:3px 10px}
+.fcm-theme .coffee-dialog{max-height:min(520px,calc(100dvh - 24px))}

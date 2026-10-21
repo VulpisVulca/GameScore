@@ -1,7 +1,7 @@
 import { houseOptions, houseId, isApartment, isRural, houseOrder, gardenKind, houseNumber, builtGardenNumbers, builtGardenOrigins, canRemoveBuiltGarden, removeBuiltGarden, gardenKindAtRound, houseMultiplier, builtParkOrigins, parkAtRound, canRemoveBuiltPark, addBuiltPark, removeBuiltPark } from './houses.js';
 import { t, html, htmlText, locale, getLanguage, setLanguage } from './i18n.js';
 import { renderStatistics, renderAwards } from './statistics-view.js';
-import { integer, mealGoods, NOODLES, goodsForGame, reserveOptions, reserveAmount, reserveBasePrice, GOODS, COFFEE, allGoods, isCoffeeSale, sameHouse, milestoneList, emptyMilestones, salaryRate, marketingIncome, bankRemoval, COLORS, emptySale, calculateSale, calculateHouse, houseRows, account, roundSettlement, validateGame } from './rules.js';
+import { integer, houseSettlement, mealGoods, NOODLES, SUSHI, goodsForGame, reserveOptions, reserveAmount, reserveBasePrice, GOODS, COFFEE, allGoods, isCoffeeSale, sameHouse, milestoneList, emptyMilestones, salaryRate, marketingIncome, bankRemoval, COLORS, emptySale, calculateSale, calculateHouse, houseRows, account, roundSettlement, validateGame } from './rules.js';
 
 const KEY = 'gamescores.fcm.v1';
 const app = document.querySelector('#app');
@@ -12,7 +12,7 @@ let game = null;
 let screen = 'home';
 let setupCount = 3;
 let setupMilestones = 'base';
-let setupModules = {newDistricts:false,apartments:false,coffee:false,fryChef:false,lobbyist:false,reservePrices:false,kimchi:false,noodles:false,rural:false,ketchup:false};
+let setupModules = {newDistricts:false,apartments:false,coffee:false,fryChef:false,lobbyist:false,reservePrices:false,kimchi:false,noodles:false,rural:false,ketchup:false,sushi:false};
 let setupPlayers = Array.from({ length: 6 }, (_, i) => ({ name: '', color: null }));
 let editor = null;
 let review = false;
@@ -79,7 +79,7 @@ function home() {
 }
 function setup() {
   app.innerHTML = html`<div class="setup-heading"><div class="setup-top"><p class="eyebrow">${t('FOOD CHAIN MAGNATE · NEUE PARTIE')}</p><button class="text-button" data-action="home">← Spielauswahl</button></div><h1>Wer sitzt am Tisch?</h1></div>
-    <section class="panel setup"><div class="count-label"><span>Anzahl der Spieler</span><div class="player-count-options" role="group" aria-label="Anzahl der Spieler">${[2,3,4,5,6].map(n => html`<button class="secondary" data-action="setup-count" data-count="${n}" aria-pressed="${n===setupCount}">${n}</button>`).join('')}</div></div><div class="count-label milestone-set"><span>Meilensteine</span><div class="player-count-options" role="group" aria-label="Meilensteinsatz">${[['base',t('Grundspiel')],['new',t('Neue Meilensteine')]].map(([set,label])=>html`<button class="secondary" data-action="setup-milestones" data-set="${set}" aria-pressed="${setupMilestones===set}">${label}</button>`).join('')}</div></div><div class="count-label module-settings"><span>Erweiterungsmodule</span><div class="player-count-options" role="group" aria-label="Erweiterungsmodule">${[['newDistricts',t('Neue Bezirke')],['apartments',t('Apartments')],['coffee',t('Kaffee')],['fryChef',t('Friteusenkoch')],['lobbyist',t('Lobbyist')],['reservePrices',t('Alternative Reservekarten')],['kimchi',t('Kimchi')],['noodles',t('Nudeln')],['rural',t('Landleben')],['ketchup',t('Ketchup')]].map(([key,label])=>html`<button class="secondary" data-action="setup-module" data-module="${key}" aria-pressed="${setupModules[key]}">${label}</button>`).join('')}</div></div><div class="setup-players">${setupPlayers.slice(0, setupCount).map((p,i) => html`<div class="setup-row"><span class="row-number">0${i+1}</span><label>Name<input data-setup-name="${i}" maxlength="40" value="${esc(p.name)}" placeholder="Spieler ${i+1}" autocomplete="off" required></label><div class="setup-color-field"><span>Farbe</span><div class="setup-colors" role="group" aria-label="Farbe für Spieler ${i+1}">${COLORS.map((color,j) => {const used=setupPlayers.slice(0,setupCount).some((other,k)=>k!==i&&other.color===color);return html`<button class="secondary color-choice" style="--choice-color:${color}" data-action="setup-color" data-index="${i}" data-color="${color}" aria-pressed="${p.color===color}" ${used?'disabled':''}><span class="color-swatch" aria-hidden="true"></span>${t(['Rot','Gelb','Blau','Grün','Violett','Rosa'][j])}</button>`;}).join('')}</div></div></div>`).join('')}</div><p class="hint">Eine gewählte Farbe erneut anklicken, um sie freizugeben.</p>${setupCount===6 ? htmlText('<p class="hint">Für sechs Spieler wird die Erweiterung benötigt.</p>') : ''}<div class="bank-start"><div><span class="eyebrow">DIE BANK STARTET MIT</span><strong>${money(setupCount * 50)}</strong></div><p>50 $ pro Spieler · Spielerkonten starten bei 0 $.<br>Reservekarten bleiben bis zum ersten Bankbruch geheim.</p></div>${game ? htmlText('<p class="hint">Beim Start wird die bisherige Partie ersetzt. Exportiere sie vorher, wenn du sie behalten möchtest.</p><button class="text-button" data-action="export">Bisherige Partie exportieren</button>') : ''}<button data-action="start">Partie starten →</button></section>`;
+    <section class="panel setup"><div class="count-label"><span>Anzahl der Spieler</span><div class="player-count-options" role="group" aria-label="Anzahl der Spieler">${[2,3,4,5,6].map(n => html`<button class="secondary" data-action="setup-count" data-count="${n}" aria-pressed="${n===setupCount}">${n}</button>`).join('')}</div></div><div class="count-label milestone-set"><span>Meilensteine</span><div class="player-count-options" role="group" aria-label="Meilensteinsatz">${[['base',t('Grundspiel')],['new',t('Neue Meilensteine')]].map(([set,label])=>html`<button class="secondary" data-action="setup-milestones" data-set="${set}" aria-pressed="${setupMilestones===set}">${label}</button>`).join('')}</div></div><div class="count-label module-settings"><span>Erweiterungsmodule</span><div class="player-count-options" role="group" aria-label="Erweiterungsmodule">${[['newDistricts',t('Neue Bezirke')],['apartments',t('Apartments')],['coffee',t('Kaffee')],['fryChef',t('Friteusenkoch')],['lobbyist',t('Lobbyist')],['reservePrices',t('Alternative Reservekarten')],['kimchi',t('Kimchi')],['noodles',t('Nudeln')],['rural',t('Landleben')],['ketchup',t('Ketchup')],['sushi',t('Sushi')]].map(([key,label])=>html`<button class="secondary" data-action="setup-module" data-module="${key}" aria-pressed="${setupModules[key]}">${label}</button>`).join('')}</div></div><div class="setup-players">${setupPlayers.slice(0, setupCount).map((p,i) => html`<div class="setup-row"><span class="row-number">0${i+1}</span><label>Name<input data-setup-name="${i}" maxlength="40" value="${esc(p.name)}" placeholder="Spieler ${i+1}" autocomplete="off" required></label><div class="setup-color-field"><span>Farbe</span><div class="setup-colors" role="group" aria-label="Farbe für Spieler ${i+1}">${COLORS.map((color,j) => {const used=setupPlayers.slice(0,setupCount).some((other,k)=>k!==i&&other.color===color);return html`<button class="secondary color-choice" style="--choice-color:${color}" data-action="setup-color" data-index="${i}" data-color="${color}" aria-pressed="${p.color===color}" ${used?'disabled':''}><span class="color-swatch" aria-hidden="true"></span>${t(['Rot','Gelb','Blau','Grün','Violett','Rosa'][j])}</button>`;}).join('')}</div></div></div>`).join('')}</div><p class="hint">Eine gewählte Farbe erneut anklicken, um sie freizugeben.</p>${setupCount===6 ? htmlText('<p class="hint">Für sechs Spieler wird die Erweiterung benötigt.</p>') : ''}<div class="bank-start"><div><span class="eyebrow">DIE BANK STARTET MIT</span><strong>${money(setupCount * 50)}</strong></div><p>50 $ pro Spieler · Spielerkonten starten bei 0 $.<br>Reservekarten bleiben bis zum ersten Bankbruch geheim.</p></div>${game ? htmlText('<p class="hint">Beim Start wird die bisherige Partie ersetzt. Exportiere sie vorher, wenn du sie behalten möchtest.</p><button class="text-button" data-action="export">Bisherige Partie exportieren</button>') : ''}<button data-action="start">Partie starten →</button></section>`;
 }
 function beginEditor(index = null) {
   // Complete older, already booked sales in the same four-step round editor.
@@ -114,8 +114,12 @@ function beginEditor(index = null) {
     }
   }
 }
+function outBeforeRound(i) {return account({...game,events:game.events.filter(e=>e.round<currentRound()),draft:null}).bankrupt[i]!==null;}
 function playerOut(i) {
-  return account({...game,events:game.events.filter(e=>e.round<currentRound()),draft:null}).bankrupt[i]!==null;
+  if(!editor?.wizard||!editor.houses)return account({...game,events:game.events.filter(e=>e.round<currentRound()),draft:null}).bankrupt[i]!==null;
+  const number=editor.houseForm?.number;
+  const previous=number?editor.houses.filter(h=>houseOrder(h.number)<houseOrder(number)):editor.houses;
+  return previewHouses(previous).bankrupt[i]!==null;
 }
 function insolvencyNotice(settlement) {
   const out=settlement.afterSales.bankrupt;
@@ -157,8 +161,48 @@ function renderTable(target) {
 function roundHeader() {
   return html`<div class="round-top"><button class="text-button" data-action="leave-round">← ${editor.index === null || editor.completing ? t('Spieltisch') : t('Protokoll')}</button><span>Food Chain Magnate · Runde ${currentRound()}</span><span class="draft-badge">${editor.index === null ? t('Entwurf · noch nicht gebucht') : editor.completing ? t('Löhne noch nicht gebucht') : t('Runde bearbeiten')}</span></div>`;
 }
+function previewHouses(houses=editor.houses) {
+  return houseSettlement(gardenGame(),houseRows(editor.rows,houses),editor.index,editor.reserves ?? game.reserves);
+}
+function houseBaseBefore(number) {
+  const prefix=number?editor.houses.filter(h=>houseOrder(h.number)<houseOrder(number)):editor.houses;
+  const before=previewHouses(prefix);
+  if(!number)return before.basePrice;
+  const pending=editor.houseForm?.number&&sameHouse(editor.houseForm.number,number)?editor.houseForm:null;
+  const existing=editor.houses.find(h=>sameHouse(h.number,number)&&!isCoffeeSale(h));
+  const parent=pending || existing;
+  if(!parent)return before.basePrice;
+  let coffees=editor.houses.filter(h=>sameHouse(h.number,number)&&isCoffeeSale(h));
+  if(pending?.coffees)coffees=pending.coffees.flatMap((coffee,player)=>coffee?[{...parent,burger:0,pizza:0,beer:0,lemonade:0,soda:0,noodles:0,sushi:0,kimchi:0,coffee,player,price:editor.rows[player].price,basePrice:editor.rows[player].basePrice ?? 10,coffeeSequence:undefined}]:[]);
+  if(!coffees.length)return before.basePrice;
+  // The pending garden/park selection also applies to this house's coffees.
+  // Keep the saved records untouched until the edited house is confirmed.
+  coffees=coffees.map(h=>({...h,type:parent.type,park:Boolean(parent.park)}));
+  const placeholder={...parent,number:String(number),player:parent.player ?? 0,burger:1,pizza:0,beer:0,lemonade:0,soda:0,noodles:0,sushi:0,kimchi:0,coffee:0};
+  const rows=houseRows(editor.rows,[...prefix,placeholder,...coffees]);
+  return houseSettlement(gardenGame(),rows,editor.index,editor.reserves ?? game.reserves,{beforeMeal:number}).basePrice;
+}
+function normalizeHouseDraft() {
+  const old=editor.editingHouse===null?null:editor.houses[editor.editingHouse];
+  const state=previewHouses();
+  editor.rows=state.rows;
+  editor.houses=state.rows.flatMap(row=>row.houses || []).sort((a,b)=>(a.order ?? 0)-(b.order ?? 0));
+  if(old)editor.editingHouse=editor.houses.findIndex(h=>!isCoffeeSale(h)&&sameHouse(h.number,old.number));
+  const target=houseBaseBefore(editor.houseForm.number);
+  const previous=editor.houseForm.basePrice ?? editor.rows[editor.houseForm.player ?? 0].basePrice ?? 10;
+  editor.houseForm.price+=target-previous;editor.houseForm.basePrice=target;
+  return state;
+}
+function rawPlayerPrice(i) {
+  return editor.houseForm.player===i?editor.houseForm.price:editor.rows[i].price+(editor.houseForm.basePrice ?? 10)-(editor.rows[i].basePrice ?? 10);
+}
+function houseBankStatus(state) {
+  return html`<div class="sales-bank-status" aria-live="polite"><span>${t('Bank während der Verkäufe')}: <strong>${money(state.bank)}</strong></span><span>${t('Grundpreis')}: <strong>${money(editor.houseForm.basePrice ?? state.basePrice)}</strong></span></div>${state.firstBreakAt?.round===currentRound()?html`<p class="hint">${state.firstBreakAt.house?html`Erster Bankbruch bei ${houseLabel(state.firstBreakAt.house)}.`:t('Die erste Bankreserve wurde geöffnet.')} ${game.modules?.reservePrices?html`Neuer Grundpreis für folgende Verkäufe: ${money(state.basePrice)}.`:''}</p>`:''}${state.secondBreak!==null?htmlText('<p class="round-warning">Die Bank ist zum zweiten Mal gebrochen. Alle verbleibenden Häuser noch abrechnen; danach entfallen die Löhne.</p>'):''}${state.issues.length?html`<p class="round-warning">${esc(state.issues.join(' '))}</p>`:''}${game.modules?.fryChef?html`<p class="hint">Friteusenköche vor den Verkäufen einstellen: Ihr Bonus wird direkt je Haus bezahlt. <button class="text-button" data-action="sales-step" data-step="extras">Friteusenköche einstellen</button></p>`:''}<p class="hint">Häuser werden nach Hausnummer abgerechnet, das ländliche Gebiet zuletzt. Kaffee wird vor dem Essen bezahlt.</p>`;
+}
+
 function newHouse(kind='meal') {
-  return { number: '', player: null, type: 'normal', park:false, price: editor?.rows?.[0]?.basePrice ?? account(game).basePrice, coffee:0, kind, ...Object.fromEntries(mealGoods.map(([key]) => [key, 0])) };
+  const basePrice=kind==='coffee'?(editor.houseForm?.basePrice ?? account(game).basePrice):editor?.houses?houseBaseBefore(null):account(game).basePrice;
+  return { number: '', player: null, type: 'normal', park:false, basePrice, price:basePrice, coffee:0, kind, ...Object.fromEntries(mealGoods.map(([key]) => [key, 0])) };
 }
 function syncHouseRows() {
   editor.rows = houseRows(editor.rows, editor.houses);
@@ -212,7 +256,7 @@ function setCoffeeQuantity(house,player,quantity) {
   if (delta>0) {
     const last=records.at(-1);
     if (last) last.coffee+=delta;
-    else editor.houses.push({...newHouse('coffee'),number:house.number,type:house.type,park:Boolean(house.park),player,price:editor.rows[player].price,coffee:delta,order:Math.max(-1,...editor.houses.map(h=>h.order ?? 0))+1});
+    else editor.houses.push({...newHouse('coffee'),number:house.number,type:house.type,park:Boolean(house.park),player,price:editor.rows[player].price+(house.basePrice ?? 10)-(editor.rows[player].basePrice ?? 10),basePrice:house.basePrice ?? 10,coffee:delta,order:Math.max(-1,...editor.houses.map(h=>h.order ?? 0))+1});
   } else for (const record of [...records].reverse()) {
     const removed=Math.min(-delta,record.coffee);
     record.coffee-=removed;delta+=removed;
@@ -220,17 +264,34 @@ function setCoffeeQuantity(house,player,quantity) {
   }
   editor.houses=editor.houses.filter(h=>!records.includes(h)||h.coffee>0);
 }
+function coffeeSequenceFor(quantities,existing=[]) {
+  if(quantities.reduce((a,b)=>a+b,0)>200)return undefined;
+  const remaining=[...quantities],sequence=[];
+  for(const player of existing)if(remaining[player]>0){sequence.push(player);remaining[player]--;}
+  remaining.forEach((count,player)=>{for(let i=0;i<count;i++)sequence.push(player);});
+  return sequence;
+}
+function coffeeOrderList() {
+  const sequence=editor.coffeeDialog?.sequence;
+  return sequence?sequence.map((player,i)=>html`<div class="coffee-order-item"><span>${i+1}. ${playerName(game.players[player])}</span><button type="button" class="secondary" data-action="coffee-order" data-index="${i}" data-delta="-1" ${i===0?'disabled':''} aria-label="Kaffee früher">↑</button><button type="button" class="secondary" data-action="coffee-order" data-index="${i}" data-delta="1" ${i===sequence.length-1?'disabled':''} aria-label="Kaffee später">↓</button></div>`).join(''):'';
+}
+function coffeeOrderControls() {
+  return html`<details class="coffee-order"><summary>Reihenfolge der Kaffees</summary><p class="hint">In Reihenfolge entlang des Weges anordnen. Bei einem Bankbruch kann sich der Preis zwischen zwei Kaffees ändern.</p><div id="coffee-order-list">${coffeeOrderList()}</div></details>`;
+}
+
 function renderCoffeeDialog() {
   const state=editor.coffeeDialog;
   const house=state?.index===null?editor.houseForm:editor.houses[state?.index];
-  return html`<dialog id="coffee-dialog" class="house-picker coffee-dialog" aria-labelledby="coffee-dialog-title"><div class="house-picker-heading"><div><h2 id="coffee-dialog-title">☕ Kaffee</h2><small>${house?.number?houseLabel(house.number):t('Für dieses Haus')}</small></div><button class="text-button" data-action="cancel-coffee-dialog" aria-label="Schließen">×</button></div><div class="coffee-dialog-players">${game.players.map((p,i)=>html`<label class="coffee-dialog-player"><strong>${playerName(p)}</strong><div class="stepper"><button type="button" data-action="coffee-dialog-count" ${playerOut(i)?'disabled':''} data-player="${i}" data-delta="-1" aria-label="Ein Kaffee weniger für ${esc(p.name)}">−</button><input type="number" inputmode="numeric" min="0" max="1000000" step="1" required ${playerOut(i)?'disabled':''} data-dialog-coffee="${i}" value="${state?.quantities[i] ?? 0}" aria-label="Kaffees für ${esc(p.name)}"><button type="button" data-action="coffee-dialog-count" data-player="${i}" data-delta="1" aria-label="Ein Kaffee mehr für ${esc(p.name)}">+</button></div></label>`).join('')}</div><div class="coffee-dialog-actions"><button class="secondary" data-action="cancel-coffee-dialog">Abbrechen</button><button data-action="confirm-coffee-dialog">Übernehmen ✓</button></div></dialog>`;
+  return html`<dialog id="coffee-dialog" class="house-picker coffee-dialog" aria-labelledby="coffee-dialog-title"><div class="house-picker-heading"><div><h2 id="coffee-dialog-title">☕ Kaffee</h2><small>${house?.number?houseLabel(house.number):t('Für dieses Haus')}</small></div><button class="text-button" data-action="cancel-coffee-dialog" aria-label="Schließen">×</button></div><div class="coffee-dialog-players">${game.players.map((p,i)=>html`<label class="coffee-dialog-player"><strong>${playerName(p)}</strong><div class="stepper"><button type="button" data-action="coffee-dialog-count" ${playerOut(i)?'disabled':''} data-player="${i}" data-delta="-1" aria-label="Ein Kaffee weniger für ${esc(p.name)}">−</button><input type="number" inputmode="numeric" min="0" max="1000000" step="1" required ${playerOut(i)?'disabled':''} data-dialog-coffee="${i}" value="${state?.quantities[i] ?? 0}" aria-label="Kaffees für ${esc(p.name)}"><button type="button" data-action="coffee-dialog-count" data-player="${i}" data-delta="1" aria-label="Ein Kaffee mehr für ${esc(p.name)}">+</button></div></label>`).join('')}</div>${coffeeOrderControls()}<div class="coffee-dialog-actions"><button class="secondary" data-action="cancel-coffee-dialog">Abbrechen</button><button data-action="confirm-coffee-dialog">Übernehmen ✓</button></div></dialog>`;
 }
 function openCoffeeDialog(index=null) {
   if (!game.modules?.coffee) return;
   if (index===editor.editingHouse) index=null;
   const parent=index===null?null:editor.houses[index];
   if (index!==null&&(!parent||isCoffeeSale(parent))) return;
-  editor.coffeeDialog={index,quantities:index===null?coffeeDraftQuantities():game.players.map((_,i)=>coffeeQuantity(parent,i))};
+  const quantities=index===null?coffeeDraftQuantities():game.players.map((_,i)=>coffeeQuantity(parent,i));
+  const meal=index===null?editor.houseForm:parent;
+  editor.coffeeDialog={index,quantities,sequence:coffeeSequenceFor(quantities,meal.coffeeSequence || [])};
   app.querySelector('#coffee-dialog').outerHTML=renderCoffeeDialog();
   app.querySelector('#coffee-dialog').showModal();
 }
@@ -278,7 +339,7 @@ const coffeeForm = () => editor.houseForm.kind==='coffee'||isCoffeeSale(editor.h
 const mealHouses = () => editor.houses.filter(h=>!isCoffeeSale(h));
 const availableHouses = () => houseOptions(game).filter(id=>!coffeeForm()||mealHouses().some(h=>sameHouse(h.number,id)));
 const houseAlreadyUsed = number => !coffeeForm() && editor.houses.some((house,index)=>index!==editor.editingHouse && !isCoffeeSale(house) && sameHouse(house.number,number));
-const formGoods = () => coffeeForm()?[COFFEE]:[...GOODS,...(game.modules?.noodles?[NOODLES]:[])];
+const formGoods = () => coffeeForm()?[COFFEE]:[...GOODS,...(game.modules?.noodles?[NOODLES]:[]),...(game.modules?.sushi?[SUSHI]:[])];
 function renderHousePicker() {
   const selected=houseId(editor.houseForm.number);
   return html`<dialog id="house-picker" class="house-picker" aria-labelledby="house-picker-title"><div class="house-picker-heading"><h2 id="house-picker-title">Haus wählen</h2><button class="text-button" data-action="close-house-picker" aria-label="Schließen">×</button></div><div class="house-picker-legend"><span><i class="house-key"></i>Ohne Garten</span><span><i class="house-key native"></i>Mit Garten</span><span><i class="house-key built"></i>Garten gebaut</span></div><div class="house-number-grid">${availableHouses().map(number=>{const kind=visibleGardenKind(number),used=houseAlreadyUsed(number),park=visiblePark(number);return html`<button class="house-tile ${kind==='native'?'native-garden':kind==='built'?'built-garden':''} ${selected===number?'selected':''}" data-action="select-house" data-number="${number}" aria-label="Haus ${number} · ${kind==='native'?t('Mit Garten'):kind==='built'?t('Garten gebaut'):t('Ohne Garten')}" aria-pressed="${selected===number}" ${used?'disabled':''}><strong>${isRural(number)?t('Land'):number}${park?html` <span class="park-marker" aria-label="Park">🌳</span>`:''}</strong><small>${used?t('Bereits erfasst'):isRural(number)?t('Zuletzt beliefern'):isApartment(number)?t('Apartment'):kind==='built'?t('Garten gebaut'):kind==='native'?t('Mit Garten'):t('Ohne Garten')}</small></button>`;}).join('')}</div><p class="hint">Gebaute Gärten bleiben für diese Partie gespeichert.</p></dialog>`;
@@ -290,7 +351,7 @@ function housePreview() {
 }
 const MILESTONE_TAGS = {burger:'Burger +5 $',pizza:'Pizza +5 $',drink:'Getränke +5 $',waitress:'Waitress 5 $',price:'Stückpreis −1 $',cfo:'CFO +50 %',marketeer:'Marketing +5 $ · Entfernung −2',salary:'Löhne 3 $',beer:'Warenzahlung',discount:'Bank −100 $ ab 3 $ Rabatt',ketchup:'Ketchup · Entfernung −1'};
 function comparisonPrice(i) {
-  const raw = editor.houseForm.player === i ? editor.houseForm.price : editor.rows[i].price;
+  const raw = rawPlayerPrice(i);
   return raw - (editor.rows[i].milestones.price ? 1 : 0);
 }
 function comparisonValue(i) {
@@ -305,11 +366,11 @@ function goodsUnitPrice(key) {
   const i = editor.houseForm.player;
   if (i === null) return t('Spieler wählen');
   const m = editor.rows[i].milestones;
-  const bonus = ['coffee','noodles','kimchi'].includes(key)?false:key === 'burger' ? m.burger : key === 'pizza' ? m.pizza : m.drink;
+  const bonus = ['coffee','noodles','sushi','kimchi'].includes(key)?false:key === 'burger' ? m.burger : key === 'pizza' ? m.pizza : m.drink;
   return html`${money(comparisonPrice(i) * houseMultiplier(editor.houseForm) + (bonus ? 5 : 0))} / Stück`;
 }
 function priceComparison() {
-  return html`<section class="price-comparison"><div class="sidebar-heading"><h2>${coffeeForm()?t('Kaffeepreise'):t('Preisvergleich')}</h2></div><p class="comparison-intro">Stückpreise aller Spieler auf einen Blick.${game.modules?.reservePrices?html` ${t('Grundpreis')}: ${money(editor.rows[0].basePrice ?? 10)}`:''}</p><div class="comparison-columns"><span>Spieler</span><span>Basispreis</span><span>${(game.milestoneSet==='new'||game.modules?.ketchup)&&!coffeeForm()?t('Vergleichspreis'):t('Stückpreis')}</span></div>${game.players.map((p,i) => html`<div class="comparison-row"><span>${playerName(p)}</span><label><span class="sr-only">Basispreis vor Preis-Meilenstein für ${esc(p.name)}</span><div class="stepper"><button type="button" data-action="price-count" data-index="${i}" data-delta="-1" aria-label="Basispreis für ${esc(p.name)} um 1 Dollar senken">−</button><input type="number" inputmode="numeric" min="-100" max="100" step="1" required data-comparison-price="${i}" value="${editor.houseForm.player === i ? editor.houseForm.price : editor.rows[i].price}"><button type="button" data-action="price-count" data-index="${i}" data-delta="1" aria-label="Basispreis für ${esc(p.name)} um 1 Dollar erhöhen">+</button></div></label><strong data-comparison-unit="${i}">${comparisonValue(i)}</strong></div>`).join('')}${coffeeForm()?htmlText('<p class="hint">Kaffee wird entlang der am Brett bestimmten Route gekauft. Preis und Marketeer-Entfernungsbonus ändern diese Route nicht.</p>'):game.milestoneSet==='new'?html`<p class="hint">${t('Marketeer: −2 nur für den Vergleich Preis + Entfernung, nicht für die Zahlung.')} ${html`Discount Manager: Bei mindestens 3 $ Mitarbeiter-Rabatt auf den Grundpreis von ${money(editor.rows[0].basePrice ?? 10)} werden 100 $ aus der Bank entfernt, auch ohne Verkauf.`}</p>`:htmlText('<p class="hint">Basispreis an Mitarbeiter anpassen. Der −1-$-Meilenstein ist im Stückpreis bereits enthalten. Warenboni und CFO erhöhen die Einnahmen.</p>')}</section>`;
+  return html`<section class="price-comparison"><div class="sidebar-heading"><h2>${coffeeForm()?t('Kaffeepreise'):t('Preisvergleich')}</h2></div><p class="comparison-intro">Stückpreise aller Spieler auf einen Blick.${game.modules?.reservePrices?html` ${t('Grundpreis')}: ${money(editor.houseForm.basePrice ?? editor.rows[0].basePrice ?? 10)}`:''}</p><div class="comparison-columns"><span>Spieler</span><span>Basispreis</span><span>${(game.milestoneSet==='new'||game.modules?.ketchup)&&!coffeeForm()?t('Vergleichspreis'):t('Stückpreis')}</span></div>${game.players.map((p,i) => html`<div class="comparison-row"><span>${playerName(p)}</span><label><span class="sr-only">Basispreis vor Preis-Meilenstein für ${esc(p.name)}</span><div class="stepper"><button type="button" data-action="price-count" data-index="${i}" data-delta="-1" aria-label="Basispreis für ${esc(p.name)} um 1 Dollar senken">−</button><input type="number" inputmode="numeric" min="-100" max="100" step="1" required data-comparison-price="${i}" value="${rawPlayerPrice(i)}"><button type="button" data-action="price-count" data-index="${i}" data-delta="1" aria-label="Basispreis für ${esc(p.name)} um 1 Dollar erhöhen">+</button></div></label><strong data-comparison-unit="${i}">${comparisonValue(i)}</strong></div>`).join('')}${coffeeForm()?htmlText('<p class="hint">Kaffee wird entlang der am Brett bestimmten Route gekauft. Preis und Marketeer-Entfernungsbonus ändern diese Route nicht.</p>'):game.milestoneSet==='new'?html`<p class="hint">${t('Marketeer: −2 nur für den Vergleich Preis + Entfernung, nicht für die Zahlung.')} ${html`Discount Manager: Bei mindestens 3 $ Mitarbeiter-Rabatt auf den Grundpreis von ${money(editor.rows[0].basePrice ?? 10)} werden 100 $ aus der Bank entfernt, auch ohne Verkauf.`}</p>`:htmlText('<p class="hint">Basispreis an Mitarbeiter anpassen. Der −1-$-Meilenstein ist im Stückpreis bereits enthalten. Warenboni und CFO erhöhen die Einnahmen.</p>')}</section>`;
 }
 function refreshHousePrices() {
   game.players.forEach((_,i) => {
@@ -327,10 +388,13 @@ function renderSales() {
     <div id="sales-workspace"></div>`;
   const target = document.querySelector('#sales-workspace');
   if (step === 'houses') {
+    const live=normalizeHouseDraft();
+    if(live.needsReserve){renderReserve(target,true);return;}
+
     const h = editor.houseForm;
-    target.innerHTML = html`<div class="house-layout"><section class="panel house-form"><div class="form-title"><h2>${coffeeForm()?t('Kaffee verkaufen'):editor.editingHouse === null ? html`Verkauf ${mealHouses().length + 1}` : t('Verkauf bearbeiten')}</h2><div class="house-selector"><span>Hausnummer</span><button class="secondary house-picker-trigger" data-action="open-house-picker" aria-haspopup="dialog">${h.number ? houseLabel(h.number) : t('Haus wählen')}<small>${h.park?html`🌳 ${t('Park')} · `:''}${visibleGardenKind(h.number)==='built'?t('Garten gebaut'):visibleGardenKind(h.number)==='native'?t('Mit Garten'):t('Hausnummer auswählen')}</small></button></div></div><fieldset><legend>${coffeeForm()?t('1. Wer verkauft den Kaffee?'):t('1. Wer beliefert das Haus?')}</legend>${playerChoices()}</fieldset><fieldset><legend>2. Was wurde verkauft?</legend><div class="house-goods">${formGoods().map(([key,label,icon]) => html`<label><span>${icon} ${t(label)}</span><small class="goods-unit-price" data-goods-price="${key}">${goodsUnitPrice(key)}</small><div class="stepper"><button data-action="house-count" data-field="${key}" data-delta="-1" aria-label="${t(label)} weniger">−</button><input type="number" inputmode="numeric" min="0" max="1000000" step="1" required data-house="${key}" value="${h[key] ?? 0}" aria-label="Anzahl ${t(label)}"><button data-action="house-count" data-field="${key}" data-delta="1" aria-label="${t(label)} mehr">+</button></div></label>`).join('')}</div><div class="food-addon-buttons">${coffeeFormButton()}${kimchiButton()}</div>${game.modules?.noodles?htmlText('<p class="hint">Nudeln ersetzen die ganze Bestellung. Keine Mischung mit Burgern, Pizza oder Getränken.</p>'):''}${coffeeForm()?htmlText('<p class="goods-price-note">Kaffee: ein Stück je passierter Filiale. Route am Brett bestimmen. Der Zielbetrieb verkauft keinen Kaffee. Kein Getränkemeilenstein.</p>'):htmlText(game.modules?.lobbyist?'<p class="goods-price-note">Erlös je Stück inkl. Meilenstein-, Garten- und Parkbonus, ohne CFO.</p>':'<p class="goods-price-note">Erlös je Stück inkl. Meilenstein- und Gartenbonus, ohne CFO.</p>')}</fieldset>${!coffeeForm()?html`<fieldset><legend>3. Welches Haus?</legend><div class="house-types">${[['normal','⌂',t('Ohne Garten'),t(h.park?'Doppelter Stückpreis':'Einfacher Stückpreis')],['garden','♧',t('Mit Garten'),t(h.park?'Dreifacher Stückpreis':'Doppelter Stückpreis')]].map(([type,icon,label,hint]) => html`<button class="choice ${h.type === type ? 'selected' : ''}" data-action="house-type" data-type="${type}" aria-pressed="${h.type === type}" ${coffeeForm() || (type==='normal'&&visibleGardenKind(h.number)!=='none'&&!editableGarden(h.number)) || (type==='garden'&&(isApartment(h.number)||isRural(h.number)))?'disabled':''}><span class="type-icon">${icon}</span><span>${t(label)}<small>${t(hint)}</small></span></button>`).join('')}</div>${parkControl(h)}${coffeeForm()?htmlText('<p class="hint">Der Gartenstatus wird vom Essensverkauf dieses Hauses übernommen.</p>'):''}${isRural(h.number)?htmlText('<p class="hint">Das ländliche Gebiet wird zuletzt beliefert und hat weder Garten noch Park.</p>'):''}${isApartment(h.number)?htmlText('<p class="hint">Apartments können keinen Garten haben.</p>'):''}${editableGarden(h.number) ? htmlText('<p class="hint">In dieser Baurunde kannst du den Garten korrigieren. Die Änderung wird mit der Runde bestätigt; spätere Verkäufe dieses Hauses werden neu berechnet.</p>') : ''}</fieldset>`:''}<div class="house-price"><div><span id="house-payment-label">${housePreview().startsWith('-')?t('Zahlung an die Bank'):t('Verkauf inkl. Meilensteinen')}</span><strong id="house-income">${housePreview()}</strong><small>Trinkgeld und CFO folgen in Schritt 2.</small></div></div><div class="house-form-actions">${editor.editingHouse !== null || coffeeForm() ? htmlText('<button class="secondary" data-action="cancel-house">Abbrechen</button>') : ''}<button data-action="save-house">${coffeeForm()?t('Kaffee speichern'):editor.editingHouse !== null ? t('Verkauf speichern') : t('Haus übernehmen & nächstes')} →</button></div></section><aside class="house-sidebar">${priceComparison()}<div class="sidebar-heading"><h2>Diese Runde</h2><span>${mealHouses().length} ${mealHouses().length === 1 ? t('Haus') : t('Häuser')}</span></div>${houseList()}<div class="sidebar-total"><span>Warenumsatz inkl. Meilensteinen</span><strong>${money(editor.houses.reduce((sum, house) => sum + calculateHouse(house, editor.rows[house.player].milestones).total, 0))}</strong></div><button class="secondary" data-action="sales-step" data-step="extras">Essenszeit abschließen →</button></aside></div>`;
+    target.innerHTML = html`${houseBankStatus(live)}<div class="house-layout"><section class="panel house-form"><div class="form-title"><h2>${coffeeForm()?t('Kaffee verkaufen'):editor.editingHouse === null ? html`Verkauf ${mealHouses().length + 1}` : t('Verkauf bearbeiten')}</h2><div class="house-selector"><span>Hausnummer</span><button class="secondary house-picker-trigger" data-action="open-house-picker" aria-haspopup="dialog">${h.number ? houseLabel(h.number) : t('Haus wählen')}<small>${h.park?html`🌳 ${t('Park')} · `:''}${visibleGardenKind(h.number)==='built'?t('Garten gebaut'):visibleGardenKind(h.number)==='native'?t('Mit Garten'):t('Hausnummer auswählen')}</small></button></div></div><fieldset><legend>${coffeeForm()?t('1. Wer verkauft den Kaffee?'):t('1. Wer beliefert das Haus?')}</legend>${playerChoices()}</fieldset><fieldset><legend>2. Was wurde verkauft?</legend><div class="house-goods">${formGoods().map(([key,label,icon]) => html`<label><span>${icon} ${t(label)}</span><small class="goods-unit-price" data-goods-price="${key}">${goodsUnitPrice(key)}</small><div class="stepper"><button data-action="house-count" data-field="${key}" data-delta="-1" aria-label="${t(label)} weniger">−</button><input type="number" inputmode="numeric" min="0" max="1000000" step="1" required data-house="${key}" value="${h[key] ?? 0}" aria-label="Anzahl ${t(label)}"><button data-action="house-count" data-field="${key}" data-delta="1" aria-label="${t(label)} mehr">+</button></div></label>`).join('')}</div><div class="food-addon-buttons">${coffeeFormButton()}${kimchiButton()}</div>${game.modules?.sushi?htmlText('<p class="hint">Sushi ersetzt die gesamte Bestellung und ist nur bei Häusern mit Garten möglich. Burger-, Pizza- und Getränkeboni zählen nicht.</p>'):''}${game.modules?.noodles?htmlText('<p class="hint">Nudeln ersetzen die ganze Bestellung. Keine Mischung mit Burgern, Pizza oder Getränken.</p>'):''}${coffeeForm()?htmlText('<p class="goods-price-note">Kaffee: ein Stück je passierter Filiale. Route am Brett bestimmen. Der Zielbetrieb verkauft keinen Kaffee. Kein Getränkemeilenstein.</p>'):htmlText(game.modules?.lobbyist?'<p class="goods-price-note">Erlös je Stück inkl. Meilenstein-, Garten- und Parkbonus, ohne CFO.</p>':'<p class="goods-price-note">Erlös je Stück inkl. Meilenstein- und Gartenbonus, ohne CFO.</p>')}</fieldset>${!coffeeForm()?html`<fieldset><legend>3. Welches Haus?</legend><div class="house-types">${[['normal','⌂',t('Ohne Garten'),t(h.park?'Doppelter Stückpreis':'Einfacher Stückpreis')],['garden','♧',t('Mit Garten'),t(h.park?'Dreifacher Stückpreis':'Doppelter Stückpreis')]].map(([type,icon,label,hint]) => html`<button class="choice ${h.type === type ? 'selected' : ''}" data-action="house-type" data-type="${type}" aria-pressed="${h.type === type}" ${coffeeForm() || (type==='normal'&&visibleGardenKind(h.number)!=='none'&&!editableGarden(h.number)) || (type==='garden'&&(isApartment(h.number)||isRural(h.number)))?'disabled':''}><span class="type-icon">${icon}</span><span>${t(label)}<small>${t(hint)}</small></span></button>`).join('')}</div>${parkControl(h)}${coffeeForm()?htmlText('<p class="hint">Der Gartenstatus wird vom Essensverkauf dieses Hauses übernommen.</p>'):''}${isRural(h.number)?htmlText('<p class="hint">Das ländliche Gebiet wird zuletzt beliefert und hat weder Garten noch Park.</p>'):''}${isApartment(h.number)?htmlText('<p class="hint">Apartments können keinen Garten haben.</p>'):''}${editableGarden(h.number) ? htmlText('<p class="hint">In dieser Baurunde kannst du den Garten korrigieren. Die Änderung wird mit der Runde bestätigt; spätere Verkäufe dieses Hauses werden neu berechnet.</p>') : ''}</fieldset>`:''}<div class="house-price"><div><span id="house-payment-label">${housePreview().startsWith('-')?t('Zahlung an die Bank'):t('Verkauf inkl. Meilensteinen')}</span><strong id="house-income">${housePreview()}</strong><small>Trinkgeld und CFO folgen in Schritt 2.</small></div></div><div class="house-form-actions">${editor.editingHouse !== null || coffeeForm() ? htmlText('<button class="secondary" data-action="cancel-house">Abbrechen</button>') : ''}<button data-action="save-house">${coffeeForm()?t('Kaffee speichern'):editor.editingHouse !== null ? t('Verkauf speichern') : t('Haus übernehmen & nächstes')} →</button></div></section><aside class="house-sidebar">${priceComparison()}<div class="sidebar-heading"><h2>Diese Runde</h2><span>${mealHouses().length} ${mealHouses().length === 1 ? t('Haus') : t('Häuser')}</span></div>${houseList()}<div class="sidebar-total"><span>Warenumsatz inkl. Meilensteinen</span><strong>${money(editor.houses.reduce((sum, house) => sum + calculateHouse(house, editor.rows[house.player].milestones).total, 0))}</strong></div><button class="secondary" data-action="sales-step" data-step="extras">Essenszeit abschließen →</button></aside></div>`;
   } else if (step === 'extras') {
-    target.innerHTML = html`<div class="entry-grid">${game.players.map((p,i) => html`<article class="panel player-entry" style="--player-color:${p.color}"><h3>${playerName(p)}</h3><fieldset class="employee-fields" ${playerOut(i)?'disabled':''}>${playerOut(i)?htmlText('<p class="hint">Ausgeschieden</p>'):''}${roundMilestones(editor.rows[i],i)}${waitressField(editor.rows[i],i)}${fryChefField(editor.rows[i],i)}${cfoButton(editor.rows[i],i)}${roundCalculation(editor.rows[i],i)}</fieldset></article>`).join('')}</div><div class="commit-bar"><button class="secondary" data-action="sales-step" data-step="houses">← Häuser</button><button data-action="sales-step" data-step="wages">Weiter zu den Löhnen →</button></div>`;
+    target.innerHTML = html`<div class="entry-grid">${game.players.map((p,i) => html`<article class="panel player-entry" style="--player-color:${p.color}"><h3>${playerName(p)}</h3><fieldset class="employee-fields" ${outBeforeRound(i)?'disabled':''}>${outBeforeRound(i)?htmlText('<p class="hint">Ausgeschieden</p>'):''}${roundMilestones(editor.rows[i],i)}${waitressField(editor.rows[i],i)}${fryChefField(editor.rows[i],i)}${cfoButton(editor.rows[i],i)}${roundCalculation(editor.rows[i],i)}</fieldset></article>`).join('')}</div><div class="commit-bar"><button class="secondary" data-action="sales-step" data-step="houses">← Häuser</button><button data-action="sales-step" data-step="wages">Weiter zu den Löhnen →</button></div>`;
   } else if (step === 'wages') {
     renderRoundWages(target);
   } else {
@@ -448,9 +512,12 @@ function cfoButton(row, i) {
 }
 function calculationLines(row, i) {
   try {
-    const c = calculateSale(row);
+    const settlement=editor.wizard?previewRound():null;
+    if(settlement?.needsReserve)return htmlText('<p class="hint">Bitte zuerst die Reservekarten aufdecken.</p>');
+    row=settlement?.rows?.[i] ?? row;
+    const c = calculateSale(row),detail=settlement?.details?.[i];
     const active = row.cfo || row.milestones.cfo;
-    return html`<dl><div><dt>Einnahmen<small>Waren inkl. Meilensteinboni</small></dt><dd>${money(c.revenue + c.bonus)}</dd></div>${game.modules?.coffee?html`<div><dt>+ Kaffee<small>${row.coffee ?? 0} Stück · ohne Getränkebonus</small></dt><dd>${money(c.coffeeRevenue)}</dd></div>`:''}<div><dt>+ Waitresses<small>${row.waitresses} × ${money(row.milestones.waitress ? 5 : 3)}</small></dt><dd>${money(c.tips)}</dd></div>${game.modules?.fryChef?html`<div><dt>+ Friteusenköche<small>${row.fryChefs ?? 0} × ${c.fryHouses} Häuser × 10 $</small></dt><dd>${money(c.fry)}</dd></div>`:''}<div><dt>+ CFO<small>${active ? html`50 % auf ${money(c.revenue + c.coffeeRevenue + c.bonus + c.tips + c.fry)} · aufgerundet` : t('Inaktiv')}</small></dt><dd>${money(c.cfo)}</dd></div><div class="calculation-total"><dt>Gesamtergebnis</dt><dd id="row-total-${i}">${money(c.total)}</dd></div></dl>`;
+    return html`<dl><div><dt>Einnahmen<small>Waren inkl. Meilensteinboni</small></dt><dd>${money(c.revenue + c.bonus)}</dd></div>${game.modules?.coffee?html`<div><dt>+ Kaffee<small>${row.coffee ?? 0} Stück · ohne Getränkebonus</small></dt><dd>${money(c.coffeeRevenue)}</dd></div>`:''}<div><dt>+ Waitresses<small>${row.waitresses} × ${money(row.milestones.waitress ? 5 : 3)}</small></dt><dd>${money(detail?.tips ?? c.tips)}</dd></div>${game.modules?.fryChef?html`<div><dt>+ Friteusenköche<small>${row.fryChefs ?? 0} × ${c.fryHouses} Häuser × 10 $</small></dt><dd>${money(c.fry)}</dd></div>`:''}<div><dt>+ CFO<small>${active ? html`50 % auf ${money(c.revenue + c.coffeeRevenue + c.bonus + c.tips + c.fry)} · aufgerundet` : t('Inaktiv')}</small></dt><dd>${money(detail?.cfo ?? c.cfo)}</dd></div><div class="calculation-total"><dt>Gesamtergebnis</dt><dd id="row-total-${i}">${money(detail?.paid ?? c.total)}</dd></div></dl>`;
   } catch { return htmlText('<p class="hint">Bitte die Verkaufseingaben prüfen.</p>'); }
 }
 function roundCalculation(row, i) {
@@ -489,8 +556,8 @@ function renderReview() {
   const settlement = sale && editor.wizard ? previewRound() : null;
   const revealBalance = settlement && !settlement.ended;
   return html`<section class="panel review"><div class="table-scroll"><table><thead><tr><th>Spieler</th>${sale ? visibleGoods().map(([,label]) => html`<th>${t(label)}</th>`).join('') + htmlText('<th>Bedienungen</th><th>Warenumsatz¹</th><th>Meilensteine</th><th>Trinkgeld</th>') + (game.modules?.fryChef?htmlText('<th>Friteusenköche</th>'):'') + htmlText('<th>CFO</th>') : htmlText('<th>Mitarbeiter</th>')}<th>${sale ? t('Einnahmen') : t('Lohn')}</th>${settlement ? htmlText('<th>Ausgaben / Löhne</th>') + (game.milestoneSet==='new'?htmlText('<th>Marketing nach Löhnen</th>'):'') + (revealBalance ? htmlText('<th>Neuer Stand</th>') : '') : ''}</tr></thead><tbody>${game.players.map((p,i) => {
-    const r = editor.rows[i]; const c = sale ? calculateSale(r) : null;
-    return html`<tr><th>${playerName(p)}</th>${sale ? (game.modules?.coffee?allGoods:GOODS).map(([key]) => html`<td>${r[key] ?? 0}</td>`).join('') + html`<td>${r.waitresses}</td><td>${money(c.revenue+c.coffeeRevenue)}</td><td>${money(c.bonus)}</td><td>${money(c.tips)}</td>${game.modules?.fryChef?html`<td>${money(c.fry)}</td>`:''}<td>${money(c.cfo)}</td>` : html`<td>${r}</td>`}<td class="${settlement ? 'income-amount' : 'amount'}">${money(sale ? (settlement?settlement.incomes[i]:c.total) : r*5)}</td>${settlement ? html`<td class="expense-amount">${money(settlement.expenses[i])}</td>${game.milestoneSet==='new'?html`<td>${money(settlement.marketing[i])}</td>`:''}${revealBalance ? html`<td class="amount new-balance">${money(settlement.balances[i])}</td>` : ''}` : ''}</tr>`;
+    const r = settlement?.rows?.[i] ?? editor.rows[i]; const c = sale ? calculateSale(r) : null; const detail=settlement?.details?.[i];
+    return html`<tr><th>${playerName(p)}</th>${sale ? (game.modules?.coffee?allGoods:GOODS).map(([key]) => html`<td>${r[key] ?? 0}</td>`).join('') + html`<td>${r.waitresses}</td><td>${money(c.revenue+c.coffeeRevenue)}</td><td>${money(c.bonus)}</td><td>${money(detail?.tips ?? c.tips)}</td>${game.modules?.fryChef?html`<td>${money(c.fry)}</td>`:''}<td>${money(detail?.cfo ?? c.cfo)}</td>` : html`<td>${r}</td>`}<td class="${settlement ? 'income-amount' : 'amount'}">${money(sale ? (settlement?settlement.incomes[i]:c.total) : r*5)}</td>${settlement ? html`<td class="expense-amount">${money(settlement.expenses[i])}</td>${game.milestoneSet==='new'?html`<td>${money(settlement.marketing[i])}</td>`:''}${revealBalance ? html`<td class="amount new-balance">${money(settlement.balances[i])}</td>` : ''}` : ''}</tr>`;
   }).join('')}</tbody></table></div>${sale ? htmlText('<p class="hint">¹ Mit eingestelltem Stückpreis und gegebenenfalls Gartenbonus. CFO zählt auf Waren und Trinkgeld, nicht auf Marketing, und wird einmal aufgerundet.</p>') : ''}</section>`;
 }
 function reservePriceSummary(values) {
@@ -499,7 +566,7 @@ function reservePriceSummary(values) {
 }
 
 function renderReserve(target, preview = false) {
-  target.innerHTML = html`<section class="panel reserve"><p class="eyebrow">ERSTER BANKBRUCH</p><h2>Zeit, die Reserve aufzudecken.</h2><p>${game.modules?.reservePrices?t('Wählt den Grundpreis auf der verdeckt gewählten Karte jedes Spielers. Die Bank erhält 200 $ pro Spieler. Der neue Grundpreis gilt ab der nächsten Verkaufsrunde.'):t('Wählt den Geldbetrag der zu Beginn verdeckt gewählten Karte jedes Spielers.')} ${preview ? t('Die Bank reicht für die erfassten Verkäufe nicht aus. Die Reserve wird für die Vorschau berücksichtigt und erst mit der Runde gebucht.') : t('Noch ausstehende Einnahmen werden vollständig ausgezahlt.')}</p><div class="reserve-grid">${game.players.map((p,i) => html`<div class="reserve-player" role="group" aria-label="Reservekarte f&uuml;r ${esc(p.name)}"><strong>${playerName(p)}</strong><input type="hidden" data-reserve="${i}" value=""><div class="reserve-options">${reserveOptions(game).map(n => html`<button class="secondary" data-action="reserve-card" data-index="${i}" data-value="${n}" aria-pressed="false">${money(n)}</button>`).join('')}</div></div>`).join('')}</div><div class="reserve-total" aria-live="polite"><span>Neue Bankreserve<small id="reserve-equation">Bitte pro Spieler eine Karte w&auml;hlen.</small></span><strong id="reserve-total">${money(game.modules?.reservePrices?game.players.length*200:0)}</strong></div>${game.modules?.reservePrices?html`<div class="reserve-total"><span>Neuer Grundpreis<small>Häufigste Karte · bei Gleichstand: 20 vor 5 vor 10 $</small></span><strong id="reserve-price">${t('Bitte alle Karten wählen.')}</strong></div>`:''}<button data-action="${preview ? 'round-reserve' : 'reserve'}">${preview ? t('Reserve für Vorschau übernehmen') : t('Reserve der Bank hinzufügen')}</button></section>`;
+  target.innerHTML = html`<section class="panel reserve"><p class="eyebrow">ERSTER BANKBRUCH</p><h2>Zeit, die Reserve aufzudecken.</h2><p>${game.modules?.reservePrices?t('Wählt den Grundpreis auf der verdeckt gewählten Karte jedes Spielers. Die Bank erhält 200 $ pro Spieler. Der neue Grundpreis gilt sofort für alle folgenden Verkäufe.'):t('Wählt den Geldbetrag der zu Beginn verdeckt gewählten Karte jedes Spielers.')} ${preview ? t('Die Bank ist während der Abrechnung leer geworden. Wählt jetzt die Reservekarten und setzt danach die Verkäufe fort. Gebucht wird erst beim Bestätigen der Runde.') : t('Noch ausstehende Einnahmen werden vollständig ausgezahlt.')}</p><div class="reserve-grid">${game.players.map((p,i) => html`<div class="reserve-player" role="group" aria-label="Reservekarte f&uuml;r ${esc(p.name)}"><strong>${playerName(p)}</strong><input type="hidden" data-reserve="${i}" value=""><div class="reserve-options">${reserveOptions(game).map(n => html`<button class="secondary" data-action="reserve-card" data-index="${i}" data-value="${n}" aria-pressed="false">${money(n)}</button>`).join('')}</div></div>`).join('')}</div><div class="reserve-total" aria-live="polite"><span>Neue Bankreserve<small id="reserve-equation">Bitte pro Spieler eine Karte w&auml;hlen.</small></span><strong id="reserve-total">${money(game.modules?.reservePrices?game.players.length*200:0)}</strong></div>${game.modules?.reservePrices?html`<div class="reserve-total"><span>Neuer Grundpreis<small>Häufigste Karte · bei Gleichstand: 20 vor 5 vor 10 $</small></span><strong id="reserve-price">${t('Bitte alle Karten wählen.')}</strong></div>`:''}<button data-action="${preview ? 'round-reserve' : 'reserve'}">${preview ? t('Reserve für Vorschau übernehmen') : t('Reserve der Bank hinzufügen')}</button></section>`;
 }
 function renderLog(target) {
   const balances = game.players.map(() => 0);
@@ -513,7 +580,7 @@ function renderLog(target) {
     game.players.forEach((_,i) => { balances[i] += incomes[i] - expenses[i]; });
     const dates = [sale.updatedAt,salary?.updatedAt,salary?.createdAt,sale.createdAt].map(value => new Date(value)).filter(date => Number.isFinite(date.getTime()));
     const date = dates.sort((a,b) => b-a)[0];
-    rounds.push({sale,salary,index,incomes,expenses,bankrupt:state.bankrupt,balances:[...balances],date,ended:state.secondBreak === index,reserve:state.firstBreak === index || (salary && state.firstBreak === index+1)});
+    rounds.push({sale,salary,index,incomes,expenses,bankrupt:state.bankrupt,details:state.saleDetails[index],breakAt:state.firstBreakAt,balances:[...balances],date,ended:state.secondBreak === index,reserve:state.firstBreak === index || (salary && state.firstBreak === index+1)});
     if (salary) index++;
   }
   target.innerHTML = html`<div class="ledger-heading"><h2>Protokoll</h2><p>+ Einnahmen <span>− Löhne</span> <strong>Neuer Stand</strong> · neueste Runde zuerst</p></div>${!rounds.length ? htmlText('<section class="panel"><p>Noch keine Buchungen. Los geht’s mit dem ersten Verkauf.</p></section>') : html`<div class="ledger-scroll"><table class="ledger-table"><caption class="sr-only">Einnahmen, Lohnausgaben und Kontostand pro Spieler nach jeder Runde</caption><thead><tr><th scope="col">Runde</th>${game.players.map(p => html`<th scope="col">${playerName(p)}<small>Einnahmen · Löhne · Stand</small></th>`).join('')}<th scope="col"><span class="sr-only">Aktionen</span></th></tr></thead>${rounds.reverse().map(round => html`<tbody class="ledger-round" data-round="${round.sale.round}"><tr class="ledger-main"><th scope="row" class="ledger-meta"><strong>Runde ${round.sale.round}</strong><small>${round.date ? esc(round.date.toLocaleString(locale(),{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})) : t('Ohne Zeitangabe')}${round.sale.updatedAt || round.salary?.updatedAt ? t(' · korrigiert') : ''}</small>${round.ended ? htmlText('<em>Spielende</em>') : !round.salary ? htmlText('<em>Löhne offen</em>') : ''}</th>${game.players.map((p,i) => html`<td class="ledger-player-cell"><span class="ledger-player-mobile">${playerName(p)}</span><div class="ledger-amounts"><span class="ledger-income" aria-label="Einnahmen">${signedMoney(round.incomes[i])}</span><span class="ledger-expense" aria-label="Löhne">${round.salary || round.ended ? '−' + money(round.expenses[i]) : t('offen')}</span><strong aria-label="Neuer Stand">${money(round.balances[i])}</strong></div></td>`).join('')}<td class="ledger-actions"><button class="text-button" data-action="toggle-log-details" data-index="${round.index}" aria-expanded="false" aria-controls="log-details-${round.index}">Details</button><button class="secondary" data-action="edit" data-index="${round.index}" aria-label="Runde ${round.sale.round} bearbeiten">Bearbeiten</button></td></tr><tr class="ledger-detail-row" id="log-details-${round.index}" hidden><td colspan="${game.players.length + 2}">${logRoundDetails(round)}</td></tr></tbody>`).join('')}</table></div><button class="text-button danger ledger-undo" data-action="undo">${game.events.at(-1).combined ? t('Letzte Runde') : t('Letzte Buchung')} zurücknehmen</button>`}`;
@@ -521,9 +588,9 @@ function renderLog(target) {
 function logRoundDetails(round) {
   return html`${round.sale.rows.some(row=>bankRemoval(row))?html`<p class="ledger-bank-note">Discount Manager: −${money(round.sale.rows.reduce((sum,row)=>sum+bankRemoval(row),0))} aus der Bank · keine Spielereinnahmen</p>`:''}${round.reserve ? html`<p class="ledger-bank-note">Erster Bankbruch${game.reserves ? html` · Reserve: ${money(reserveAmount(game))}${game.modules?.reservePrices?html` · ${t('Neuer Grundpreis')}: ${money(reserveBasePrice(game.reserves))}`:''}` : t(' · Reserve noch offen')}</p>` : ''}<div class="ledger-detail-grid">${game.players.map((p,i) => {
     const row = round.sale.rows[i];
-    const c = calculateSale(row);
+    const c = calculateSale(row),detail=round.details[i];
     const goods = allGoods.filter(([key]) => row[key]).map(([key,label]) => html`${row[key]} ${t(label.split(' · ')[0])}`).join(' · ') || t('Keine Waren verkauft');
-    return html`<section class="ledger-detail-player"><h3>${playerName(p)}</h3><p>${goods}</p><dl><div><dt>Warenumsatz</dt><dd>${money(c.revenue)}</dd></div>${round.bankrupt[i]===round.sale.round?html`<div><dt>Ungedeckter Verlust bei Insolvenz</dt><dd>${money(Math.max(0,round.incomes[i]-c.total))}</dd></div>`:''}${game.modules?.coffee?html`<div><dt>Kaffee</dt><dd>${signedMoney(c.coffeeRevenue)}</dd></div>`:''}<div><dt>Meilensteinboni</dt><dd>+${money(c.bonus)}</dd></div><div><dt>${row.waitresses} Waitresses</dt><dd>+${money(c.tips)}</dd></div>${game.modules?.fryChef?html`<div><dt>${row.fryChefs ?? 0} Friteusenköche · ${c.fryHouses} Häuser</dt><dd>+${money(c.fry)}</dd></div>`:''}<div><dt>CFO${row.cfo || row.milestones.cfo ? t(' · aktiv') : t(' · inaktiv')}</dt><dd>${signedMoney(c.cfo)}</dd></div><div><dt>${round.salary ? html`${round.salary.rows[i]} Mitarbeiter × ${money(salaryRate(row))}` : round.ended ? t('Löhne entfallen') : t('Löhne noch offen')}</dt><dd>−${money(round.expenses[i])}</dd></div>${round.salary&&(round.bankrupt[i]===null||round.bankrupt[i]>round.sale.round)&&marketingIncome(row)?html`<div><dt>Marketing nach Löhnen</dt><dd>+${money(marketingIncome(row))}</dd></div>`:''}</dl>${row.houses?.length ? html`<ul class="ledger-houses">${row.houses.map(h => html`<li><div><strong>${houseLabel(h.number)}</strong><small>${houseSetting(h)} · ${houseDescription(h)} · Stückpreis ${money(h.price - (row.milestones.price ? 1 : 0))}</small></div><span>${money(calculateHouse(h,row.milestones).total)}</span></li>`).join('')}</ul>` : ''}</section>`;
+    return html`<section class="ledger-detail-player"><h3>${playerName(p)}</h3><p>${goods}</p><dl><div><dt>Warenumsatz</dt><dd>${money(c.revenue)}</dd></div>${round.bankrupt[i]===round.sale.round?html`<div><dt>Ungedeckter Verlust bei Insolvenz</dt><dd>${money(detail.unpaid)}</dd></div>`:''}${game.modules?.coffee?html`<div><dt>Kaffee</dt><dd>${signedMoney(c.coffeeRevenue)}</dd></div>`:''}<div><dt>Meilensteinboni</dt><dd>+${money(c.bonus)}</dd></div><div><dt>${row.waitresses} Waitresses</dt><dd>+${money(detail.tips)}</dd></div>${game.modules?.fryChef?html`<div><dt>${row.fryChefs ?? 0} Friteusenköche · ${c.fryHouses} Häuser</dt><dd>+${money(detail.fry)}</dd></div>`:''}<div><dt>CFO${row.cfo || row.milestones.cfo ? t(' · aktiv') : t(' · inaktiv')}</dt><dd>${signedMoney(detail.cfo)}</dd></div><div><dt>${round.salary ? html`${round.salary.rows[i]} Mitarbeiter × ${money(salaryRate(row))}` : round.ended ? t('Löhne entfallen') : t('Löhne noch offen')}</dt><dd>−${money(round.expenses[i])}</dd></div>${round.salary&&(round.bankrupt[i]===null||round.bankrupt[i]>round.sale.round)&&marketingIncome(row)?html`<div><dt>Marketing nach Löhnen</dt><dd>+${money(marketingIncome(row))}</dd></div>`:''}</dl>${row.houses?.length ? html`<ul class="ledger-houses">${row.houses.map(h => html`<li><div><strong>${houseLabel(h.number)}</strong><small>${houseSetting(h)} · ${houseDescription(h)} · Stückpreis ${money(h.price - (row.milestones.price ? 1 : 0))}</small></div><span>${money(calculateHouse(h,row.milestones).total)}</span></li>`).join('')}</ul>` : ''}</section>`;
   }).join('')}</div>${round.salary && !round.sale.rows.every(row => Array.isArray(row.houses)) ? html`<button class="text-button" data-action="edit" data-index="${round.index + 1}">Alte Lohnbuchung bearbeiten</button>` : ''}`;
 }
 function render() {
@@ -555,7 +622,7 @@ function persistDraft() {
 function checkEditor() {
   if (editor.wizard) {
     const settlement = previewRound();
-    if (settlement.needsReserve) throw new Error(t('Bitte zuerst im Lohnschritt die Reservekarten aufdecken.'));
+    if (settlement.needsReserve) throw new Error(t('Bitte zuerst die Reservekarten aufdecken.'));
     if (settlement.issues.length) throw new Error(settlement.issues.join(' '));
     return settlement.candidate;
   }
@@ -583,7 +650,8 @@ app.addEventListener('input', event => {
     save(); return;
   }
   if (input.dataset.dialogCoffee!==undefined && editor?.coffeeDialog) {
-    if (input.validity.valid&&Number.isFinite(input.valueAsNumber)) editor.coffeeDialog.quantities[+input.dataset.dialogCoffee]=input.valueAsNumber;
+    if (!input.validity.valid||!Number.isFinite(input.valueAsNumber))return;
+    editor.coffeeDialog.quantities[+input.dataset.dialogCoffee]=input.valueAsNumber;editor.coffeeDialog.sequence=coffeeSequenceFor(editor.coffeeDialog.quantities,editor.coffeeDialog.sequence || []);app.querySelector('#coffee-order-list').innerHTML=coffeeOrderList();
     return;
   }
   if (input.dataset.demand !== undefined && editor?.wizard) {
@@ -599,12 +667,12 @@ app.addEventListener('input', event => {
   if (input.dataset.comparisonPrice !== undefined && editor?.wizard) {
     if (!input.validity.valid || !Number.isFinite(input.valueAsNumber)) return;
     const i = +input.dataset.comparisonPrice;
-    editor.rows[i].price = input.valueAsNumber;
+    editor.rows[i].price = input.valueAsNumber;editor.rows[i].basePrice=editor.houseForm.basePrice ?? 10;
     if (editor.houseForm.player === i) {
       editor.houseForm.price = input.valueAsNumber;
     }
     if (game.modules?.coffee) {
-      editor.houses.filter(h=>isCoffeeSale(h)&&h.player===i).forEach(h=>{h.price=input.valueAsNumber;});
+      editor.houses.filter(h=>isCoffeeSale(h)&&h.player===i).forEach(h=>{h.price=input.valueAsNumber;h.basePrice=editor.houseForm.basePrice ?? 10;});
       syncHouseRows();
       const list=app.querySelector('.house-list');
       if (list) list.outerHTML=houseList();
@@ -654,12 +722,12 @@ app.addEventListener('click', async event => {
       case 'setup':
         setupCount = game?.players.length ?? 3;
         setupMilestones = 'base';
-        setupModules = {newDistricts:false,apartments:false,coffee:false,fryChef:false,lobbyist:false,reservePrices:false,kimchi:false,noodles:false,rural:false,ketchup:false};
+        setupModules = {newDistricts:false,apartments:false,coffee:false,fryChef:false,lobbyist:false,reservePrices:false,kimchi:false,noodles:false,rural:false,ketchup:false,sushi:false};
         setupPlayers = Array.from({ length: 6 }, (_,i) => ({ name:'', color:null }));
         screen = 'setup'; break;
       case 'setup-module':
         readSetupPlayers();
-        if (!['newDistricts','apartments','coffee','fryChef','lobbyist','reservePrices','kimchi','noodles','rural','ketchup'].includes(button.dataset.module)) return;
+        if (!['newDistricts','apartments','coffee','fryChef','lobbyist','reservePrices','kimchi','noodles','rural','ketchup','sushi'].includes(button.dataset.module)) return;
         setupModules[button.dataset.module]=!setupModules[button.dataset.module]; break;
       case 'setup-milestones':
         readSetupPlayers();
@@ -718,7 +786,7 @@ app.addEventListener('click', async event => {
       case 'house-player':
         if(playerOut(+button.dataset.index))return;
         if (!validInputs()) return;
-        if (editor.houseForm.player !== +button.dataset.index) editor.houseForm.price = editor.rows[+button.dataset.index].price;
+        if (editor.houseForm.player !== +button.dataset.index) editor.houseForm.price = rawPlayerPrice(+button.dataset.index);
         editor.houseForm.player = +button.dataset.index; persistDraft(); break;
       case 'open-house-picker':
         if (!validInputs()) return;
@@ -728,6 +796,8 @@ app.addEventListener('click', async event => {
       case 'select-house': {
         const number=houseId(button.dataset.number);
         if (!availableHouses().includes(number) || houseAlreadyUsed(number)) return;
+        const targetBase=houseBaseBefore(number);
+        editor.houseForm.price+=targetBase-(editor.houseForm.basePrice ?? 10);editor.houseForm.basePrice=targetBase;
         editor.houseForm.number=String(number);
         editor.houseForm.park=coffeeForm()?Boolean(mealHouses().find(h=>sameHouse(h.number,number)).park):visiblePark(number);
         editor.houseForm.type=coffeeForm()?mealHouses().find(h=>sameHouse(h.number,number)).type:visibleGardenKind(number)==='none'?'normal':'garden';
@@ -799,7 +869,7 @@ app.addEventListener('click', async event => {
       case 'save-house': {
         const returnToSummary = editor.returnToSummary;
         if (!storeHouse()) return;
-        if (returnToSummary) { editor.step = previewRound().needsReserve ? 'wages' : 'summary'; editor.returnToSummary = false; }
+        if (returnToSummary) { editor.step = previewHouses().needsReserve ? 'houses' : previewRound().needsReserve ? 'wages' : 'summary'; editor.returnToSummary = false; }
         persistDraft(); window.scrollTo(0,0); break;
       }
       case 'sales-step': {
@@ -821,6 +891,11 @@ app.addEventListener('click', async event => {
       case 'open-coffee-dialog':
         if (!validInputs()) return;
         openCoffeeDialog(button.dataset.index===undefined?null:+button.dataset.index);return;
+      case 'coffee-order': {
+        const sequence=editor.coffeeDialog?.sequence,i=+button.dataset.index,j=i+ +button.dataset.delta;
+        if(!sequence||j<0||j>=sequence.length)return;
+        [sequence[i],sequence[j]]=[sequence[j],sequence[i]];app.querySelector('#coffee-order-list').innerHTML=coffeeOrderList();return;
+      }
       case 'coffee-dialog-count': {
         const input=app.querySelector('[data-dialog-coffee="'+button.dataset.player+'"]');
         if (!input.validity.valid) {input.reportValidity();return;}
@@ -835,9 +910,9 @@ app.addEventListener('click', async event => {
         const state=editor.coffeeDialog;
         if (!state) return;
         const quantities=[...app.querySelectorAll('[data-dialog-coffee]')].map(input=>integer(input.valueAsNumber));
-        if (state.index===null) editor.houseForm.coffees=quantities;
+        if (state.index===null) {editor.houseForm.coffees=quantities;editor.houseForm.coffeeSequence=state.sequence;}
         else {
-          const parent=editor.houses[state.index];
+          const parent=editor.houses[state.index];parent.coffeeSequence=state.sequence;
           const editingParent=editor.editingHouse===null?null:editor.houses[editor.editingHouse];
           quantities.forEach((quantity,i)=>setCoffeeQuantity(parent,i,quantity));
           if (editingParent) editor.editingHouse=editor.houses.indexOf(editingParent);

@@ -92,7 +92,7 @@ export function removeBuiltGarden(game,label,round) {
     let changed=false;
     for (const row of rows) if (Array.isArray(row.houses)) {
       for (const house of row.houses) if (correctHouse(house)) changed=true;
-      row.garden=row.houses.filter(house=>house.type==='garden').reduce((sum,house)=>sum+['burger','pizza','beer','lemonade','soda','noodles','kimchi'].reduce((count,key)=>count+(house[key] ?? 0),0),0);
+      row.garden=row.houses.filter(house=>house.type==='garden').reduce((sum,house)=>sum+['burger','pizza','beer','lemonade','soda','noodles','sushi','kimchi'].reduce((count,key)=>count+(house[key] ?? 0),0),0);
       if (row.coffeeGarden!==undefined) row.coffeeGarden=row.houses.filter(house=>house.type==='garden').reduce((sum,house)=>sum+(house.coffee ?? 0),0);
     }
     return changed;

@@ -1,15 +1,16 @@
 import { t, html } from './i18n.js';
-import { houseOptions, houseId, isNativeGarden, isApartment, isRural, houseMultiplier } from './houses.js';
+import { houseOptions, houseId, isNativeGarden, isApartment, isRural, houseOrder, houseMultiplier } from './houses.js';
 export const GOODS = [
   ['burger', 'Burger', '🍔'], ['pizza', 'Pizza', '🍕'],
   ['beer', 'Bier · braun', '🟤'], ['lemonade', 'Limonade · gelb', '🟡'], ['soda', 'Softdrinks · rot', '🔴']
 ];
 export const COFFEE = ['coffee','Kaffee','☕'];
 export const NOODLES=['noodles','Nudeln','🍜'];
+export const SUSHI=['sushi','Sushi','🍣'];
 export const KIMCHI=['kimchi','Kimchi','🥬'];
-export const mealGoods=[...GOODS,NOODLES,KIMCHI];
+export const mealGoods=[...GOODS,NOODLES,SUSHI,KIMCHI];
 export const allGoods = [...mealGoods,COFFEE];
-export const goodsForGame = game => [...GOODS,...(game.modules?.noodles?[NOODLES]:[]),...(game.modules?.kimchi?[KIMCHI]:[]),...(game.modules?.coffee?[COFFEE]:[])];
+export const goodsForGame = game => [...GOODS,...(game.modules?.noodles?[NOODLES]:[]),...(game.modules?.sushi?[SUSHI]:[]),...(game.modules?.kimchi?[KIMCHI]:[]),...(game.modules?.coffee?[COFFEE]:[])];
 export function unitPrice(value) {
   if(!Number.isSafeInteger(value)||value < -100 || value>100) throw new Error(t('Bitte einen ganzzahligen Preis zwischen −100 und 100 eingeben.'));
   return value;
@@ -19,6 +20,11 @@ export const sameHouse = (a,b) => (houseId(a) ?? String(a).trim())===(houseId(b)
 export function validateCoffeeSales(rows) {
   if (rows.some(row=>(row.coffee ?? 0)>0&&!Array.isArray(row.houses))) throw new Error(t('Kaffee benötigt erfasste Hausverkäufe.'));
   const houses=rows.flatMap(row=>row.houses || []);
+  for(const house of houses.filter(h=>!isCoffeeSale(h)&&h.coffeeSequence!==undefined)) {
+    const sequence=house.coffeeSequence;
+    if(!Array.isArray(sequence)||sequence.length>200||sequence.some(i=>!Number.isSafeInteger(i)||i<0||i>=rows.length))throw new Error(t('Ungültige Kaffee-Reihenfolge.'));
+    for(let i=0;i<rows.length;i++)if(sequence.filter(player=>player===i).length!==houses.filter(h=>isCoffeeSale(h)&&h.player===i&&sameHouse(h.number,house.number)).reduce((n,h)=>n+h.coffee,0))throw new Error(t('Kaffee-Reihenfolge und Mengen stimmen nicht überein.'));
+  }
   for (const house of houses.filter(isCoffeeSale)) {
     const meals=houses.filter(other=>!isCoffeeSale(other)&&sameHouse(other.number,house.number));
     if (!meals.length) throw new Error(t('Kaffee benötigt einen erfassten Essensverkauf für dieses Haus.'));
@@ -55,46 +61,13 @@ export function reserveBasePrice(cards) {
   return [20,5,10].find(n=>counts[n]===max);
 }
 export const reserveAmount = (game,cards=game.reserves) => !cards ? 0 : game.modules?.reservePrices ? game.players.length*200 : cards.reduce((sum,n)=>sum+n,0);
-function rebaseRow(row,basePrice) {
-  const delta=basePrice-(row.basePrice ?? 10);
-  row.price+=delta;
-  if(row.houses)for(const house of row.houses)house.price+=delta;
-  row.basePrice=basePrice;
-}
-// Keep employee price adjustments while replaying when the first bank break moves.
-export function applyReservePrices(game) {
-  if(!game.modules?.reservePrices) return game;
-  const next=structuredClone(game);
-  let bank=next.players.length*50, broken=false, basePrice=10, lastSaleBase=10;
-  const balances=next.players.map(()=>0),bankrupt=next.players.map(()=>null);
-  const breakBank=()=>{if(bank<=0&&!broken){broken=true;bank+=reserveAmount(next);basePrice=reserveBasePrice(next.reserves) ?? 10;}};
-  for(let i=0;i<next.events.length;i++) {
-    const event=next.events[i];
-    if(event.type==='sale') {
-      lastSaleBase=basePrice;
-      event.rows.forEach((row,j)=>{rebaseRow(row,basePrice);if(bankrupt[j]!==null)return;const total=calculateSale(row).total,payment=Math.max(total,-balances[j]);if(total<payment)bankrupt[j]=event.round;balances[j]+=payment;bank-=bankRemoval(row)+payment;});
-    } else {
-      event.rows.forEach((count,j)=>{const row=next.events[i-1].rows[j];if(bankrupt[j]!==null)return;const delta=marketingIncome(row)-count*salaryRate(row);bank-=delta;balances[j]+=delta;});
-    }
-    breakBank();
-  }
-  const draft=next.draft?.type==='sale'?next.draft:next.draft?.completion;
-  if(draft) {
-    const target=next.draft.type==='sale'?basePrice:lastSaleBase;
-    const oldBase=draft.rows[draft.houseForm?.player ?? 0]?.basePrice ?? 10;
-    draft.rows.forEach(row=>rebaseRow(row,target));
-    if(draft.houseForm)draft.houseForm.price+=target-oldBase;
-  }
-  return next;
-}
-
 export const COLORS = ['#b34335', '#d3a323', '#336f9b', '#4e8052', '#75548c', '#c55b86'];
 export function integer(value, max = 1000000) {
   if (!Number.isSafeInteger(value) || value < 0 || value > max) throw new Error(t('Bitte eine gültige, nicht negative ganze Zahl eingeben.'));
   return value;
 }
 export function emptySale(milestones = {},basePrice=10) {
-  return { burger: 0, pizza: 0, beer: 0, lemonade: 0, soda: 0, noodles:0, kimchi:0, coffee:0, coffeeGarden:0, waitresses: 0, fryChefs:0, basePrice, price: basePrice, garden: 0, cfo: false, demand:0, milestones: { ...milestones } };
+  return { burger: 0, pizza: 0, beer: 0, lemonade: 0, soda: 0, noodles:0, sushi:0, kimchi:0, coffee:0, coffeeGarden:0, waitresses: 0, fryChefs:0, basePrice, price: basePrice, garden: 0, cfo: false, demand:0, milestones: { ...milestones } };
 }
 export function calculateHouse(house, milestones = {}) {
   if (!house || !['normal', 'garden'].includes(house.type) || typeof house.number !== 'string' || house.number.length > 24) throw new Error(t('Bitte ein gültiges Haus auswählen.'));
@@ -102,11 +75,15 @@ export function calculateHouse(house, milestones = {}) {
   if(isRural(house.number) && (house.type==='garden'||house.park)) throw new Error(t('Das ländliche Gebiet hat weder Garten noch Park.'));
   if (isApartment(house.number) && house.type==='garden') throw new Error(t('Apartments können keinen Garten haben.'));
   if (house.order !== undefined) integer(house.order);
+  if(house.coffeeOrder!==undefined)integer(house.coffeeOrder);
+  if(house.basePrice!==undefined && ![5,10,20].includes(house.basePrice))throw new Error(t('Ungültiger Grundpreis.'));
   const ordinary=GOODS.reduce((sum,[key])=>sum+integer(house[key]),0);
-  const noodles=integer(house.noodles ?? 0),kimchi=integer(house.kimchi ?? 0,1);
+  const noodles=integer(house.noodles ?? 0),sushi=integer(house.sushi ?? 0),kimchi=integer(house.kimchi ?? 0,1);
+  if(sushi && house.type!=='garden')throw new Error(t('Sushi wird nur an Häuser mit Garten verkauft.'));
+  if(sushi && (ordinary||noodles))throw new Error(t('Sushi ersetzt die gesamte Bestellung. Bitte nicht mit anderen Waren mischen.'));
   if(noodles && ordinary) throw new Error(t('Nudeln ersetzen die gesamte Bestellung. Bitte nicht mit anderen Waren mischen.'));
-  if(kimchi && !ordinary && !noodles) throw new Error(t('Kimchi kann nur zusätzlich zu einer Bestellung verkauft werden.'));
-  const quantity=ordinary+noodles+kimchi;
+  if(kimchi && !ordinary && !noodles && !sushi) throw new Error(t('Kimchi kann nur zusätzlich zu einer Bestellung verkauft werden.'));
+  const quantity=ordinary+noodles+sushi+kimchi;
   const coffee = integer(house.coffee ?? 0);
   if (!quantity && !coffee) throw new Error(t('Bitte mindestens eine verkaufte Ware eingeben.'));
   if (quantity && coffee) throw new Error(t('Kaffee bitte als eigenen Verkauf erfassen.'));
@@ -138,7 +115,7 @@ export function calculateSale(sale) {
   const quantity = mealGoods.reduce((sum, [key]) => sum + integer(sale[key] ?? 0), 0);
   integer(sale.demand ?? 0);
   const price = unitPrice(sale.price) - (m.price ? 1 : 0);
-  if(((sale.noodles ?? 0)>0||(sale.kimchi ?? 0)>0) && !Array.isArray(sale.houses))throw new Error(t('Neue Waren benötigen erfasste Hausverkäufe.'));
+  if(((sale.noodles ?? 0)>0||(sale.sushi ?? 0)>0||(sale.kimchi ?? 0)>0) && !Array.isArray(sale.houses))throw new Error(t('Neue Waren benötigen erfasste Hausverkäufe.'));
   const garden = integer(sale.garden);
   const coffee=integer(sale.coffee ?? 0), coffeeGarden=integer(sale.coffeeGarden ?? 0);
   if (coffeeGarden>coffee) throw new Error(t('Ungültige Garten-Kaffeemenge.'));
@@ -172,56 +149,154 @@ export function calculateSale(sale) {
   const cfo = sale.cfo || m.cfo ? (Math.ceil((revenue + coffeeRevenue + bonus + tips + fry) / 2)||0) : 0;
   return { quantity, coffee, price, revenue, coffeeRevenue, bonus, tips, fry, fryHouses, cfo, total: revenue + coffeeRevenue + bonus + tips + fry + cfo };
 }
-export function account(game) {
-  game=applyReservePrices(game);
-  const balances = game.players.map(() => 0);
-  let bank = game.players.length * 50;
-  let firstBreak = null;
-  let secondBreak = null;
-  const issues = [];
-  const bankrupt=game.players.map(()=>null),salePayments={};
-  for (let index = 0; index < game.events.length; index++) {
-    const event = game.events[index];
-    if (secondBreak !== null) issues.push(t('Nach dem Spielende liegen weitere Buchungen vor. Bitte spätere Runden entfernen.'));
-    if (event.type === 'sale') {
-      // Restructuring precedes Dinnertime. Removed cash never belongs to a player.
-      bank -= event.rows.reduce((sum,row,player)=>sum+(bankrupt[player]===null?bankRemoval(row):0),0);
-      salePayments[index]=event.rows.map((row,player)=>{
-        const result=calculateSale(row);
-        if(bankrupt[player]!==null){if(result.quantity||result.coffee||row.waitresses||result.total)issues.push(html`${game.players[player].name}: Bereits ausgeschieden, keine weiteren Verkäufe möglich.`);return 0;}
-        const payment=Math.max(result.total,-balances[player]);
-        if(result.total<payment)bankrupt[player]=event.round;
-        balances[player]+=payment;bank-=payment;return payment;
-      });
-      if (bank <= 0 && firstBreak === null) {
-        firstBreak = index;
-        if (game.reserves) bank += reserveAmount(game);
+// Replay cash in board order. No draft input or future income can fund an earlier payment.
+export function replayGame(input,{partialSaleIndex=null,pauseOnReserve=false,stopBeforeMeal=null}={}) {
+  const game=structuredClone(input),n=game.players.length;
+  const balances=game.players.map(()=>0),bankrupt=game.players.map(()=>null),salePayments={},saleDetails={},issues=[];
+  let bank=n*50,basePrice=10,firstBreak=null,secondBreak=null,firstBreakAt=null,secondBreakAt=null,needsReserve=false;
+  let eventIndex=0,event=null;
+  const halted=()=>needsReserve&&(pauseOnReserve||game.modules?.reservePrices);
+  function checkBank(at,mayEnd=true) {
+    if(bank>0)return;
+    if(firstBreak===null){
+      firstBreak=eventIndex;firstBreakAt={...at,round:event.round};
+      if(!game.reserves){needsReserve=true;return;}
+      bank+=reserveAmount(game);
+      if(game.modules?.reservePrices)basePrice=reserveBasePrice(game.reserves);
+    }
+    if(bank<=0 && game.reserves && mayEnd && secondBreak===null){secondBreak=eventIndex;secondBreakAt={...at,round:event.round};}
+  }
+  function pay(player,amount,at,detail,category) {
+    if(bankrupt[player]!==null)return 0;
+    const paid=Math.max(amount,-balances[player]);
+    if(paid!==amount)bankrupt[player]=event.round;
+    balances[player]+=paid;bank-=paid;
+    if(detail){detail.paid+=paid;detail[category]+=amount;detail.unpaid+=paid-amount;}
+    checkBank({...at,player});return paid;
+  }
+  for(eventIndex=0;eventIndex<game.events.length;eventIndex++) {
+    event=game.events[eventIndex];
+    if(secondBreak!==null && secondBreak!==eventIndex)issues.push(t('Nach dem Spielende liegen weitere Buchungen vor. Bitte spätere Runden entfernen.'));
+    if(event.type==='sale') {
+      const startBase=basePrice;
+      const details=event.rows.map(()=>({paid:0,goods:0,fry:0,tips:0,cfo:0,unpaid:0,houses:[]}));
+      saleDetails[eventIndex]=details;salePayments[eventIndex]=details.map(()=>0);
+      // Employee adjustments are fixed in Restructuring, independently of later reserve changes.
+      for(const row of event.rows){
+        const oldBase=row.basePrice ?? 10;
+        if(row.houses)for(const h of row.houses)h.basePrice ??= oldBase;
+        row.price+=startBase-oldBase;row.basePrice=startBase;
       }
-      if (bank <= 0 && firstBreak !== null && game.reserves && secondBreak === null) secondBreak = index;
+      for(let i=0;i<n;i++)if(bankrupt[i]===null){bank-=bankRemoval(event.rows[i]);checkBank({phase:'restructuring'},true);if(halted())break;}
+      if(halted())break;
+      checkBank({phase:'houses'},true);if(halted())break;
+      const sequential=event.rows.every(row=>Array.isArray(row.houses));
+      if(sequential) {
+        let sales=event.rows.flatMap((row,player)=>row.houses.map((h,index)=>({h,player,index})));
+        for(const parent of sales.filter(s=>!isCoffeeSale(s.h)&&s.h.coffeeSequence!==undefined)) {
+          const coffee=sales.filter(s=>isCoffeeSale(s.h)&&sameHouse(s.h.number,parent.h.number));
+          const remaining=coffee.map(s=>({sale:s,left:s.h.coffee}));
+          const ordered=parent.h.coffeeSequence.map((player,order)=>{const record=remaining.find(r=>r.left>0&&r.sale.player===player);if(!record)throw new Error(t('Kaffee-Reihenfolge und Mengen stimmen nicht überein.'));record.left--;return {...record.sale,h:{...record.sale.h,coffee:1,coffeeOrder:order}};});
+          sales=sales.filter(s=>!coffee.includes(s));sales.push(...ordered);
+        }
+        sales.sort((a,b)=>houseOrder(a.h.number)-houseOrder(b.h.number) || Number(isCoffeeSale(b.h))-Number(isCoffeeSale(a.h)) || ((a.h.coffeeOrder ?? a.h.order ?? a.index)-(b.h.coffeeOrder ?? b.h.order ?? b.index)) || a.player-b.player);
+        const normalized=event.rows.map(()=>[]);
+        for(const {h,player} of sales) {
+          if(stopBeforeMeal && eventIndex===partialSaleIndex && sameHouse(h.number,stopBeforeMeal) && !isCoffeeSale(h))break;
+          const detail=details[player],row=event.rows[player];
+          if(bankrupt[player]!==null){
+            normalized[player].push(h);
+            issues.push(html`${game.players[player].name}: Verkauf bei ${h.number} nach Zahlungsunfähigkeit entfernen oder neu zuordnen; Spieler bereits ausgeschieden.`);continue;
+          }
+          const offset=h.price-(h.basePrice ?? startBase);
+          let remaining=h.coffee ?? 0;
+          const chunks=[];
+          if(!isCoffeeSale(h)) {
+            const sale={...h,price:offset+basePrice,basePrice};
+            const result=calculateHouse(sale,row.milestones);
+            const fry=(row.fryChefs ?? 0)*10;
+            const paid=pay(player,result.total+fry,{phase:'houses',house:h.number},detail,'goods');
+            detail.goods-=fry;detail.fry+=fry;
+            detail.houses.push({number:h.number,coffee:false,amount:result.total+fry,paid,basePrice:sale.basePrice});
+            chunks.push(sale);
+          } else {
+            // Coffee is bought before dinner. Split a batch at the exact reserve boundary.
+            while(remaining>0 && !halted() && bankrupt[player]===null) {
+              const unit=(offset+basePrice-(row.milestones.price?1:0))*houseMultiplier(h);
+              const count=firstBreak===null&&unit>0?Math.min(remaining,Math.max(1,Math.ceil(bank/unit))):remaining;
+              const sale={...h,coffee:count,price:offset+basePrice,basePrice};
+              const result=calculateHouse(sale,row.milestones);
+              const paid=pay(player,result.total,{phase:'coffee',house:h.number},detail,'goods');
+              detail.houses.push({number:h.number,coffee:true,amount:result.total,paid,basePrice:sale.basePrice});
+              chunks.push(sale);remaining-=count;
+            }
+            if(remaining>0){chunks.push({...h,coffee:remaining,price:offset+basePrice,basePrice});if(!needsReserve)issues.push(html`${game.players[player].name}: Weitere Kaffees nach Zahlungsunfähigkeit entfernen.`);}
+          }
+          normalized[player].push(...chunks);
+          if(halted())break;
+        }
+        if(!halted())event.rows.forEach((row,i)=>{row.houses=normalized[i];});
+      } else {
+        // Aggregate-only old saves cannot reconstruct individual houses; preserve their amounts.
+        event.rows.forEach((row,i)=>{
+          if(halted())return;
+          if(bankrupt[i]!==null){if(calculateSale(row).total)issues.push(t('Ausgeschiedene Spieler können nicht mehr verkaufen.'));return;}
+          const oldTotal=calculateSale(row);
+          const goods=oldTotal.total-oldTotal.tips-oldTotal.cfo;
+          pay(i,goods,{phase:'legacy'},details[i],'goods');
+        });
+      }
+      salePayments[eventIndex]=details.map(d=>d.paid);
+      if(halted())break;
+      if(partialSaleIndex!==eventIndex) {
+        // Waitresses are paid only after all houses. CFO is then paid once on actual round income.
+        for(let i=0;i<n;i++)if(bankrupt[i]===null){pay(i,(event.rows[i].waitresses ?? 0)*(event.rows[i].milestones.waitress?5:3),{phase:'waitresses'},details[i],'tips');if(halted())break;}
+        if(!halted())for(let i=0;i<n;i++)if(bankrupt[i]===null && (event.rows[i].cfo||event.rows[i].milestones.cfo)){
+          const bonus=Math.ceil(details[i].paid/2)||0;
+          pay(i,bonus,{phase:'cfo'},details[i],'cfo');if(halted())break;
+        }
+      }
+      salePayments[eventIndex]=details.map(d=>d.paid);
+      if(halted())break;
     } else {
-      event.rows.forEach((count, player) => {
-        const row=game.events[index-1]?.rows[player];
-        if(bankrupt[player]!==null){if(count)issues.push(t('Ausgeschiedene Spieler zahlen keine weiteren Löhne.'));return;}
-        const cost = integer(count) * salaryRate(row);
-        if (cost > balances[player]) issues.push(html`${game.players[player].name}: Lohn übersteigt das Guthaben in Runde ${event.round}.`);
-        balances[player] -= cost;
-        bank += cost;
+      const rows=game.events[eventIndex-1].rows;
+      event.rows.forEach((count,i)=>{
+        if(bankrupt[i]!==null){if(count)issues.push(t('Ausgeschiedene Spieler zahlen keine weiteren Löhne.'));return;}
+        const cost=integer(count)*salaryRate(rows[i]);
+        if(cost>balances[i])issues.push(html`${game.players[i].name}: Lohn übersteigt das Guthaben in Runde ${event.round}.`);
+        balances[i]-=cost;bank+=cost;
       });
-      // Marketing follows Payday: these earnings cannot fund this round's wages.
-      event.rows.forEach((_,player)=>{
-        if(bankrupt[player]!==null)return;
-        const income=marketingIncome(game.events[index-1]?.rows[player]);
-        balances[player]+=income; bank-=income;
-      });
-      if (bank<=0 && firstBreak===null) {
-        firstBreak=index;
-        if (game.reserves) bank+=reserveAmount(game);
-      }
-      // A later bank break during Marketing ends the game at the next Dinnertime.
+      // Marketing cannot fund earlier salary payments. A second break here ends next dinner.
+      event.rows.forEach((_,i)=>{if(bankrupt[i]!==null||halted())return;const cash=marketingIncome(rows[i]);balances[i]+=cash;bank-=cash;checkBank({phase:'marketing',player:i},false);});
+      if(halted())break;
     }
   }
-  return { bank, balances, firstBreak, secondBreak, bankrupt, salePayments, basePrice:game.modules?.reservePrices && firstBreak!==null && game.reserves ? reserveBasePrice(game.reserves) : 10, needsReserve: firstBreak !== null && !game.reserves, issues: [...new Set(issues)] };
+  return {game,saleRows:Object.fromEntries(game.events.flatMap((e,i)=>e.type==='sale'?[[i,e.rows]]:[])),bank,balances,firstBreak,secondBreak,firstBreakAt,secondBreakAt,bankrupt,salePayments,saleDetails,basePrice,needsReserve,issues:[...new Set(issues)]};
 }
+export function account(game) {
+  const {game:normalized,...state}=replayGame(game);
+  return state;
+}
+export function applyReservePrices(game) {
+  if(!game.modules?.reservePrices)return game;
+  const next=replayGame(game).game;
+  const draft=next.draft?.type==='sale'?next.draft:next.draft?.completion;
+  if(draft){
+    const state=account({...next,draft:null});
+    const target=next.draft.type==='sale'?state.basePrice:(draft.rows[0].basePrice ?? 10);
+    const oldBase=draft.rows[draft.houseForm?.player ?? 0]?.basePrice ?? 10;
+    draft.rows.forEach(row=>{for(const h of row.houses || [])h.basePrice ??= row.basePrice ?? 10;row.price+=target-(row.basePrice ?? 10);row.basePrice=target;});
+    if(draft.houseForm){const old=draft.houseForm.basePrice ?? oldBase;draft.houseForm.price+=target-old;draft.houseForm.basePrice=target;}
+  }
+  return next;
+}
+export function houseSettlement(game,rows,index=null,reserves=game.reserves,{beforeMeal=null}={}) {
+  const position=index ?? game.events.length;
+  const candidate={...game,reserves,draft:null,events:[...game.events.slice(0,position),{type:'sale',round:Math.floor(position/2)+1,rows}]};
+  const result=replayGame(candidate,{partialSaleIndex:position,pauseOnReserve:true,stopBeforeMeal:beforeMeal});
+  return {...result,rows:result.game.events[position].rows};
+}
+
 export function roundSettlement(game, rows, wages, index = null, reserves = game.reserves) {
   if (rows.length !== game.players.length || wages.length !== game.players.length) throw new Error(t('Ungültige Anzahl Spieler.'));
   wages.forEach(n => integer(n));
@@ -230,7 +305,6 @@ export function roundSettlement(game, rows, wages, index = null, reserves = game
   const position = index === null ? game.events.length : index;
   integer(position, game.events.length);
   if (position % 2 !== 0 || position > game.events.length || (index !== null && game.events[position]?.type !== 'sale')) throw new Error(t('Ungültige Verkaufsrunde.'));
-  if(game.modules?.reservePrices){rows=structuredClone(rows);const base=account({...game,events:game.events.slice(0,position),draft:null}).basePrice;rows.forEach(row=>rebaseRow(row,base));}
   if (reserves !== null && (!Array.isArray(reserves) || reserves.length !== game.players.length || reserves.some(n => !reserveOptions(game).includes(n)))) throw new Error(t('Ungültige Reservekarten.'));
   const round = Math.floor(position / 2) + 1;
   const oldSale = game.events[position];
@@ -254,13 +328,13 @@ export function roundSettlement(game, rows, wages, index = null, reserves = game
   if (after.needsReserve) return {candidate:null,before,afterSales,incomes,expenses,marketing,removed,balances:null,needsReserve:true,ended:false,issues:[]};
   candidate.events = [...events,...suffix];
   if (index === null || (position === game.events.length - 1 && game.draft?.type === 'salary')) candidate.draft = null;
-  candidate=applyReservePrices(candidate);
+  candidate=applyReservePrices(replayGame(candidate).game);
   const issues = account(candidate).issues;
-  return {candidate,before,afterSales,incomes,expenses,marketing,removed,balances:after.balances,needsReserve:false,ended,issues};
+  return {candidate,rows:afterSales.saleRows[position],details:afterSales.saleDetails[position],before,afterSales,incomes,expenses,marketing,removed,balances:after.balances,needsReserve:false,ended,issues};
 }
 export function validateGame(game) {
   if (!game || game.version !== 1 || !Array.isArray(game.players) || game.players.length < 2 || game.players.length > 6) throw new Error(t('Kein gültiger GameScores-Spielstand.'));
-  if (game.modules!==undefined && (!game.modules || typeof game.modules!=='object' || Array.isArray(game.modules) || Object.entries(game.modules).some(([key,value])=>!['newDistricts','apartments','coffee','fryChef','lobbyist','reservePrices','kimchi','noodles','rural','ketchup'].includes(key)||typeof value!=='boolean'))) throw new Error(t('Ungültige Erweiterungsmodule.'));
+  if (game.modules!==undefined && (!game.modules || typeof game.modules!=='object' || Array.isArray(game.modules) || Object.entries(game.modules).some(([key,value])=>!['newDistricts','apartments','coffee','fryChef','lobbyist','reservePrices','kimchi','noodles','rural','ketchup','sushi'].includes(key)||typeof value!=='boolean'))) throw new Error(t('Ungültige Erweiterungsmodule.'));
   const options=houseOptions(game);
   const parkOptions=options.filter(id=>!isRural(id));
   if (game.builtParks!==undefined && (!Array.isArray(game.builtParks) || new Set(game.builtParks).size!==game.builtParks.length || game.builtParks.some(id=>!parkOptions.includes(id)))) throw new Error(t('Ungültige Parks.'));
@@ -320,8 +394,10 @@ export function validateGame(game) {
       if (isApartment(h.number)&&h.type==='garden') throw new Error(t('Apartments können keinen Garten haben.'));
       if (h.player !== null) integer(h.player, game.players.length - 1);
       unitPrice(h.price);
+      if(h.basePrice!==undefined && ![5,10,20].includes(h.basePrice))throw new Error(t('Ungültiger Grundpreis.'));
+      if(h.coffeeSequence!==undefined){if(!Array.isArray(h.coffeeSequence)||h.coffeeSequence.length>200||h.coffeeSequence.some(i=>!Number.isSafeInteger(i)||i<0||i>=game.players.length))throw new Error(t('Ungültige Kaffee-Reihenfolge.'));if(h.coffees&&h.coffees.some((n,i)=>h.coffeeSequence.filter(p=>p===i).length!==n))throw new Error(t('Kaffee-Reihenfolge und Mengen stimmen nicht überein.'));}
       GOODS.forEach(([key]) => integer(h[key]));
-      integer(h.noodles ?? 0);integer(h.kimchi ?? 0,1);
+      integer(h.noodles ?? 0);integer(h.sushi ?? 0);integer(h.kimchi ?? 0,1);
       validateExtraModules(h,game);
       integer(h.coffee ?? 0);
       if (h.coffees!==undefined) {
@@ -347,7 +423,7 @@ function validateMilestones(m,newSet) {
   if (m.newSet && (MILESTONES.some(([key])=>m[key]) || NEW_MILESTONES.some(([key])=>typeof m[key]!=='boolean'))) throw new Error(t('Ungültige Meilensteine.'));
 }
 function validateExtraModules(row,game) {
-  for(const key of ['kimchi','noodles']) if((row[key] ?? 0)>0 && !game.modules?.[key])throw new Error(t('Das Modul für diese Ware ist nicht aktiviert.'));
+  for(const key of ['kimchi','noodles','sushi']) if((row[key] ?? 0)>0 && !game.modules?.[key])throw new Error(t('Das Modul für diese Ware ist nicht aktiviert.'));
   if(row.milestones?.ketchup && !game.modules?.ketchup)throw new Error(t('Das Ketchup-Modul ist nicht aktiviert.'));
   if((row.number==='rural'||row.houses?.some(h=>h.number==='rural')) && !game.modules?.rural)throw new Error(t('Das Landleben-Modul ist nicht aktiviert.'));
 }
