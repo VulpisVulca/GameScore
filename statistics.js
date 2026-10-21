@@ -4,7 +4,7 @@ import { houseNumber } from './houses.js';
 
 // Rebuild from the ledger so historical corrections also update every chart.
 export function gameStatistics(game) {
-  const players = game.players.map(p => ({ ...p, income:0, wages:0, balance:0, tips:0, cfo:0, quantity:0, houses:0, gardens:0, bonus:0, discount:0, saleRounds:[],
+  const players = game.players.map(p => ({ ...p, income:0, wages:0, balance:0, tips:0, cfo:0, quantity:0, houses:0, gardens:0, bonus:0, discount:0,
     goods:Object.fromEntries(GOODS.map(([key]) => [key,{quantity:0,income:0}])) }));
   const rounds = [];
   const visits=game.players.map(()=>new Map());
@@ -55,7 +55,6 @@ export function gameStatistics(game) {
         }
         p.income += c.total; p.balance += c.total; p.tips += c.tips; p.cfo += c.cfo;
         p.quantity += c.quantity; p.bonus += c.bonus;
-        if (c.quantity>0) p.saleRounds.push(event.round);
         p.gardenQuantity=(p.gardenQuantity || 0)+row.garden;
         round.players.push({income:c.total,wages:0,net:c.total,balance:p.balance});
       });
@@ -101,19 +100,21 @@ export function gameAwards(stats) {
     result.push({title:t('Comeback des Abends'),detail:t('Größten Rückstand am Rundenende nach Löhnen aufgeholt und die Partie gewonnen'),
       value:comebackBest,unit:'$',winners:[...new Set(records.map(record=>record.player))],rounds:[...new Set(records.map(record=>record.round))]});
   }
-  const streaks=players.flatMap((p,player)=>{
+  const leaders=rounds.map(round=>Math.max(...round.players.map(p=>p.balance)));
+  const streaks=players.flatMap((_,player)=>{
     let run=[];
     const records=[];
-    for (const round of p.saleRounds) {
-      if (round===run.at(-1)+1) run.push(round);
-      else {run=[round];records.push({player,rounds:run});}
+    for (const [index,round] of rounds.entries()) {
+      if (round.players[player].balance!==leaders[index] || leaders[index]<=0) {run=[];continue;}
+      if (round.number===run.at(-1)+1) run.push(round.number);
+      else {run=[round.number];records.push({player,rounds:run});}
     }
     return records.map(record=>({...record,value:record.rounds.length}));
   });
   const streakBest=Math.max(0,...streaks.map(record=>record.value));
   if (streakBest>=2) {
     const records=streaks.filter(record=>record.value===streakBest);
-    result.push({title:t('Dauerbrenner'),detail:t('Längste Serie aufeinanderfolgender Runden mit Warenverkäufen, mindestens zwei'),value:streakBest,unit:t('Runden'),
+    result.push({title:t('Dauerbrenner'),detail:t('Längste Serie an der Spitze am Rundenende nach Löhnen, geteilte Führung zählt, mindestens zwei Runden'),value:streakBest,unit:t('Runden'),
       winners:[...new Set(records.map(record=>record.player))],rounds:[...new Set(records.flatMap(record=>record.rounds))].sort((a,b)=>a-b)});
   }
   if (stats.firstSale) result.push({title:t('Erster Verkauf des Spiels'),detail:t('Erster Warenverkauf in Hausnummern-Reihenfolge'),

@@ -1,7 +1,7 @@
 // German source texts are stable translation keys. {0}, {1}, … are values.
 export const en = {
-  'Dauerbrenner':'Consistent seller',
-  'Längste Serie aufeinanderfolgender Runden mit Warenverkäufen, mindestens zwei':'Longest streak of consecutive rounds with product sales, at least two',
+  'Dauerbrenner':'Staying power',
+  'Längste Serie an der Spitze am Rundenende nach Löhnen, geteilte Führung zählt, mindestens zwei Runden':'Longest streak in the lead at round end after salaries, shared leads count, at least two rounds',
   'Fotofinish':'Photo finish',
   'Abstand zu Platz 2: höchstens 5 % des Gewinnervermögens':'Gap to second place: at most 5% of the winner’s final money',
   'Comeback des Abends':'Comeback of the evening',

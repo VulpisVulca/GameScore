@@ -12,22 +12,35 @@ const house = extra => ({player:0,number:'7',type:'normal',price:10,burger:0,piz
 const saleFor = (round,amounts) => ({type:'sale',round,rows:amounts.map(amount=>({...emptySale(),price:1,burger:amount}))});
 const findAward = (g,title) => gameAwards(gameStatistics(g)).find(a=>a.title===title);
 
-test('Consistent seller counts consecutive product-selling rounds, resets on tip-only rounds, and shares ties', () => {
-  const g=game([saleFor(1,[1,1]),saleFor(2,[1,1]),saleFor(3,[0,1]),saleFor(4,[1,0]),saleFor(5,[1,1]),saleFor(6,[1,1])]);
-  g.events[2].rows[0].waitresses=3;
+test('Staying power counts consecutive round-end leads, shares ties and updates after corrections', () => {
+  const g=game([saleFor(1,[10,0]),saleFor(2,[0,0]),saleFor(3,[0,20]),saleFor(4,[0,0])]);
   const streak=findAward(g,'Dauerbrenner');
-  assert.equal(streak.value,3);
+  assert.equal(streak.value,2);
   assert.deepEqual(streak.winners,[0,1]);
-  assert.deepEqual(streak.rounds,[1,2,3,4,5,6]);
-  g.events[4].rows[0].burger=0;
+  assert.deepEqual(streak.rounds,[1,2,3,4]);
+  g.events[1].rows[1].burger=20;
   assert.deepEqual(findAward(g,'Dauerbrenner').winners,[1]);
+  assert.equal(findAward(g,'Dauerbrenner').value,3);
   assert.equal(findAward(game([saleFor(1,[1,0]),saleFor(3,[1,0])]),'Dauerbrenner'),undefined);
   assert.equal(findAward(game([saleFor(1,[1,0])]),'Dauerbrenner'),undefined);
+  assert.equal(findAward(game([saleFor(1,[0,0]),saleFor(2,[0,0])]),'Dauerbrenner'),undefined);
   try {
     setLanguage('en');
-    assert.match(renderAwards(g),/Consistent seller/);
-    assert.match(renderAwards(g),/consecutive rounds with product sales/);
+    assert.match(renderAwards(g),/Staying power/);
+    assert.match(renderAwards(g),/shared leads count/);
   } finally {setLanguage('de');}
+});
+
+test('Staying power uses balances after salaries and counts shared leads without requiring sales', () => {
+  const g=game([saleFor(1,[20,10]),{type:'salary',round:1,rows:[2,0]},saleFor(2,[0,0]),
+    {type:'salary',round:2,rows:[1,0]},saleFor(3,[5,0])]);
+  const streak=findAward(g,'Dauerbrenner');
+  assert.equal(streak.value,3);
+  assert.deepEqual(streak.winners,[1]);
+  g.events[3].rows=[0,0];
+  g.events[4].rows[0].burger=0;
+  assert.equal(findAward(g,'Dauerbrenner').value,3);
+  assert.deepEqual(findAward(g,'Dauerbrenner').winners,[0,1]);
 });
 
 test('Photo finish uses the final balance after salaries, includes the exact 5% boundary and shares tied wins', () => {
