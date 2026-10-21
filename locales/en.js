@@ -1,5 +1,7 @@
 // German source texts are stable translation keys. {0}, {1}, … are values.
 export const en = {
+  'Größter Preisnachlass':'Largest cumulative discount',
+  'Kumulierte Rabatte gegenüber 10 $ pro Ware, inklusive Preis-Meilenstein und doppeltem Rabatt bei Gärten':'Cumulative discounts against $10 per product, including the pricing milestone and double discounts at garden houses',
   'Erster Verkauf des Spiels':'First sale of the game',
   'Erster Warenverkauf in Hausnummern-Reihenfolge':'First product sale in house-number order',
   'Am meisten Trinkgeld verdient':'Most tips earned',

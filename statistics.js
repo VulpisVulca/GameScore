@@ -4,7 +4,7 @@ import { houseNumber } from './houses.js';
 
 // Rebuild from the ledger so historical corrections also update every chart.
 export function gameStatistics(game) {
-  const players = game.players.map(p => ({ ...p, income:0, wages:0, balance:0, tips:0, cfo:0, quantity:0, houses:0, gardens:0, bonus:0,
+  const players = game.players.map(p => ({ ...p, income:0, wages:0, balance:0, tips:0, cfo:0, quantity:0, houses:0, gardens:0, bonus:0, discount:0,
     goods:Object.fromEntries(GOODS.map(([key]) => [key,{quantity:0,income:0}])) }));
   const rounds = [];
   const visits=game.players.map(()=>new Map());
@@ -29,6 +29,8 @@ export function gameStatistics(game) {
         if (Array.isArray(row.houses)) {
           for (const house of row.houses) {
             const price = (house.price - (row.milestones.price ? 1 : 0)) * (house.type === 'garden' ? 2 : 1);
+            const quantity = GOODS.reduce((sum,[key])=>sum+house[key],0);
+            p.discount += quantity * Math.max(0,10-(house.price-(row.milestones.price?1:0))) * (house.type==='garden'?2:1);
             for (const [key] of GOODS) goods[key] += house[key] * price;
             const number=houseNumber(house.number);
             const label=house.number.trim();
@@ -39,6 +41,7 @@ export function gameStatistics(game) {
           p.houses += row.houses.length;
           p.gardens += row.houses.filter(h => h.type === 'garden').length;
         } else {
+          p.discount += (c.quantity+row.garden) * Math.max(0,10-c.price);
           if (c.quantity>0) housesIncomplete=true;
           // Old records know only the total garden quantity, not its products.
           if (row.garden && GOODS.filter(([key]) => row[key] > 0).length > 1) estimated = true;
@@ -84,6 +87,7 @@ export function gameAwards(stats) {
   if (stats.firstSale) result.push({title:t('Erster Verkauf des Spiels'),detail:t('Erster Warenverkauf in Hausnummern-Reihenfolge'),
     value:stats.firstSale.number,house:stats.firstSale.number,winners:stats.firstSale.winners,rounds:[stats.firstSale.round]});
   award(t('Finanzgenie'),players.map(p => p.cfo),'$',t('Meistes Geld mit CFO'));
+  award(t('Größter Preisnachlass'),players.map(p=>p.discount),'$',t('Kumulierte Rabatte gegenüber 10 $ pro Ware, inklusive Preis-Meilenstein und doppeltem Rabatt bei Gärten'));
   award(t('Trinkgeldkönig'),players.map(p => p.tips),'$',t('Am meisten Trinkgeld verdient'));
   award(t('Gartenliebling'),players.map(p=>p.gardenQuantity),t('Stück'),t('Meiste Waren an Häuser mit Garten verkauft'));
   award(t('Liebling der Nachbarschaft'),players.map(p=>p.uniqueHouses),t('Häuser'),t('Meiste unterschiedliche Häuser beliefert'));

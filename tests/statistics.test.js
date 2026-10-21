@@ -3,10 +3,42 @@ import assert from 'node:assert/strict';
 import { emptySale, houseRows, calculateSale } from '../rules.js';
 import { gameStatistics, gameAwards } from '../statistics.js';
 import { renderStatistics, renderAwards } from '../statistics-view.js';
+import { setLanguage } from '../i18n.js';
 
 const players = [{name:'Alex',color:'#b34335'},{name:'Kim',color:'#336f9b'}];
 const game = events => ({players,events});
 const house = extra => ({player:0,number:'7',type:'normal',price:10,burger:0,pizza:0,beer:0,lemonade:0,soda:0,...extra});
+
+test('Discounts accumulate per product and house, including price milestone and gardens, without offsetting with higher prices', () => {
+  const configs=[emptySale({price:true,burger:true}),{...emptySale(),cfo:true,waitresses:2}];
+  const g=game([{type:'sale',round:1,rows:houseRows(configs,[
+    house({price:8,burger:2}),house({price:9,type:'garden',pizza:3}),house({price:20,beer:4}),
+    house({player:1,price:7,burger:2})])},
+    {type:'sale',round:2,rows:[{...emptySale(),price:6,burger:2,garden:1},{...emptySale(),price:6,pizza:6}]}]);
+  const stats=gameStatistics(g);
+  assert.equal(stats.players[0].discount,30); // 6 + 12 + 0 + 12
+  assert.equal(stats.players[1].discount,30); // 6 + 24
+  const award=gameAwards(stats).find(a=>a.title==='Größter Preisnachlass');
+  assert.equal(award.value,30);
+  assert.deepEqual(award.winners,[0,1]);
+  g.events[0].rows=houseRows(configs,[house({price:10,burger:1})]);
+  assert.equal(gameStatistics(g).players[0].discount,13);
+  assert.deepEqual(gameAwards(gameStatistics(g)).find(a=>a.title==='Größter Preisnachlass').winners,[1]);
+  assert.equal(gameAwards(gameStatistics(game([{type:'sale',round:1,rows:[{...emptySale(),burger:1},{...emptySale(),price:12,pizza:1}]}]))).some(a=>a.title==='Größter Preisnachlass'),false);
+});
+
+test('Discount award renders in both languages without changing the player name', () => {
+  const g={players:[{...players[0],name:'Größter Preisnachlass'},players[1]],events:[{type:'sale',round:1,rows:[{...emptySale(),price:8,burger:3},emptySale()]}]};
+  assert.match(renderAwards(g),/Kumulierte Rabatte/);
+  try {
+    setLanguage('en');
+    const html=renderAwards(g);
+    assert.match(html,/Largest cumulative discount/);
+    assert.match(html,/Cumulative discounts against \$10 per product/);
+    assert.match(html,/Größter Preisnachlass/);
+    assert.equal(gameAwards(gameStatistics(g)).find(a=>a.title==='Largest cumulative discount').value,6);
+  } finally { setLanguage('de'); }
+});
 
 test('Statistics allocate product revenue using each house price, garden and milestones; CFO stays separate', () => {
   const configs=[{...emptySale({burger:true,drink:true}),waitresses:2,cfo:true},emptySale()];
