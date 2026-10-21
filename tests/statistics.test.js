@@ -72,3 +72,66 @@ test('Charts and awards escape player names, handle zero earnings and empty ledg
   assert.ok(!renderAwards(g).includes('<script>'));
   assert.match(renderStatistics(game([])),/ersten gebuchten Runde/);
 });
+
+test('First sale follows house-number order in the earliest product-selling round, excluding tips', () => {
+  const configs=[emptySale(),emptySale()];
+  const rows=houseRows(configs,[house({number:'7',order:0,burger:1}),house({player:1,number:'2',order:1,pizza:1})]);
+  const stats=gameStatistics(game([{type:'sale',round:1,rows:[{...emptySale(),waitresses:2},emptySale()]},
+    {type:'sale',round:2,rows}]));
+  const first=gameAwards(stats).find(a=>a.title==='Erster Verkauf des Spiels');
+  assert.deepEqual(first.winners,[1]);
+  assert.equal(first.house,2);
+  assert.deepEqual(first.rounds,[2]);
+  const old=gameStatistics(game([{type:'sale',round:1,rows:[{...emptySale(),burger:1},emptySale()]},{type:'sale',round:2,rows}]));
+  assert.equal(old.firstSaleUnavailable,true);
+  assert.equal(gameAwards(old).some(a=>a.title==='Erster Verkauf des Spiels'),false);
+});
+
+test('Growth compares consecutive round earnings including tips and CFO, with shared ties and no first-round baseline', () => {
+  const events=[{type:'sale',round:1,rows:[{...emptySale(),burger:1},emptySale()]},
+    {type:'sale',round:2,rows:[{...emptySale(),burger:3,waitresses:1,cfo:true},{...emptySale(),burger:4}]},
+    {type:'sale',round:3,rows:[{...emptySale(),burger:1},{...emptySale(),burger:1}]}];
+  const growth=gameAwards(gameStatistics(game(events))).find(a=>a.title==='Wachstumsschub');
+  assert.equal(growth.value,40);
+  assert.equal(growth.positive,true);
+  assert.deepEqual(growth.winners,[0,1]);
+  assert.deepEqual(growth.rounds,[2]);
+  assert.equal(gameAwards(gameStatistics(game(events.slice(0,1)))).some(a=>a.title==='Wachstumsschub'),false);
+});
+
+test('Regular customers count distinct rounds; neighborhood counts distinct houses; gardens count quantities', () => {
+  const configs=[emptySale(),emptySale()];
+  const events=[{type:'sale',round:1,rows:houseRows(configs,[
+    house({number:'7',type:'garden',burger:2}),house({number:'7',burger:1}),house({number:'2',type:'garden',pizza:3}),
+    house({player:1,number:'2',type:'garden',burger:3})])},
+    {type:'sale',round:2,rows:houseRows(configs,[house({number:'House 7',burger:1}),
+      house({player:1,number:'4',type:'garden',pizza:2}),house({player:1,number:'5',burger:1}),house({player:1,number:'6',burger:1})])},
+    {type:'sale',round:3,rows:houseRows(configs,[house({number:'Haus 7',burger:1}),house({player:1,number:'4',burger:1})])}];
+  const stats=gameStatistics(game(events)), awards=gameAwards(stats);
+  const regular=awards.find(a=>a.title==='Stammkundschaft');
+  assert.equal(regular.value,3);
+  assert.deepEqual(regular.winners,[0]);
+  assert.equal(regular.houseRecords[0].number,7);
+  assert.deepEqual(regular.houseRecords[0].rounds,[1,2,3]);
+  const neighbor=awards.find(a=>a.title==='Liebling der Nachbarschaft');
+  assert.equal(neighbor.value,4);
+  assert.deepEqual(neighbor.winners,[1]);
+  const garden=awards.find(a=>a.title==='Gartenliebling');
+  assert.equal(garden.value,5);
+  assert.deepEqual(garden.winners,[0,1]);
+  assert.equal(gameAwards(gameStatistics(game(events.slice(0,1)))).some(a=>a.title==='Stammkundschaft'),false);
+});
+
+test('House award details escape old custom labels and update after ledger corrections', () => {
+  const configs=[emptySale(),emptySale()];
+  const rows=houseRows(configs,[house({number:'<script>',type:'garden',burger:2})]);
+  const g=game([{type:'sale',round:1,rows:structuredClone(rows)},{type:'sale',round:2,rows:structuredClone(rows)}]);
+  const html=renderAwards(g);
+  assert.ok(html.includes('&lt;script&gt;'));
+  assert.ok(!html.includes('<script>'));
+  assert.equal(gameAwards(gameStatistics(g)).find(a=>a.title==='Gartenliebling').value,4);
+  g.events[1].rows=houseRows(configs,[house({number:'<script>',type:'normal',burger:2})]);
+  assert.equal(gameAwards(gameStatistics(g)).find(a=>a.title==='Gartenliebling').value,2);
+  g.events.pop();
+  assert.equal(gameAwards(gameStatistics(g)).some(a=>a.title==='Stammkundschaft'),false);
+});

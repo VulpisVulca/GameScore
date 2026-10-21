@@ -1,5 +1,18 @@
 // German source texts are stable translation keys. {0}, {1}, … are values.
 export const en = {
+  'Erster Verkauf des Spiels':'First sale of the game',
+  'Erster Warenverkauf in Hausnummern-Reihenfolge':'First product sale in house-number order',
+  'Am meisten Trinkgeld verdient':'Most tips earned',
+  'Wachstumsschub':'Growth spurt',
+  'Größter Zuwachs der Rundeneinnahmen inklusive Trinkgeld und CFO':'Largest increase in round earnings, including tips and CFO',
+  'Stammkundschaft':'Regular customers',
+  'Dasselbe Haus in den meisten verschiedenen Runden beliefert':'Served the same house in the most different rounds',
+  'Runden':'rounds',
+  'Gartenliebling':'Garden favorite',
+  'Meiste Waren an Häuser mit Garten verkauft':'Most products sold to houses with gardens',
+  'Liebling der Nachbarschaft':'Neighborhood favorite',
+  'Meiste unterschiedliche Häuser beliefert':'Most distinct houses served',
+  'Bei älteren Summenbuchungen fehlen Hausdaten. Hausbezogene Auszeichnungen berücksichtigen nur erfasste Einzelhäuser; der erste Verkauf wird nur bei eindeutigen Hausnummern vergeben.':'Older aggregate entries lack house data. House-related awards use recorded individual houses only; the first sale is awarded only when house numbers are unambiguous.',
   'WIRTSCHAFT · 2–6 SPIELER':'ECONOMIC · 2–6 PLAYERS',
   'Rosa':'Pink',
   'Farbe für Spieler {0}':'Color for player {0}',

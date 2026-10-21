@@ -240,6 +240,8 @@ body.fcm-theme{--green:#225b5e;--muted:#59656a;--line:#c9caba;--paper:#fffcf2;--
 .fcm-theme .award-value{font-size:32px;color:#24565e;display:block;margin:8px 0 14px}
 .fcm-theme .award-winners{display:flex;flex-wrap:wrap;gap:10px 16px;font-weight:700;font-size:18px}
 .fcm-theme .award-card>small{display:block;font-size:14px;color:#526164;margin-top:10px}
+.fcm-theme .award-context{display:grid;gap:7px;margin-top:12px}
+.fcm-theme .award-context small{font-size:14px;color:#526164;line-height:1.45;overflow-wrap:anywhere}
 @media(max-width:760px){
   .fcm-theme .tabs{gap:6px 18px}
   .fcm-theme .tabs button{font-size:16px}
