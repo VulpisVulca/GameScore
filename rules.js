@@ -5,7 +5,6 @@ export const GOODS = [
   ['beer', 'Bier · braun', '🟤'], ['lemonade', 'Limonade · gelb', '🟡'], ['soda', 'Softdrinks · rot', '🔴']
 ];
 export const COFFEE = ['coffee','Kaffee','☕'];
-export const COFFEE_MILESTONE = ['coffee','Erster Kaffee verkauft','Im Aufräumen einen Coffee Shop platzieren'];
 export const allGoods = [...GOODS,COFFEE];
 export const isCoffeeSale = house => (house.coffee ?? 0)>0;
 export const sameHouse = (a,b) => (houseId(a) ?? String(a).trim())===(houseId(b) ?? String(b).trim());
@@ -32,9 +31,9 @@ export const NEW_MILESTONES = [
   ['beer','Erstes Bier verkauft','Warenzahlung selbst berücksichtigen'],
   ['discount','Erster Discount Manager eingesetzt','Ab 3 $ Preisnachlass: 100 $ aus der Bank entfernen']
 ];
-export const milestoneList = (m,game) => [...(m?.newSet ? NEW_MILESTONES : MILESTONES),...(game?.modules?.coffee?[COFFEE_MILESTONE]:[])];
+export const milestoneList = m => m?.newSet ? NEW_MILESTONES : MILESTONES;
 export function emptyMilestones(set='base') {
-  return {...Object.fromEntries([...MILESTONES,...NEW_MILESTONES,COFFEE_MILESTONE].map(([key])=>[key,false])),newSet:set==='new'};
+  return {...Object.fromEntries([...MILESTONES,...NEW_MILESTONES].map(([key])=>[key,false])),newSet:set==='new'};
 }
 export const salaryRate = row => row?.milestones?.salary ? 3 : 5;
 export const marketingIncome = row => row?.milestones?.marketeer ? integer(row.demand ?? 0)*5 : 0;
@@ -197,7 +196,6 @@ export function validateGame(game) {
   game.players.forEach(p => {
     if (typeof p.name !== 'string' || !p.name.trim() || p.name.length > 40 || !COLORS.includes(p.color)) throw new Error(t('Ungültige Spielerdaten.'));
     validateMilestones(p.milestones,game.milestoneSet==='new');
-    if (p.milestones.coffee&&!game.modules?.coffee) throw new Error(t('Das Kaffeemodul ist nicht aktiviert.'));
   });
   if (new Set(game.players.map(p => p.color)).size !== game.players.length) throw new Error(t('Jede Farbe darf nur einmal vergeben sein.'));
   if (game.reserves !== null && (!Array.isArray(game.reserves) || game.reserves.length !== game.players.length || game.reserves.some(n => ![100, 200, 300].includes(n)))) throw new Error(t('Ungültige Reservekarten.'));
@@ -260,5 +258,5 @@ function validateMilestones(m,newSet) {
   if (m.newSet && (MILESTONES.some(([key])=>m[key]) || NEW_MILESTONES.some(([key])=>typeof m[key]!=='boolean'))) throw new Error(t('Ungültige Meilensteine.'));
 }
 function validateCoffeeModule(row,game) {
-  if (((row.coffee ?? 0)>0 || row.milestones.coffee) && !game.modules?.coffee) throw new Error(t('Das Kaffeemodul ist nicht aktiviert.'));
+  if ((row.coffee ?? 0)>0 && !game.modules?.coffee) throw new Error(t('Das Kaffeemodul ist nicht aktiviert.'));
 }

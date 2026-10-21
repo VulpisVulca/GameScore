@@ -71,17 +71,17 @@ test('Coffee may cause the final bank break and is still paid fully, without wag
   assert.equal(gameStatistics(result.candidate).players[1].goods.coffee.quantity,20);
 });
 
-test('Coffee works with either milestone set; its milestone only displays the coffee-shop reward',()=>{
+test('Legacy coffee milestone flags remain loadable and have no financial effect, but are not offered in either set',()=>{
   for(const set of ['base','new']) {
     const g=game(set);g.players[0].milestones.coffee=true;
     const configs=g.players.map(p=>emptySale(p.milestones));
     const rows=houseRows(configs,[house({burger:1}),house({player:1,coffee:1})]);
     const result=roundSettlement(g,rows,[0,0,0]);
     assert.deepEqual(result.incomes,[20,20,0]);
-    assert.ok(milestoneList(g.players[0].milestones,g).some(([key])=>key==='coffee'));
+    assert.equal(milestoneList(g.players[0].milestones,g).some(([key])=>key==='coffee'),false);
     assert.doesNotThrow(()=>validateGame(result.candidate));
     g.modules.coffee=false;
-    assert.throws(()=>validateGame(g));
+    assert.doesNotThrow(()=>validateGame(g));
     assert.throws(()=>roundSettlement(g,rows,[0,0,0]));
   }
 });

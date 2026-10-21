@@ -5,8 +5,6 @@ export const en = {
   "1. Wer verkauft den Kaffee?":"1. Who sells the coffee?",
   "Kaffee":"Coffee",
   "+ Kaffee":"+ Coffee",
-  "Erster Kaffee verkauft":"First Coffee Sold",
-  "Im Aufräumen einen Coffee Shop platzieren":"Place a coffee shop during Cleanup",
   "Kaffee verkaufen":"Sell coffee",
   "Kaffee speichern":"Save coffee",
   "Kaffee: ein Stück je passierter Filiale. Route am Brett bestimmen. Der Zielbetrieb verkauft keinen Kaffee. Kein Getränkemeilenstein.":"Coffee: one per location passed. Determine the route on the board. The destination never sells coffee. No drink milestone bonus.",

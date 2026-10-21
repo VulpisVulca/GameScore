@@ -195,7 +195,7 @@ function housePreview() {
   try { return money(calculateHouse(editor.houseForm, editor.rows[editor.houseForm.player].milestones).total); }
   catch { return '0 $'; }
 }
-const MILESTONE_TAGS = {burger:'Burger +5 $',pizza:'Pizza +5 $',drink:'Getränke +5 $',waitress:'Waitress 5 $',price:'Stückpreis −1 $',cfo:'CFO +50 %',marketeer:'Marketing +5 $ · Entfernung −2',salary:'Löhne 3 $',beer:'Warenzahlung',discount:'Bank −100 $ ab 3 $ Rabatt',coffee:'Erster Kaffee verkauft'};
+const MILESTONE_TAGS = {burger:'Burger +5 $',pizza:'Pizza +5 $',drink:'Getränke +5 $',waitress:'Waitress 5 $',price:'Stückpreis −1 $',cfo:'CFO +50 %',marketeer:'Marketing +5 $ · Entfernung −2',salary:'Löhne 3 $',beer:'Warenzahlung',discount:'Bank −100 $ ab 3 $ Rabatt'};
 function comparisonPrice(i) {
   const raw = editor.houseForm.player === i ? editor.houseForm.price : editor.rows[i].price;
   return raw - (editor.rows[i].milestones.price ? 1 : 0);
