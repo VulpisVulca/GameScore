@@ -128,6 +128,7 @@ export function roundSettlement(game, rows, wages, index = null, reserves = game
 export function validateGame(game) {
   if (!game || game.version !== 1 || !Array.isArray(game.players) || game.players.length < 2 || game.players.length > 6) throw new Error(t('Kein gültiger GameScores-Spielstand.'));
   if (game.builtGardens !== undefined && (!Array.isArray(game.builtGardens) || game.builtGardens.length > 11 || new Set(game.builtGardens).size !== game.builtGardens.length || game.builtGardens.some(number => !HOUSE_NUMBERS.includes(number) || NATIVE_GARDENS.includes(number)))) throw new Error(t('Ungültige gebaute Gärten.'));
+  if (game.builtGardenRounds !== undefined && (!game.builtGardenRounds || typeof game.builtGardenRounds!=='object' || Array.isArray(game.builtGardenRounds) || Object.keys(game.builtGardenRounds).length>11 || Object.entries(game.builtGardenRounds).some(([number,round])=>String(Number(number))!==number || !HOUSE_NUMBERS.includes(Number(number)) || NATIVE_GARDENS.includes(Number(number)) || !Number.isSafeInteger(round) || round<1 || round>10001))) throw new Error(t('Ungültige Garten-Baurunden.'));
   game.players.forEach(p => {
     if (typeof p.name !== 'string' || !p.name.trim() || p.name.length > 40 || !COLORS.includes(p.color)) throw new Error(t('Ungültige Spielerdaten.'));
     validateMilestones(p.milestones);
@@ -162,6 +163,7 @@ export function validateGame(game) {
       game.draft.wages.forEach(n => integer(n));
     }
     if (game.draft.reserves !== undefined && game.draft.reserves !== null && (!Array.isArray(game.draft.reserves) || game.draft.reserves.length !== game.players.length || game.draft.reserves.some(n => ![100,200,300].includes(n)))) throw new Error(t('Ungültige Reservekarten im Entwurf.'));
+    if (game.draft.removedGardens !== undefined && (!Array.isArray(game.draft.removedGardens) || game.draft.removedGardens.length>11 || new Set(game.draft.removedGardens).size!==game.draft.removedGardens.length || game.draft.removedGardens.some(number=>!HOUSE_NUMBERS.includes(number) || NATIVE_GARDENS.includes(number)))) throw new Error(t('Ungültige Gartenkorrektur.'));
     if (game.draft.houseForm !== undefined) {
       const h = game.draft.houseForm;
       if (type !== 'sale' || !h || typeof h.number !== 'string' || h.number.length > 24 || !['normal','garden'].includes(h.type)) throw new Error(t('Ungültiger Hausentwurf.'));
@@ -172,7 +174,7 @@ export function validateGame(game) {
     if (game.draft.completion !== undefined) {
       const completion = game.draft.completion;
       if (type !== 'salary' || !completion || game.events.at(-1)?.type !== 'sale') throw new Error(t('Ungültiger Rundenentwurf.'));
-      validateGame({...game,events:game.events.slice(0,-1),draft:{type:'sale',rows:completion.rows,houseForm:completion.houseForm,reserves:completion.reserves,wages:game.draft.rows}});
+      validateGame({...game,events:game.events.slice(0,-1),draft:{type:'sale',rows:completion.rows,houseForm:completion.houseForm,reserves:completion.reserves,wages:game.draft.rows,removedGardens:completion.removedGardens}});
     }
   }
   account(game);
