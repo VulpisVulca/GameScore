@@ -637,3 +637,20 @@ body.fcm-theme{--green:#225b5e;--muted:#59656a;--line:#c9caba;--paper:#fffcf2;--
 .fcm-theme .account-rounds+.account-total{border-top:1px solid var(--line);padding-top:5px}
 .fcm-theme .account-total>span{font-size:13px;color:var(--muted)}
 .fcm-theme .account .account-total strong{font-size:24px}
+
+.fcm-theme .food-addons-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:16px;align-items:start}
+.fcm-theme .food-addons-row:empty{display:none}
+.fcm-theme .goods-counter,.fcm-theme .food-addon-control{display:flex;flex-direction:column;min-width:0;gap:0}
+.fcm-theme .goods-counter>span{font-size:16px;font-weight:600;margin-bottom:5px}
+.fcm-theme .food-addons-row .stepper input{min-width:0;width:100%}
+.fcm-theme .food-addons-row .stepper button{min-width:30px;padding:6px}
+.fcm-theme .food-addon-control>button{min-height:46px;justify-content:center;width:100%;margin:0;font-size:16px;padding:8px}
+.fcm-theme .food-addon-control .kimchi-rule{flex:none;margin-top:5px}
+.fcm-theme .food-addon-control .coffee-form-summary{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.fcm-theme .goods-counter:has(input:disabled){opacity:.55}
+.fcm-theme .salary-discounts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}
+.fcm-theme .salary-discounts label{min-width:0}
+.fcm-theme .salary-discounts label>span{font-size:16px;font-weight:600}
+.fcm-theme .salary-discounts small{display:block;font-size:13px;line-height:1.4;margin:4px 0 6px;color:var(--muted)}
+.fcm-theme .salary-equation{font-size:16px;line-height:1.5;margin:10px 0;font-variant-numeric:tabular-nums}
+@media(max-width:700px){.fcm-theme .food-addons-row{grid-template-columns:repeat(2,minmax(0,1fr))}.fcm-theme .salary-discounts{grid-template-columns:1fr}}

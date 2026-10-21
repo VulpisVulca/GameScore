@@ -42,6 +42,7 @@ export const MILESTONES = [
 export const NEW_MILESTONES = [
   ['marketeer','Erster Marketeer eingesetzt','5 $ je Nachfragemarker · Entfernung −2'],
   ['salary','Erste Bedienung eingesetzt','3 $ Lohn je Mitarbeiter'],
+  ['trainer','Erster Trainer eingesetzt','Bei Geldmangel nur verfügbares Geld zahlen · keine Entlassung'],
   ['beer','Erstes Bier verkauft','Warenzahlung selbst berücksichtigen'],
   ['discount','Erster Discount Manager eingesetzt','Ab 3 $ Preisnachlass: 100 $ aus der Bank entfernen']
 ];
@@ -51,6 +52,14 @@ export function emptyMilestones(set='base') {
   return {...Object.fromEntries([...MILESTONES,...NEW_MILESTONES,KETCHUP_MILESTONE].map(([key])=>[key,false])),newSet:set==='new'};
 }
 export const salaryRate = row => row?.milestones?.salary ? 3 : 5;
+export function salaryPayment(row,count,balance=Infinity) {
+  const gross=integer(count)*salaryRate(row);
+  const discounts=row.salaryDiscounts ?? {};
+  const discount=(integer(discounts.recruiting ?? 0)+integer(discounts.hr ?? 0))*5;
+  const due=Math.max(0,gross-discount);
+  const paid=row.milestones?.trainer?Math.min(Math.max(0,balance),due):due;
+  return {gross,discount,due,paid,shortfall:due-paid};
+}
 export const marketingIncome = row => row?.milestones?.marketeer ? integer(row.demand ?? 0)*5 : 0;
 export const bankRemoval = row => row.milestones.discount && row.price<=(row.basePrice ?? 10)-3 ? 100 : 0;
 export const reserveOptions = game => game.modules?.reservePrices ? [5,10,20] : [100,200,300];
@@ -67,7 +76,7 @@ export function integer(value, max = 1000000) {
   return value;
 }
 export function emptySale(milestones = {},basePrice=10) {
-  return { burger: 0, pizza: 0, beer: 0, lemonade: 0, soda: 0, noodles:0, sushi:0, kimchi:0, coffee:0, coffeeGarden:0, waitresses: 0, fryChefs:0, basePrice, price: basePrice, garden: 0, cfo: false, demand:0, milestones: { ...milestones } };
+  return { burger: 0, pizza: 0, beer: 0, lemonade: 0, soda: 0, noodles:0, sushi:0, kimchi:0, coffee:0, coffeeGarden:0, waitresses: 0, fryChefs:0, basePrice, price: basePrice, garden: 0, cfo: false, demand:0, salaryDiscounts:{recruiting:0,hr:0}, milestones: { ...milestones } };
 }
 export function calculateHouse(house, milestones = {}) {
   if (!house || !['normal', 'garden'].includes(house.type) || typeof house.number !== 'string' || house.number.length > 24) throw new Error(t('Bitte ein gültiges Haus auswählen.'));
@@ -95,7 +104,7 @@ export function calculateHouse(house, milestones = {}) {
 }
 export function houseRows(configs, houses) {
   if (!Array.isArray(houses) || houses.length > 1000) throw new Error(t('Zu viele Hausverkäufe.'));
-  const rows = configs.map(config => ({ ...emptySale(config.milestones), waitresses: config.waitresses, fryChefs:config.fryChefs ?? 0, basePrice:config.basePrice ?? 10, cfo: config.cfo, price: config.price, demand:config.demand ?? 0, houses: [] }));
+  const rows = configs.map(config => ({ ...emptySale(config.milestones), waitresses: config.waitresses, fryChefs:config.fryChefs ?? 0, basePrice:config.basePrice ?? 10, cfo: config.cfo, price: config.price, demand:config.demand ?? 0, salaryDiscounts:{...config.salaryDiscounts}, houses: [] }));
   for (const house of houses) {
     const player = integer(house.player, rows.length - 1);
     const row = rows[player];
@@ -114,6 +123,7 @@ export function calculateSale(sale) {
   if(sale.basePrice!==undefined && ![5,10,20].includes(sale.basePrice)) throw new Error(t('Ungültiger Grundpreis.'));
   const quantity = mealGoods.reduce((sum, [key]) => sum + integer(sale[key] ?? 0), 0);
   integer(sale.demand ?? 0);
+  salaryPayment(sale,0);
   const price = unitPrice(sale.price) - (m.price ? 1 : 0);
   if(((sale.noodles ?? 0)>0||(sale.sushi ?? 0)>0||(sale.kimchi ?? 0)>0) && !Array.isArray(sale.houses))throw new Error(t('Neue Waren benötigen erfasste Hausverkäufe.'));
   const garden = integer(sale.garden);
@@ -152,7 +162,7 @@ export function calculateSale(sale) {
 // Replay cash in board order. No draft input or future income can fund an earlier payment.
 export function replayGame(input,{partialSaleIndex=null,pauseOnReserve=false,stopBeforeMeal=null}={}) {
   const game=structuredClone(input),n=game.players.length;
-  const balances=game.players.map(()=>0),bankrupt=game.players.map(()=>null),salePayments={},saleDetails={},issues=[];
+  const balances=game.players.map(()=>0),bankrupt=game.players.map(()=>null),salePayments={},saleDetails={},salaryPayments={},issues=[];
   let bank=n*50,basePrice=10,firstBreak=null,secondBreak=null,firstBreakAt=null,secondBreakAt=null,needsReserve=false;
   let eventIndex=0,event=null;
   const halted=()=>needsReserve&&(pauseOnReserve||game.modules?.reservePrices);
@@ -260,9 +270,11 @@ export function replayGame(input,{partialSaleIndex=null,pauseOnReserve=false,sto
       if(halted())break;
     } else {
       const rows=game.events[eventIndex-1].rows;
+      salaryPayments[eventIndex]=event.rows.map(()=>0);
       event.rows.forEach((count,i)=>{
         if(bankrupt[i]!==null){if(count)issues.push(t('Ausgeschiedene Spieler zahlen keine weiteren Löhne.'));return;}
-        const cost=integer(count)*salaryRate(rows[i]);
+        const cost=salaryPayment(rows[i],count,balances[i]).paid;
+        salaryPayments[eventIndex][i]=cost;
         if(cost>balances[i])issues.push(html`${game.players[i].name}: Lohn übersteigt das Guthaben in Runde ${event.round}.`);
         balances[i]-=cost;bank+=cost;
       });
@@ -271,7 +283,7 @@ export function replayGame(input,{partialSaleIndex=null,pauseOnReserve=false,sto
       if(halted())break;
     }
   }
-  return {game,saleRows:Object.fromEntries(game.events.flatMap((e,i)=>e.type==='sale'?[[i,e.rows]]:[])),bank,balances,firstBreak,secondBreak,firstBreakAt,secondBreakAt,bankrupt,salePayments,saleDetails,basePrice,needsReserve,issues:[...new Set(issues)]};
+  return {game,saleRows:Object.fromEntries(game.events.flatMap((e,i)=>e.type==='sale'?[[i,e.rows]]:[])),bank,balances,firstBreak,secondBreak,firstBreakAt,secondBreakAt,bankrupt,salePayments,saleDetails,salaryPayments,basePrice,needsReserve,issues:[...new Set(issues)]};
 }
 export function account(game) {
   const {game:normalized,...state}=replayGame(game);
@@ -319,7 +331,7 @@ export function roundSettlement(game, rows, wages, index = null, reserves = game
   const incomes = afterSales.salePayments[position];
   if (afterSales.needsReserve) return {candidate:null,before,afterSales,incomes,expenses:null,balances:null,needsReserve:true,ended:false,issues:[]};
   const ended = afterSales.secondBreak !== null;
-  const expenses = wages.map((n,i) => ended || afterSales.bankrupt[i]!==null ? 0 : n * salaryRate(rows[i]));
+  const expenses = wages.map((n,i) => ended || afterSales.bankrupt[i]!==null ? 0 : salaryPayment(rows[i],n,afterSales.balances[i]).paid);
   const marketing = rows.map((row,i)=>ended||afterSales.bankrupt[i]!==null?0:marketingIncome(row));
   const removed = rows.map((row,i)=>before.bankrupt[i]!==null?0:bankRemoval(row));
   const salary = { ...oldSalary, type:'salary', round, rows:wages.map((n,i)=>afterSales.bankrupt[i]!==null?0:n), createdAt:oldSalary?.createdAt || time, combined:true, ...(oldSalary ? {updatedAt:time} : {}) };
@@ -420,9 +432,15 @@ function validateMilestones(m,newSet) {
   if (!m || MILESTONES.some(([key]) => typeof m[key] !== 'boolean')) throw new Error(t('Ungültige Meilensteine.'));
   if (['newSet','coffee','ketchup',...NEW_MILESTONES.map(([key])=>key)].some(key=>m[key]!==undefined&&typeof m[key]!=='boolean')) throw new Error(t('Ungültige Meilensteine.'));
   if (Boolean(m.newSet)!==newSet || (!m.newSet && NEW_MILESTONES.some(([key])=>m[key]))) throw new Error(t('Ungültige Meilensteine.'));
-  if (m.newSet && (MILESTONES.some(([key])=>m[key]) || NEW_MILESTONES.some(([key])=>typeof m[key]!=='boolean'))) throw new Error(t('Ungültige Meilensteine.'));
+  if (m.newSet && (MILESTONES.some(([key])=>m[key]) || NEW_MILESTONES.some(([key])=>typeof m[key]!=='boolean' && !(key==='trainer'&&m[key]===undefined)))) throw new Error(t('Ungültige Meilensteine.'));
 }
 function validateExtraModules(row,game) {
+  if(row.salaryDiscounts!==undefined){
+    const d=row.salaryDiscounts;
+    if(!d||typeof d!=='object'||Array.isArray(d)||Object.keys(d).some(key=>!['recruiting','hr'].includes(key)))throw new Error(t('Ungültige Lohnrabatte.'));
+    integer(d.recruiting ?? 0);integer(d.hr ?? 0);
+    if(game.milestoneSet!=='new' && ((d.recruiting ?? 0)||(d.hr ?? 0)))throw new Error(t('Lohnrabatte einzeln eingeben ist nur mit neuen Meilensteinen möglich.'));
+  }
   for(const key of ['kimchi','noodles','sushi']) if((row[key] ?? 0)>0 && !game.modules?.[key])throw new Error(t('Das Modul für diese Ware ist nicht aktiviert.'));
   if(row.milestones?.ketchup && !game.modules?.ketchup)throw new Error(t('Das Ketchup-Modul ist nicht aktiviert.'));
   if((row.number==='rural'||row.houses?.some(h=>h.number==='rural')) && !game.modules?.rural)throw new Error(t('Das Landleben-Modul ist nicht aktiviert.'));

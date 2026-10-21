@@ -1,5 +1,5 @@
 import { t, html } from './i18n.js';
-import { applyReservePrices, account, mealGoods, GOODS, allGoods, isCoffeeSale, calculateSale, salaryRate, marketingIncome } from './rules.js';
+import { applyReservePrices, account, mealGoods, GOODS, allGoods, isCoffeeSale, calculateSale, marketingIncome } from './rules.js';
 import { houseId, houseOrder, houseMultiplier } from './houses.js';
 
 // Rebuild from the ledger so historical corrections also update every chart.
@@ -71,7 +71,7 @@ export function gameStatistics(game) {
       const round = rounds.at(-1);
       event.rows.forEach((count,i) => {
         const out=ledger.bankrupt[i]!==null&&ledger.bankrupt[i]<=event.round;
-        const cost = out?0:count * salaryRate(saleRows[i]), income=out?0:marketingIncome(saleRows[i]);
+        const cost = ledger.salaryPayments[eventIndex]?.[i] ?? 0, income=out?0:marketingIncome(saleRows[i]);
         players[i].wages += cost; players[i].balance += income-cost;
         players[i].marketing += income; players[i].income += income;
         if (round) Object.assign(round.players[i],{income:round.players[i].income+income,wages:cost,net:round.players[i].income+income-cost,balance:players[i].balance});

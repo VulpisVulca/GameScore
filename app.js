@@ -1,7 +1,8 @@
+import { hasMeal, sushiAvailable, selectGoods, normalizeMeal } from './selection.js';
 import { houseOptions, houseId, isApartment, isRural, houseOrder, gardenKind, houseNumber, builtGardenNumbers, builtGardenOrigins, canRemoveBuiltGarden, removeBuiltGarden, gardenKindAtRound, houseMultiplier, builtParkOrigins, parkAtRound, canRemoveBuiltPark, addBuiltPark, removeBuiltPark } from './houses.js';
 import { t, html, htmlText, locale, getLanguage, setLanguage } from './i18n.js';
 import { renderStatistics, renderAwards } from './statistics-view.js';
-import { integer, houseSettlement, mealGoods, NOODLES, SUSHI, goodsForGame, reserveOptions, reserveAmount, reserveBasePrice, GOODS, COFFEE, allGoods, isCoffeeSale, sameHouse, milestoneList, emptyMilestones, salaryRate, marketingIncome, bankRemoval, COLORS, emptySale, calculateSale, calculateHouse, houseRows, account, roundSettlement, validateGame } from './rules.js';
+import { integer, houseSettlement, mealGoods, NOODLES, SUSHI, goodsForGame, reserveOptions, reserveAmount, reserveBasePrice, GOODS, COFFEE, allGoods, isCoffeeSale, sameHouse, milestoneList, emptyMilestones, salaryRate, salaryPayment, marketingIncome, bankRemoval, COLORS, emptySale, calculateSale, calculateHouse, houseRows, account, roundSettlement, validateGame } from './rules.js';
 
 const KEY = 'gamescores.fcm.v1';
 const app = document.querySelector('#app');
@@ -139,7 +140,7 @@ function dashboard() {
     const salary=game.events[index+1]?.type==='salary'?game.events[index+1]:null;
     const amounts=event.rows.map((row,i)=>{
       const active=a.bankrupt[i]===null || a.bankrupt[i]>event.round;
-      const wages=salary&&active?salary.rows[i]*salaryRate(row):0;
+      const wages=salary?(a.salaryPayments[index+1]?.[i] ?? 0):0;
       const marketing=salary&&active?marketingIncome(row):0;
       return a.salePayments[index][i]+marketing-wages;
     });
@@ -194,6 +195,7 @@ function houseBaseBefore(number) {
   return houseSettlement(gardenGame(),rows,editor.index,editor.reserves ?? game.reserves,{beforeMeal:number}).basePrice;
 }
 function normalizeHouseDraft() {
+  editor.houseForm=normalizeMeal(editor.houseForm);
   const old=editor.editingHouse===null?null:editor.houses[editor.editingHouse];
   const state=previewHouses();
   editor.rows=state.rows;
@@ -241,7 +243,7 @@ function coffeeDraftQuantities() {
 function kimchiButton() {
   if(!game.modules?.kimchi || coffeeForm())return '';
   const active=Boolean(editor.houseForm.kimchi);
-  return html`<button type="button" class="secondary kimchi-toggle ${active?'is-active':''}" data-action="house-kimchi" aria-pressed="${active}" title="Ein zusätzliches Stück zum Stückpreis">🥬 Kimchi${active?' ✓':''}</button><small class="food-rule-hint kimchi-rule">1 extra zur vollständigen Bestellung; wird immer bevorzugt.</small>`;
+  return html`<button type="button" class="secondary kimchi-toggle ${active?'is-active':''}" data-action="house-kimchi" aria-pressed="${active}" title="Ein zusätzliches Stück zum Stückpreis" ${hasMeal(editor.houseForm)?'':'disabled'}>🥬 Kimchi${active?' ✓':''}</button><small class="food-rule-hint kimchi-rule">1 extra zur vollständigen Bestellung; wird immer bevorzugt.</small>`;
 }
 function visibleGoods() { return goodsForGame(game); }
 function signedMoney(value) { return value<0?html`−${money(-value)}`:html`+${money(value)}`; }
@@ -351,6 +353,26 @@ const mealHouses = () => editor.houses.filter(h=>!isCoffeeSale(h));
 const availableHouses = () => houseOptions(game).filter(id=>!coffeeForm()||mealHouses().some(h=>sameHouse(h.number,id)));
 const houseAlreadyUsed = number => !coffeeForm() && editor.houses.some((house,index)=>index!==editor.editingHouse && !isCoffeeSale(house) && sameHouse(house.number,number));
 const formGoods = () => coffeeForm()?[COFFEE]:[...GOODS,...(game.modules?.noodles?[NOODLES]:[]),...(game.modules?.sushi?[SUSHI]:[])];
+
+function goodsCounter([key,label,icon]) {
+  const h=editor.houseForm,disabled=key==='sushi'&&!sushiAvailable(h);
+  const hint=key==='sushi'?t('Nur Garten: gesamte Nachfrage 1:1; vor normalen Waren. Kimchi hat Vorrang.'):key==='noodles'?t('Gesamte Nachfrage 1:1; normale Waren gehen vor. Kimchi hat Vorrang.'):'';
+  return html`<label class="goods-counter"><span>${icon} ${t(label)}</span><small class="goods-unit-price" data-goods-price="${key}">${goodsUnitPrice(key)}</small><div class="stepper"><button data-action="house-count" data-field="${key}" data-delta="-1" aria-label="${t(label)} weniger" ${disabled?'disabled':''}>−</button><input type="number" inputmode="numeric" min="0" max="1000000" step="1" required data-house="${key}" value="${h[key] ?? 0}" aria-label="Anzahl ${t(label)}" ${disabled?'disabled':''}><button data-action="house-count" data-field="${key}" data-delta="1" aria-label="${t(label)} mehr" ${disabled?'disabled':''}>+</button></div>${hint?html`<small class="food-rule-hint">${hint}</small>`:''}</label>`;
+}
+function goodsSelection() {
+  if(coffeeForm())return html`<div class="house-goods">${goodsCounter(COFFEE)}</div>`;
+  return html`<div class="house-goods">${GOODS.map(goodsCounter).join('')}</div><div class="food-addons-row">${game.modules?.sushi?goodsCounter(SUSHI):''}${game.modules?.noodles?goodsCounter(NOODLES):''}${game.modules?.kimchi?html`<div class="food-addon-control">${kimchiButton()}</div>`:''}${game.modules?.coffee?html`<div class="food-addon-control">${coffeeFormButton()}<small class="food-rule-hint">Unterwegs zum Restaurant; 1 je passierter Filiale.</small></div>`:''}</div>`;
+}
+function refreshGoodsControls() {
+  for(const [key] of formGoods()){
+    const input=app.querySelector('[data-house="'+key+'"]');
+    if(input){input.value=editor.houseForm[key] ?? 0;input.disabled=key==='sushi'&&!sushiAvailable(editor.houseForm);}
+    app.querySelectorAll('[data-action="house-count"][data-field="'+key+'"]').forEach(b=>b.disabled=key==='sushi'&&!sushiAvailable(editor.houseForm));
+  }
+  const kimchi=app.querySelector('[data-action="house-kimchi"]');
+  if(kimchi){kimchi.disabled=!hasMeal(editor.houseForm);kimchi.classList.toggle('is-active',Boolean(editor.houseForm.kimchi));kimchi.setAttribute('aria-pressed',String(Boolean(editor.houseForm.kimchi)));kimchi.innerHTML=html`🥬 Kimchi${editor.houseForm.kimchi?' ✓':''}`;}
+}
+
 function renderHousePicker() {
   const selected=houseId(editor.houseForm.number);
   return html`<dialog id="house-picker" class="house-picker" aria-labelledby="house-picker-title"><div class="house-picker-heading"><h2 id="house-picker-title">Haus wählen</h2><button class="text-button" data-action="close-house-picker" aria-label="Schließen">×</button></div><div class="house-picker-legend"><span><i class="house-key"></i>Ohne Garten</span><span><i class="house-key native"></i>Mit Garten</span><span><i class="house-key built"></i>Garten gebaut</span></div><div class="house-number-grid">${availableHouses().map(number=>{const kind=visibleGardenKind(number),used=houseAlreadyUsed(number),park=visiblePark(number);return html`<button class="house-tile ${kind==='native'?'native-garden':kind==='built'?'built-garden':''} ${selected===number?'selected':''}" data-action="select-house" data-number="${number}" aria-label="Haus ${number} · ${kind==='native'?t('Mit Garten'):kind==='built'?t('Garten gebaut'):t('Ohne Garten')}" aria-pressed="${selected===number}" ${used?'disabled':''}><strong>${isRural(number)?t('Land'):number}${park?html` <span class="park-marker" aria-label="Park">🌳</span>`:''}</strong><small>${used?t('Bereits erfasst'):isRural(number)?t('Zuletzt beliefern'):isApartment(number)?t('Apartment'):kind==='built'?t('Garten gebaut'):kind==='native'?t('Mit Garten'):t('Ohne Garten')}</small></button>`;}).join('')}</div><p class="hint">Gebaute Gärten bleiben für diese Partie gespeichert.</p></dialog>`;
@@ -360,7 +382,7 @@ function housePreview() {
   try { return money(calculateHouse(editor.houseForm, editor.rows[editor.houseForm.player].milestones).total); }
   catch { return '0 $'; }
 }
-const MILESTONE_TAGS = {burger:'Burger +5 $',pizza:'Pizza +5 $',drink:'Getränke +5 $',waitress:'Waitress 5 $',price:'Stückpreis −1 $',cfo:'CFO +50 %',marketeer:'Marketing +5 $ · Entfernung −2',salary:'Löhne 3 $',beer:'Warenzahlung',discount:'Bank −100 $ ab 3 $ Rabatt',ketchup:'Ketchup · Entfernung −1'};
+const MILESTONE_TAGS = {burger:'Burger +5 $',pizza:'Pizza +5 $',drink:'Getränke +5 $',waitress:'Waitress 5 $',price:'Stückpreis −1 $',cfo:'CFO +50 %',marketeer:'Marketing +5 $ · Entfernung −2',salary:'Löhne 3 $',beer:'Warenzahlung',discount:'Bank −100 $ ab 3 $ Rabatt',trainer:'Trainer · Mitarbeiter bleiben',ketchup:'Ketchup · Entfernung −1'};
 function comparisonPrice(i) {
   const raw = rawPlayerPrice(i);
   return raw - (editor.rows[i].milestones.price ? 1 : 0);
@@ -384,6 +406,7 @@ function priceComparison() {
   return html`<section class="price-comparison"><div class="sidebar-heading"><h2>${coffeeForm()?t('Kaffeepreise'):t('Preisvergleich')}</h2></div><p class="comparison-intro">Stückpreise aller Spieler auf einen Blick.${game.modules?.reservePrices?html` ${t('Grundpreis')}: ${money(editor.houseForm.basePrice ?? editor.rows[0].basePrice ?? 10)}`:''}</p><div class="comparison-columns"><span>Spieler</span><span>Basispreis</span><span>${(game.milestoneSet==='new'||game.modules?.ketchup)&&!coffeeForm()?t('Vergleichspreis'):t('Stückpreis')}</span></div>${game.players.map((p,i) => html`<div class="comparison-row"><span>${playerName(p)}</span><label><span class="sr-only">Basispreis vor Preis-Meilenstein für ${esc(p.name)}</span><div class="stepper"><button type="button" data-action="price-count" data-index="${i}" data-delta="-1" aria-label="Basispreis für ${esc(p.name)} um 1 Dollar senken">−</button><input type="number" inputmode="numeric" min="-100" max="100" step="1" required data-comparison-price="${i}" value="${rawPlayerPrice(i)}"><button type="button" data-action="price-count" data-index="${i}" data-delta="1" aria-label="Basispreis für ${esc(p.name)} um 1 Dollar erhöhen">+</button></div></label><strong data-comparison-unit="${i}">${comparisonValue(i)}</strong></div>`).join('')}${coffeeForm()?htmlText('<p class="hint">Kaffee wird entlang der am Brett bestimmten Route gekauft. Preis und Marketeer-Entfernungsbonus ändern diese Route nicht.</p>'):game.milestoneSet==='new'?html`<p class="hint">${t('Marketeer: −2 nur für den Vergleich Preis + Entfernung, nicht für die Zahlung.')} ${html`Discount Manager: Bei mindestens 3 $ Mitarbeiter-Rabatt auf den Grundpreis von ${money(editor.rows[0].basePrice ?? 10)} werden 100 $ aus der Bank entfernt, auch ohne Verkauf.`}</p>`:htmlText('<p class="hint">Basispreis an Mitarbeiter anpassen. Der −1-$-Meilenstein ist im Stückpreis bereits enthalten. Warenboni und CFO erhöhen die Einnahmen.</p>')}</section>`;
 }
 function refreshHousePrices() {
+  refreshGoodsControls();
   game.players.forEach((_,i) => {
     document.querySelector(`[data-player-price="${i}"]`).textContent = html`${money(comparisonPrice(i))} / Ware`;
     document.querySelector(`[data-comparison-unit="${i}"]`).innerHTML = comparisonValue(i);
@@ -403,7 +426,7 @@ function renderSales() {
     if(live.needsReserve){renderReserve(target,true);return;}
 
     const h = editor.houseForm;
-    target.innerHTML = html`${houseBankStatus(live)}<div class="house-layout"><section class="panel house-form"><div class="form-title"><h2>${coffeeForm()?t('Kaffee verkaufen'):editor.editingHouse === null ? html`Verkauf ${mealHouses().length + 1}` : t('Verkauf bearbeiten')}</h2><div class="house-selector"><span>Hausnummer</span><button class="secondary house-picker-trigger" data-action="open-house-picker" aria-haspopup="dialog">${h.number ? houseLabel(h.number) : t('Haus wählen')}<small>${h.park?html`🌳 ${t('Park')} · `:''}${visibleGardenKind(h.number)==='built'?t('Garten gebaut'):visibleGardenKind(h.number)==='native'?t('Mit Garten'):t('Hausnummer auswählen')}</small></button></div></div><fieldset><legend>${coffeeForm()?t('1. Wer verkauft den Kaffee?'):t('1. Wer beliefert das Haus?')}</legend>${playerChoices()}</fieldset><fieldset><legend>2. Was wurde verkauft?</legend><div class="house-goods">${formGoods().map(([key,label,icon]) => html`<label><span>${icon} ${t(label)}</span><small class="goods-unit-price" data-goods-price="${key}">${goodsUnitPrice(key)}</small><div class="stepper"><button data-action="house-count" data-field="${key}" data-delta="-1" aria-label="${t(label)} weniger">−</button><input type="number" inputmode="numeric" min="0" max="1000000" step="1" required data-house="${key}" value="${h[key] ?? 0}" aria-label="Anzahl ${t(label)}"><button data-action="house-count" data-field="${key}" data-delta="1" aria-label="${t(label)} mehr">+</button></div>${key==='noodles'?htmlText('<small class="food-rule-hint">Gesamte Nachfrage 1:1; normale Waren gehen vor. Kimchi hat Vorrang.</small>'):key==='sushi'?htmlText('<small class="food-rule-hint">Nur Garten: gesamte Nachfrage 1:1; vor normalen Waren. Kimchi hat Vorrang.</small>'):''}</label>`).join('')}</div><div class="food-addon-buttons">${coffeeFormButton()}${kimchiButton()}</div>${coffeeForm()?htmlText('<p class="goods-price-note">Kaffee: ein Stück je passierter Filiale. Route am Brett bestimmen. Der Zielbetrieb verkauft keinen Kaffee. Kein Getränkemeilenstein.</p>'):htmlText(game.modules?.lobbyist?'<p class="goods-price-note">Erlös je Stück inkl. Meilenstein-, Garten- und Parkbonus, ohne CFO.</p>':'<p class="goods-price-note">Erlös je Stück inkl. Meilenstein- und Gartenbonus, ohne CFO.</p>')}</fieldset>${!coffeeForm()?html`<fieldset><legend>3. Welches Haus?</legend><div class="house-types">${[['normal','⌂',t('Ohne Garten'),t(h.park?'Doppelter Stückpreis':'Einfacher Stückpreis')],['garden','♧',t('Mit Garten'),t(h.park?'Dreifacher Stückpreis':'Doppelter Stückpreis')]].map(([type,icon,label,hint]) => html`<button class="choice ${h.type === type ? 'selected' : ''}" data-action="house-type" data-type="${type}" aria-pressed="${h.type === type}" ${coffeeForm() || (type==='normal'&&visibleGardenKind(h.number)!=='none'&&!editableGarden(h.number)) || (type==='garden'&&(isApartment(h.number)||isRural(h.number)))?'disabled':''}><span class="type-icon">${icon}</span><span>${t(label)}<small>${t(hint)}</small></span></button>`).join('')}</div>${parkControl(h)}${coffeeForm()?htmlText('<p class="hint">Der Gartenstatus wird vom Essensverkauf dieses Hauses übernommen.</p>'):''}${isRural(h.number)?htmlText('<p class="hint">Das ländliche Gebiet wird zuletzt beliefert und hat weder Garten noch Park.</p>'):''}${isApartment(h.number)?htmlText('<p class="hint">Apartments können keinen Garten haben.</p>'):''}${editableGarden(h.number) ? htmlText('<p class="hint">In dieser Baurunde kannst du den Garten korrigieren. Die Änderung wird mit der Runde bestätigt; spätere Verkäufe dieses Hauses werden neu berechnet.</p>') : ''}</fieldset>`:''}<div class="house-price"><div><span id="house-payment-label">${housePreview().startsWith('-')?t('Zahlung an die Bank'):t('Verkauf inkl. Meilensteinen')}</span><strong id="house-income">${housePreview()}</strong><small>Trinkgeld und CFO folgen in Schritt 2.</small></div></div><div class="house-form-actions">${editor.editingHouse !== null || coffeeForm() ? htmlText('<button class="secondary" data-action="cancel-house">Abbrechen</button>') : ''}<button data-action="save-house">${coffeeForm()?t('Kaffee speichern'):editor.editingHouse !== null ? t('Verkauf speichern') : t('Haus übernehmen & nächstes')} →</button></div></section><aside class="house-sidebar">${priceComparison()}<div class="sidebar-heading"><h2>Diese Runde</h2><span>${mealHouses().length} ${mealHouses().length === 1 ? t('Haus') : t('Häuser')}</span></div>${houseList()}<div class="sidebar-total"><span>Warenumsatz inkl. Meilensteinen</span><strong>${money(editor.houses.reduce((sum, house) => sum + calculateHouse(house, editor.rows[house.player].milestones).total, 0))}</strong></div><button class="secondary" data-action="sales-step" data-step="extras">Essenszeit abschließen →</button></aside></div>`;
+    target.innerHTML = html`${houseBankStatus(live)}<div class="house-layout"><section class="panel house-form"><div class="form-title"><h2>${coffeeForm()?t('Kaffee verkaufen'):editor.editingHouse === null ? html`Verkauf ${mealHouses().length + 1}` : t('Verkauf bearbeiten')}</h2><div class="house-selector"><span>Hausnummer</span><button class="secondary house-picker-trigger" data-action="open-house-picker" aria-haspopup="dialog">${h.number ? houseLabel(h.number) : t('Haus wählen')}<small>${h.park?html`🌳 ${t('Park')} · `:''}${visibleGardenKind(h.number)==='built'?t('Garten gebaut'):visibleGardenKind(h.number)==='native'?t('Mit Garten'):t('Hausnummer auswählen')}</small></button></div></div><fieldset><legend>${coffeeForm()?t('1. Wer verkauft den Kaffee?'):t('1. Wer beliefert das Haus?')}</legend>${playerChoices()}</fieldset><fieldset><legend>2. Was wurde verkauft?</legend>${goodsSelection()}${coffeeForm()?htmlText('<p class="goods-price-note">Kaffee: ein Stück je passierter Filiale. Route am Brett bestimmen. Der Zielbetrieb verkauft keinen Kaffee. Kein Getränkemeilenstein.</p>'):htmlText(game.modules?.lobbyist?'<p class="goods-price-note">Erlös je Stück inkl. Meilenstein-, Garten- und Parkbonus, ohne CFO.</p>':'<p class="goods-price-note">Erlös je Stück inkl. Meilenstein- und Gartenbonus, ohne CFO.</p>')}</fieldset>${!coffeeForm()?html`<fieldset><legend>3. Welches Haus?</legend><div class="house-types">${[['normal','⌂',t('Ohne Garten'),t(h.park?'Doppelter Stückpreis':'Einfacher Stückpreis')],['garden','♧',t('Mit Garten'),t(h.park?'Dreifacher Stückpreis':'Doppelter Stückpreis')]].map(([type,icon,label,hint]) => html`<button class="choice ${h.type === type ? 'selected' : ''}" data-action="house-type" data-type="${type}" aria-pressed="${h.type === type}" ${coffeeForm() || (type==='normal'&&visibleGardenKind(h.number)!=='none'&&!editableGarden(h.number)) || (type==='garden'&&(isApartment(h.number)||isRural(h.number)))?'disabled':''}><span class="type-icon">${icon}</span><span>${t(label)}<small>${t(hint)}</small></span></button>`).join('')}</div>${parkControl(h)}${coffeeForm()?htmlText('<p class="hint">Der Gartenstatus wird vom Essensverkauf dieses Hauses übernommen.</p>'):''}${isRural(h.number)?htmlText('<p class="hint">Das ländliche Gebiet wird zuletzt beliefert und hat weder Garten noch Park.</p>'):''}${isApartment(h.number)?htmlText('<p class="hint">Apartments können keinen Garten haben.</p>'):''}${editableGarden(h.number) ? htmlText('<p class="hint">In dieser Baurunde kannst du den Garten korrigieren. Die Änderung wird mit der Runde bestätigt; spätere Verkäufe dieses Hauses werden neu berechnet.</p>') : ''}</fieldset>`:''}<div class="house-price"><div><span id="house-payment-label">${housePreview().startsWith('-')?t('Zahlung an die Bank'):t('Verkauf inkl. Meilensteinen')}</span><strong id="house-income">${housePreview()}</strong><small>Trinkgeld und CFO folgen in Schritt 2.</small></div></div><div class="house-form-actions">${editor.editingHouse !== null || coffeeForm() ? htmlText('<button class="secondary" data-action="cancel-house">Abbrechen</button>') : ''}<button data-action="save-house">${coffeeForm()?t('Kaffee speichern'):editor.editingHouse !== null ? t('Verkauf speichern') : t('Haus übernehmen & nächstes')} →</button></div></section><aside class="house-sidebar">${priceComparison()}<div class="sidebar-heading"><h2>Diese Runde</h2><span>${mealHouses().length} ${mealHouses().length === 1 ? t('Haus') : t('Häuser')}</span></div>${houseList()}<div class="sidebar-total"><span>Warenumsatz inkl. Meilensteinen</span><strong>${money(editor.houses.reduce((sum, house) => sum + calculateHouse(house, editor.rows[house.player].milestones).total, 0))}</strong></div><button class="secondary" data-action="sales-step" data-step="extras">Essenszeit abschließen →</button></aside></div>`;
   } else if (step === 'extras') {
     target.innerHTML = html`<div class="entry-grid">${game.players.map((p,i) => html`<article class="panel player-entry" style="--player-color:${p.color}"><h3>${playerName(p)}</h3><fieldset class="employee-fields" ${outBeforeRound(i)?'disabled':''}>${outBeforeRound(i)?htmlText('<p class="hint">Ausgeschieden</p>'):''}${roundMilestones(editor.rows[i],i)}${waitressField(editor.rows[i],i)}${fryChefField(editor.rows[i],i)}${cfoButton(editor.rows[i],i)}${roundCalculation(editor.rows[i],i)}</fieldset></article>`).join('')}</div><div class="commit-bar"><button class="secondary" data-action="sales-step" data-step="houses">← Häuser</button><button data-action="sales-step" data-step="wages">Weiter zu den Löhnen →</button></div>`;
   } else if (step === 'wages') {
@@ -434,6 +457,17 @@ function wageCardCalculation(i, settlement = previewRound()) {
   const cost = settlement.expenses[i];
   return html`<dl><div><dt>Bisheriger Stand</dt><dd>${money(settlement.before.balances[i])}</dd></div><div><dt>+ Einnahmen</dt><dd>${money(settlement.incomes[i])}</dd></div><div><dt>− Ausgaben / Löhne</dt><dd>${money(cost)}</dd></div>${settlement.marketing[i]?html`<div><dt>+ Marketing nach Löhnen</dt><dd>${money(settlement.marketing[i])}</dd></div>`:''}<div class="calculation-total"><dt>Neuer Stand</dt><dd>${money(settlement.balances[i])}</dd></div></dl>`;
 }
+
+function salaryDiscountFields(row,i) {
+  if(game.milestoneSet!=='new')return '';
+  return html`<div class="salary-discounts">${[['recruiting',t('Recruiting Manager')],['hr',t('HR Director')]].map(([key,label])=>html`<label><span>${label}</span><small>Ungenutzte Recruiting-Aktionen · je 5 $ Rabatt</small><div class="stepper"><button data-action="salary-discount-count" data-index="${i}" data-key="${key}" data-delta="-1" aria-label="${label} weniger">−</button><input type="number" inputmode="numeric" min="0" max="1000000" step="1" required data-salary-discount="${key}" data-index="${i}" value="${row.salaryDiscounts?.[key] ?? 0}" aria-label="Ungenutzte Recruiting-Aktionen: ${label}"><button data-action="salary-discount-count" data-index="${i}" data-key="${key}" data-delta="1" aria-label="${label} mehr">+</button></div></label>`).join('')}</div>`;
+}
+function salaryCalculation(i,settlement) {
+  if(game.milestoneSet!=='new'||settlement.afterSales.bankrupt[i]!==null)return '';
+  const row=editor.rows[i],c=salaryPayment(row,editor.wages[i],settlement.afterSales.balances[i]);
+  return html`<p class="salary-equation">${editor.wages[i]} × ${money(salaryRate(row))} − ${money(c.discount)} = <strong>${money(c.due)}</strong></p>${row.milestones.trainer?html`<p class="hint trainer-note">${c.shortfall?html`Trainer-Meilenstein: Ihr zahlt nur ${money(c.paid)} verfügbares Geld. ${money(c.shortfall)} entfallen; niemand muss entlassen werden.`:t('Trainer-Meilenstein: Bei Geldmangel zahlt ihr nur das verfügbare Geld; niemand muss entlassen werden.')}</p>`:''}${row.milestones.trainer&&row.milestones.beer?htmlText('<p class="hint">Mit Waren bezahlte Mitarbeiter vorher abziehen. Falls Bargeld nicht reicht, müssen verfügbare Waren ebenfalls zum Bezahlen eingesetzt werden.</p>'):''}`;
+}
+
 function renderRoundWages(target) {
   const settlement = previewRound();
   if (settlement.needsReserve) {
@@ -445,7 +479,7 @@ function renderRoundWages(target) {
     if (game.milestoneSet==='new') target.querySelector('.final-round-notice').insertAdjacentHTML('beforeend',htmlText('<p>Es folgt keine Marketingphase: Nachfragemarker bringen in dieser letzten Runde kein weiteres Geld.</p>'));
     return;
   }
-  target.innerHTML = html`${insolvencyNotice(settlement)}<div class="entry-grid">${game.players.map((p,i) => html`<article class="panel player-entry" style="--player-color:${p.color}"><h3>${playerName(p)}</h3><fieldset class="employee-fields" ${settlement.afterSales.bankrupt[i]!==null?'disabled':''}><label class="waitress-field"><span>Zu bezahlende Mitarbeiter</span><div class="stepper"><button data-action="wage-count" data-index="${i}" data-delta="-1" aria-label="Ein Mitarbeiter weniger für ${esc(p.name)}">−</button><input type="number" inputmode="numeric" min="0" max="1000000" step="1" required data-wage="${i}" value="${editor.wages[i]}" aria-label="Zu bezahlende Mitarbeiter für ${esc(p.name)}"><button data-action="wage-count" data-index="${i}" data-delta="1" aria-label="Ein Mitarbeiter mehr für ${esc(p.name)}">+</button></div><small>${money(salaryRate(editor.rows[i]))} je Mitarbeiter · Rabatte vorher selbst berücksichtigen</small></label>${demandField(editor.rows[i],i)}</fieldset><div class="round-calculation" id="wage-calculation-${i}" aria-live="polite">${wageCardCalculation(i,settlement)}</div></article>`).join('')}</div><p class="round-warning" id="wage-issues" ${settlement.issues.length ? '' : 'hidden'}>${esc(settlement.issues.join(' '))}</p><div class="commit-bar"><button class="secondary" data-action="sales-step" data-step="extras">← Bedienung & CFO</button><button data-action="sales-step" data-step="summary">Gesamtübersicht prüfen →</button></div>`;
+  target.innerHTML = html`${insolvencyNotice(settlement)}<div class="entry-grid">${game.players.map((p,i) => html`<article class="panel player-entry" style="--player-color:${p.color}"><h3>${playerName(p)}</h3><fieldset class="employee-fields" ${settlement.afterSales.bankrupt[i]!==null?'disabled':''}><label class="waitress-field"><span>${game.milestoneSet==='new'?t('Mit Bargeld zu bezahlende Mitarbeiter · vor Rabatten'):t('Zu bezahlende Mitarbeiter')}</span><div class="stepper"><button data-action="wage-count" data-index="${i}" data-delta="-1" aria-label="Ein Mitarbeiter weniger für ${esc(p.name)}">−</button><input type="number" inputmode="numeric" min="0" max="1000000" step="1" required data-wage="${i}" value="${editor.wages[i]}" aria-label="Zu bezahlende Mitarbeiter für ${esc(p.name)}"><button data-action="wage-count" data-index="${i}" data-delta="1" aria-label="Ein Mitarbeiter mehr für ${esc(p.name)}">+</button></div><small>${money(salaryRate(editor.rows[i]))} ${game.milestoneSet==='new'?t('je Mitarbeiter · Warenzahlungen vorher abziehen'):t('je Mitarbeiter · Rabatte vorher selbst berücksichtigen')}</small></label>${salaryDiscountFields(editor.rows[i],i)}${demandField(editor.rows[i],i)}</fieldset><div id="salary-details-${i}">${salaryCalculation(i,settlement)}</div><div class="round-calculation" id="wage-calculation-${i}" aria-live="polite">${wageCardCalculation(i,settlement)}</div></article>`).join('')}</div><p class="round-warning" id="wage-issues" ${settlement.issues.length ? '' : 'hidden'}>${esc(settlement.issues.join(' '))}</p><div class="commit-bar"><button class="secondary" data-action="sales-step" data-step="extras">← Bedienung & CFO</button><button data-action="sales-step" data-step="summary">Gesamtübersicht prüfen →</button></div>`;
 }
 function refreshWages() {
   const settlement = previewRound();
@@ -453,7 +487,7 @@ function refreshWages() {
     renderRoundWages(document.querySelector('#sales-workspace'));
     return;
   }
-  editor.wages.forEach((_,i) => { document.querySelector(`#wage-calculation-${i}`).innerHTML = wageCardCalculation(i,settlement); });
+  editor.wages.forEach((_,i) => { document.querySelector(`#wage-calculation-${i}`).innerHTML = wageCardCalculation(i,settlement); document.querySelector(`#salary-details-${i}`).innerHTML=salaryCalculation(i,settlement); });
   const issues = document.querySelector('#wage-issues');
   issues.textContent = settlement.issues.join(' ');
   issues.hidden = !settlement.issues.length;
@@ -568,7 +602,7 @@ function renderReview() {
   const revealBalance = settlement && !settlement.ended;
   return html`<section class="panel review"><div class="table-scroll"><table><thead><tr><th>Spieler</th>${sale ? visibleGoods().map(([,label]) => html`<th>${t(label)}</th>`).join('') + htmlText('<th>Bedienungen</th><th>Warenumsatz¹</th><th>Meilensteine</th><th>Trinkgeld</th>') + (game.modules?.fryChef?htmlText('<th>Friteusenköche</th>'):'') + htmlText('<th>CFO</th>') : htmlText('<th>Mitarbeiter</th>')}<th>${sale ? t('Einnahmen') : t('Lohn')}</th>${settlement ? htmlText('<th>Ausgaben / Löhne</th>') + (game.milestoneSet==='new'?htmlText('<th>Marketing nach Löhnen</th>'):'') + (revealBalance ? htmlText('<th>Neuer Stand</th>') : '') : ''}</tr></thead><tbody>${game.players.map((p,i) => {
     const r = settlement?.rows?.[i] ?? editor.rows[i]; const c = sale ? calculateSale(r) : null; const detail=settlement?.details?.[i];
-    return html`<tr><th>${playerName(p)}</th>${sale ? (game.modules?.coffee?allGoods:GOODS).map(([key]) => html`<td>${r[key] ?? 0}</td>`).join('') + html`<td>${r.waitresses}</td><td>${money(c.revenue+c.coffeeRevenue)}</td><td>${money(c.bonus)}</td><td>${money(detail?.tips ?? c.tips)}</td>${game.modules?.fryChef?html`<td>${money(c.fry)}</td>`:''}<td>${money(detail?.cfo ?? c.cfo)}</td>` : html`<td>${r}</td>`}<td class="${settlement ? 'income-amount' : 'amount'}">${money(sale ? (settlement?settlement.incomes[i]:c.total) : r*5)}</td>${settlement ? html`<td class="expense-amount">${money(settlement.expenses[i])}</td>${game.milestoneSet==='new'?html`<td>${money(settlement.marketing[i])}</td>`:''}${revealBalance ? html`<td class="amount new-balance">${money(settlement.balances[i])}</td>` : ''}` : ''}</tr>`;
+    return html`<tr><th>${playerName(p)}</th>${sale ? visibleGoods().map(([key]) => html`<td>${r[key] ?? 0}</td>`).join('') + html`<td>${r.waitresses}</td><td>${money(c.revenue+c.coffeeRevenue)}</td><td>${money(c.bonus)}</td><td>${money(detail?.tips ?? c.tips)}</td>${game.modules?.fryChef?html`<td>${money(c.fry)}</td>`:''}<td>${money(detail?.cfo ?? c.cfo)}</td>` : html`<td>${r}</td>`}<td class="${settlement ? 'income-amount' : 'amount'}">${money(sale ? (settlement?settlement.incomes[i]:c.total) : r*5)}</td>${settlement ? html`<td class="expense-amount">${money(settlement.expenses[i])}</td>${game.milestoneSet==='new'?html`<td>${money(settlement.marketing[i])}</td>`:''}${revealBalance ? html`<td class="amount new-balance">${money(settlement.balances[i])}</td>` : ''}` : ''}</tr>`;
   }).join('')}</tbody></table></div>${sale ? htmlText('<p class="hint">¹ Mit eingestelltem Stückpreis und gegebenenfalls Gartenbonus. CFO zählt auf Waren und Trinkgeld, nicht auf Marketing, und wird einmal aufgerundet.</p>') : ''}</section>`;
 }
 function reservePriceSummary(values) {
@@ -587,7 +621,7 @@ function renderLog(target) {
     const sale = game.events[index];
     const salary = game.events[index + 1]?.type === 'salary' ? game.events[index + 1] : null;
     const incomes = sale.rows.map((row,i) => state.salePayments[index][i]+(salary && (state.bankrupt[i]===null||state.bankrupt[i]>sale.round)?marketingIncome(row):0));
-    const expenses = game.players.map((_,i) => salary ? salary.rows[i] * salaryRate(sale.rows[i]) : 0);
+    const expenses = game.players.map((_,i) => salary ? state.salaryPayments[index+1]?.[i] ?? 0 : 0);
     game.players.forEach((_,i) => { balances[i] += incomes[i] - expenses[i]; });
     const dates = [sale.updatedAt,salary?.updatedAt,salary?.createdAt,sale.createdAt].map(value => new Date(value)).filter(date => Number.isFinite(date.getTime()));
     const date = dates.sort((a,b) => b-a)[0];
@@ -601,7 +635,7 @@ function logRoundDetails(round) {
     const row = round.sale.rows[i];
     const c = calculateSale(row),detail=round.details[i];
     const goods = allGoods.filter(([key]) => row[key]).map(([key,label]) => html`${row[key]} ${t(label.split(' · ')[0])}`).join(' · ') || t('Keine Waren verkauft');
-    return html`<section class="ledger-detail-player"><h3>${playerName(p)}</h3><p>${goods}</p><dl><div><dt>Warenumsatz</dt><dd>${money(c.revenue)}</dd></div>${round.bankrupt[i]===round.sale.round?html`<div><dt>Ungedeckter Verlust bei Insolvenz</dt><dd>${money(detail.unpaid)}</dd></div>`:''}${game.modules?.coffee?html`<div><dt>Kaffee</dt><dd>${signedMoney(c.coffeeRevenue)}</dd></div>`:''}<div><dt>Meilensteinboni</dt><dd>+${money(c.bonus)}</dd></div><div><dt>${row.waitresses} Waitresses</dt><dd>+${money(detail.tips)}</dd></div>${game.modules?.fryChef?html`<div><dt>${row.fryChefs ?? 0} Friteusenköche · ${c.fryHouses} Häuser</dt><dd>+${money(detail.fry)}</dd></div>`:''}<div><dt>CFO${row.cfo || row.milestones.cfo ? t(' · aktiv') : t(' · inaktiv')}</dt><dd>${signedMoney(detail.cfo)}</dd></div><div><dt>${round.salary ? html`${round.salary.rows[i]} Mitarbeiter × ${money(salaryRate(row))}` : round.ended ? t('Löhne entfallen') : t('Löhne noch offen')}</dt><dd>−${money(round.expenses[i])}</dd></div>${round.salary&&(round.bankrupt[i]===null||round.bankrupt[i]>round.sale.round)&&marketingIncome(row)?html`<div><dt>Marketing nach Löhnen</dt><dd>+${money(marketingIncome(row))}</dd></div>`:''}</dl>${row.houses?.length ? html`<ul class="ledger-houses">${row.houses.map(h => html`<li><div><strong>${houseLabel(h.number)}</strong><small>${houseSetting(h)} · ${houseDescription(h)} · Stückpreis ${money(h.price - (row.milestones.price ? 1 : 0))}</small></div><span>${money(calculateHouse(h,row.milestones).total)}</span></li>`).join('')}</ul>` : ''}</section>`;
+    return html`<section class="ledger-detail-player"><h3>${playerName(p)}</h3><p>${goods}</p><dl><div><dt>Warenumsatz</dt><dd>${money(c.revenue)}</dd></div>${round.bankrupt[i]===round.sale.round?html`<div><dt>Ungedeckter Verlust bei Insolvenz</dt><dd>${money(detail.unpaid)}</dd></div>`:''}${game.modules?.coffee?html`<div><dt>Kaffee</dt><dd>${signedMoney(c.coffeeRevenue)}</dd></div>`:''}<div><dt>Meilensteinboni</dt><dd>+${money(c.bonus)}</dd></div><div><dt>${row.waitresses} Waitresses</dt><dd>+${money(detail.tips)}</dd></div>${game.modules?.fryChef?html`<div><dt>${row.fryChefs ?? 0} Friteusenköche · ${c.fryHouses} Häuser</dt><dd>+${money(detail.fry)}</dd></div>`:''}<div><dt>CFO${row.cfo || row.milestones.cfo ? t(' · aktiv') : t(' · inaktiv')}</dt><dd>${signedMoney(detail.cfo)}</dd></div><div><dt>${round.salary ? html`Löhne · ${round.salary.rows[i]} Mitarbeiter × ${money(salaryRate(row))}` : round.ended ? t('Löhne entfallen') : t('Löhne noch offen')}</dt><dd>−${money(round.expenses[i])}</dd></div>${round.salary && game.milestoneSet==='new'?html`<div><dt>Lohnrabatt · Recruiting Manager</dt><dd>−${money((row.salaryDiscounts?.recruiting ?? 0)*5)}</dd></div><div><dt>Lohnrabatt · HR Director</dt><dd>−${money((row.salaryDiscounts?.hr ?? 0)*5)}</dd></div>${row.milestones.trainer?html`<div><dt>Trainer · entfallener Lohn</dt><dd>${money(Math.max(0,salaryPayment(row,round.salary.rows[i]).due-round.expenses[i]))}</dd></div>`:''}`:''}${round.salary&&(round.bankrupt[i]===null||round.bankrupt[i]>round.sale.round)&&marketingIncome(row)?html`<div><dt>Marketing nach Löhnen</dt><dd>+${money(marketingIncome(row))}</dd></div>`:''}</dl>${row.houses?.length ? html`<ul class="ledger-houses">${row.houses.map(h => html`<li><div><strong>${houseLabel(h.number)}</strong><small>${houseSetting(h)} · ${houseDescription(h)} · Stückpreis ${money(h.price - (row.milestones.price ? 1 : 0))}</small></div><span>${money(calculateHouse(h,row.milestones).total)}</span></li>`).join('')}</ul>` : ''}</section>`;
   }).join('')}</div>${round.salary && !round.sale.rows.every(row => Array.isArray(row.houses)) ? html`<button class="text-button" data-action="edit" data-index="${round.index + 1}">Alte Lohnbuchung bearbeiten</button>` : ''}`;
 }
 function render() {
@@ -670,6 +704,12 @@ app.addEventListener('input', event => {
     editor.rows[+input.dataset.demand].demand=input.valueAsNumber;
     refreshWages(); persistDraft(); return;
   }
+  if(input.dataset.salaryDiscount!==undefined && editor?.wizard){
+    if(!input.validity.valid||!Number.isFinite(input.valueAsNumber))return;
+    const row=editor.rows[+input.dataset.index];
+    row.salaryDiscounts={...row.salaryDiscounts,[input.dataset.salaryDiscount]:input.valueAsNumber};
+    refreshWages();persistDraft();return;
+  }
   if (input.dataset.wage !== undefined && editor?.wizard) {
     if (!input.validity.valid || !Number.isFinite(input.valueAsNumber)) return;
     editor.wages[+input.dataset.wage] = input.valueAsNumber;
@@ -694,7 +734,7 @@ app.addEventListener('input', event => {
   if (input.dataset.house !== undefined && editor?.wizard) {
     const key = input.dataset.house;
     if (key === 'number') editor.houseForm.number = input.value;
-    else { if (!input.validity.valid || !Number.isFinite(input.valueAsNumber)) return; editor.houseForm[key] = input.valueAsNumber; }
+    else { if (!input.validity.valid || !Number.isFinite(input.valueAsNumber)) return; editor.houseForm = selectGoods(editor.houseForm,key,input.valueAsNumber); }
     refreshHousePrices();
     persistDraft(); return;
   }
@@ -812,6 +852,7 @@ app.addEventListener('click', async event => {
         editor.houseForm.number=String(number);
         editor.houseForm.park=coffeeForm()?Boolean(mealHouses().find(h=>sameHouse(h.number,number)).park):visiblePark(number);
         editor.houseForm.type=coffeeForm()?mealHouses().find(h=>sameHouse(h.number,number)).type:visibleGardenKind(number)==='none'?'normal':'garden';
+        editor.houseForm=normalizeMeal(editor.houseForm);
         persistDraft();
         requestAnimationFrame(()=>app.querySelector('[data-action="open-house-picker"]')?.focus());
         break;
@@ -827,15 +868,16 @@ app.addEventListener('click', async event => {
         if (button.dataset.type==='garden' && (isApartment(editor.houseForm.number)||isRural(editor.houseForm.number))) return;
         if (button.dataset.type==='normal' && visibleGardenKind(editor.houseForm.number)!=='none' && !editableGarden(editor.houseForm.number)) return;
         editor.houseForm.type = button.dataset.type;
+        editor.houseForm=normalizeMeal(editor.houseForm);
         if (button.dataset.type==='garden') rememberBuiltGarden(editor.houseForm.number);
         persistDraft(); break;
       case 'house-kimchi':
-        if(!game.modules?.kimchi||coffeeForm()||!validInputs())return;
+        if(!game.modules?.kimchi||coffeeForm()||!validInputs()||!hasMeal(editor.houseForm))return;
         editor.houseForm.kimchi=editor.houseForm.kimchi?0:1;persistDraft();break;
       case 'house-count': {
         if (!validInputs()) return;
         const key = button.dataset.field;
-        editor.houseForm[key] = Math.max(0,Math.min(1000000,editor.houseForm[key] + +button.dataset.delta)); persistDraft(); break;
+        editor.houseForm=selectGoods(editor.houseForm,key,Math.max(0,Math.min(1000000,(editor.houseForm[key] ?? 0) + +button.dataset.delta))); persistDraft(); break;
       }
       case 'price-count': {
         if (!validInputs()) return;
@@ -869,6 +911,12 @@ app.addEventListener('click', async event => {
         const input=app.querySelector(`[data-demand="${button.dataset.index}"]`);
         input.value=Math.max(0,Math.min(1000000,input.valueAsNumber + +button.dataset.delta));
         input.dispatchEvent(new Event('input',{bubbles:true})); return;
+      }
+      case 'salary-discount-count': {
+        if(!validInputs())return;
+        const input=app.querySelector('[data-salary-discount="'+button.dataset.key+'"][data-index="'+button.dataset.index+'"]');
+        input.value=Math.max(0,Math.min(1000000,input.valueAsNumber+ +button.dataset.delta));
+        input.dispatchEvent(new Event('input',{bubbles:true}));return;
       }
       case 'wage-count': {
         if (!validInputs()) return;
