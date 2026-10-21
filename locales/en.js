@@ -1,5 +1,7 @@
 // German source texts are stable translation keys. {0}, {1}, … are values.
 export const en = {
+  'Aktueller Stand':'Current balance',
+  'Gewinn oder Verlust pro Runde':'Profit or loss per round',
   '1 extra zur vollständigen Bestellung; wird immer bevorzugt.':'1 extra with a complete order; always preferred.',
   'Gesamte Nachfrage 1:1; normale Waren gehen vor. Kimchi hat Vorrang.':'Replace all demand 1:1; regular goods preferred. Kimchi takes priority.',
   'Nur Garten: gesamte Nachfrage 1:1; vor normalen Waren. Kimchi hat Vorrang.':'Garden only: replace all demand 1:1; preferred over regular goods. Kimchi takes priority.',

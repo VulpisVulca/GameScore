@@ -627,3 +627,13 @@ body.fcm-theme{--green:#225b5e;--muted:#59656a;--line:#c9caba;--paper:#fffcf2;--
 
 .fcm-theme .food-rule-hint{display:block;font-size:14px;line-height:1.4;color:var(--muted);margin-top:5px;font-weight:400}
 .fcm-theme .kimchi-rule{flex:1 1 150px;margin:0}
+
+.fcm-theme .account{flex-direction:column;align-items:stretch;justify-content:flex-start;gap:6px}
+.fcm-theme .account-rounds{margin:0;max-height:120px;overflow-y:auto;font-size:14px;line-height:1.5;font-variant-numeric:tabular-nums;scrollbar-width:thin}
+.fcm-theme .account-rounds>div{display:flex;justify-content:space-between;gap:10px}
+.fcm-theme .account-rounds dt{color:var(--muted)}
+.fcm-theme .account-rounds dd{margin:0;white-space:nowrap;font-weight:600}
+.fcm-theme .account-total{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px 8px;margin-top:auto}
+.fcm-theme .account-rounds+.account-total{border-top:1px solid var(--line);padding-top:5px}
+.fcm-theme .account-total>span{font-size:13px;color:var(--muted)}
+.fcm-theme .account .account-total strong{font-size:24px}

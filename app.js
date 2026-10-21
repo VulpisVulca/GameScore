@@ -134,11 +134,22 @@ function dashboard() {
   const totalMoney = a.balances.reduce((sum,value) => sum + value,0);
   const shares = a.balances.map(value => totalMoney ? value / totalMoney * 100 : 0);
   const percent = value => value.toLocaleString(locale(),{minimumFractionDigits:1,maximumFractionDigits:1}) + ' %';
+  const roundChanges=game.events.flatMap((event,index)=>{
+    if(event.type!=='sale')return [];
+    const salary=game.events[index+1]?.type==='salary'?game.events[index+1]:null;
+    const amounts=event.rows.map((row,i)=>{
+      const active=a.bankrupt[i]===null || a.bankrupt[i]>event.round;
+      const wages=salary&&active?salary.rows[i]*salaryRate(row):0;
+      const marketing=salary&&active?marketingIncome(row):0;
+      return a.salePayments[index][i]+marketing-wages;
+    });
+    return [{number:event.round,amounts}];
+  });
   const last = game.events.at(-1);
   const round = last ? last.round + (last.type === 'salary' ? 1 : 0) : 1;
   app.innerHTML = html`<div class="table-top"><div><p class="eyebrow">DEIN SPIELTISCH</p><h1 class="table-title">Food Chain Magnate</h1></div><div class="table-actions"><button class="text-button" data-action="export">↓ Export</button><button class="text-button" data-action="home">Spielauswahl</button></div></div>
     ${distribution ? html`<section class="money-distribution" aria-label="Prozentuale Verteilung des Endgeldes"><div class="distribution-heading"><strong>Geldverteilung am Spielende</strong><span>Gesamt: ${money(totalMoney)}</span></div><div class="distribution-bar">${game.players.map((p,i) => html`<div style="width:${shares[i]}%;background:${p.color}" role="img" aria-label="${esc(p.name)}: ${percent(shares[i])}" title="${esc(p.name)}: ${money(a.balances[i])} (${percent(shares[i])})">${shares[i]>=10 ? percent(shares[i]) : ''}</div>`).join('')}</div></section>` : html`<div class="bank-bar"><div><span class="eyebrow">BANKBESTAND</span><strong>${money(a.bank)}</strong></div><span>${a.firstBreak === null ? t('Reserve noch verdeckt') : a.needsReserve ? t('Reservekarten aufdecken') : html`Reserve: ${money(reserveAmount(game))} · ${a.secondBreak === null ? t('1. Bankbruch') : t('2. Bankbruch')}${game.modules?.reservePrices?html` · ${t('Grundpreis')}: ${money(a.basePrice)}`:''}`}</span><span class="round-pill">${ended ? t('Partie beendet') : html`Runde ${round}`}</span></div>`}
-    <section class="accounts">${game.players.map((p,i) => html`<div class="account" style="--player-color:${p.color}"><span>${playerName(p)}${a.bankrupt[i]!==null?html`<small class="eliminated-label">${t('Ausgeschieden')}</small>`:''}</span>${distribution ? html`<div class="account-share"><strong>${money(a.balances[i])}</strong>${a.bankrupt[i]!==null?html`<small>${t('Ausgeschieden')}</small>`:''}<small>${percent(shares[i])}</small></div>` : html`<strong>${money(a.balances[i])}</strong>`}</div>`).join('')}</section>
+    <section class="accounts">${game.players.map((p,i) => html`<div class="account" style="--player-color:${p.color}"><span>${playerName(p)}${a.bankrupt[i]!==null?html`<small class="eliminated-label">${t('Ausgeschieden')}</small>`:''}</span>${roundChanges.length?html`<dl class="account-rounds" aria-label="Gewinn oder Verlust pro Runde">${roundChanges.map(r=>html`<div><dt>Runde ${r.number}</dt><dd>${signedMoney(r.amounts[i])}</dd></div>`).join('')}</dl>`:''}<div class="account-total"><span>Aktueller Stand</span>${distribution ? html`<div class="account-share"><strong>${money(a.balances[i])}</strong><small>${percent(shares[i])}</small></div>` : html`<strong>${money(a.balances[i])}</strong>`}</div></div>`).join('')}</section>
     <nav class="tabs"><button class="${screen === 'table' ? 'active' : ''}" data-action="table">${ended ? t('Ergebnis') : t('Spieltisch')}</button><button class="${screen === 'log' ? 'active' : ''}" data-action="log">Protokoll <span>${Math.ceil(game.events.length / 2)}</span></button>${ended ? html`<button class="${screen === 'statistics' ? 'active' : ''}" data-action="statistics">Statistiken</button><button class="${screen === 'awards' ? 'active' : ''}" data-action="awards">Achievements</button>` : ''}</nav><div id="workspace"></div>`;
   const workspace = document.querySelector('#workspace');
   if (screen === 'log') { renderLog(workspace); return; }
