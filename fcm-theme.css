@@ -5,6 +5,7 @@
 
 /* An ivory game board, enamel controls and cards inspired by the Special Edition. */
 body.fcm-theme{--green:#225b5e;--muted:#59656a;--line:#c9caba;--paper:#fffcf2;--coral:#bd4036;--teal:#367e7f;color:#26353b;font-family:FCMBarlow,'Segoe UI',sans-serif;font-size:17px;line-height:1.45;background-color:#f3efe2;background-image:radial-gradient(#96846c14 .65px,transparent .9px),linear-gradient(120deg,#edf4ea99,transparent 50%,#fae4d644);background-size:7px 7px,100% 100%;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+.fcm-theme>header{display:none}
 .fcm-theme header{height:66px;max-width:1390px;border-bottom:3px double #91ada8;background:linear-gradient(#fffdf5ee,#f2eddfdd);position:relative}
 .fcm-theme header::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,#ee6d5f 0 34%,#f5e5c8 34% 66%,#74b7ad 66%)}
 .fcm-theme .brand{font-size:24px;letter-spacing:-.5px}
@@ -469,6 +470,18 @@ body.fcm-theme{--green:#225b5e;--muted:#59656a;--line:#c9caba;--paper:#fffcf2;--
 /* Keep round navigation small so the working cards lead the page. */
 .fcm-theme.sales-round main{padding-top:10px}
 .fcm-theme .round-title{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.fcm-theme main{padding-top:12px;min-height:calc(100vh - 72px)}
+.fcm-theme .setup-heading{margin-bottom:18px}
+.fcm-theme .setup-top{display:flex;align-items:center;justify-content:space-between;gap:8px 18px}
+.fcm-theme .setup-top .eyebrow{margin:0}
+.fcm-theme .setup-top .text-button{flex-shrink:0;min-height:44px;padding:8px 0;font-size:16px}
+.fcm-theme .setup-heading h1{font-size:36px;margin:4px 0 0}
+@media(max-width:760px){
+  .fcm-theme .setup-top{align-items:flex-start;gap:8px 14px}
+  .fcm-theme .setup-top .eyebrow{font-size:12px;padding-top:12px}
+  .fcm-theme .setup-top .text-button{font-size:15px}
+  .fcm-theme .setup-heading h1{font-size:32px;margin-top:3px}
+}
 .fcm-theme.sales-round .round-top{border-bottom:0;padding-bottom:0;margin-bottom:4px;gap:8px 18px;min-height:44px}
 .fcm-theme.sales-round .wizard-steps{margin-bottom:14px;gap:24px}
 .fcm-theme.sales-round .wizard-steps button{min-height:46px;padding:4px 0 8px}

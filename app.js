@@ -41,6 +41,8 @@ function save() {
   try { localStorage.setItem(KEY, JSON.stringify(game)); storageFailed = false; }
   catch { storageFailed = true; notify(t('Speichern nicht möglich. Bitte den Spielstand jetzt exportieren.')); }
   document.querySelector('#connection').textContent = storageFailed ? t('Speichern fehlgeschlagen') : t('● Auf diesem Gerät gespeichert');
+  const footerStatus = document.querySelector('#storage-status');
+  if (footerStatus) footerStatus.textContent = storageFailed ? t('Speichern fehlgeschlagen') : t('● Auf diesem Gerät gespeichert');
 }
 function title(kicker, heading, text = '') {
   return html`<div class="page-heading"><p class="eyebrow">${kicker}</p><h1>${heading}</h1>${text ? html`<p class="subtitle">${text}</p>` : ''}</div>`;
@@ -57,7 +59,11 @@ function updateChrome() {
   document.querySelector('meta[name="description"]').content = t('Dein digitaler Spieltisch. Food Chain Magnate ohne Bargeld, auch offline.');
   document.querySelector('.brand-tag').textContent = t('AM SPIELTISCH');
   document.querySelector('#connection').textContent = storageFailed ? t('Speichern fehlgeschlagen') : game ? t('● Auf diesem Gerät gespeichert') : t('Lokal gespeichert');
-  document.querySelector('footer').innerHTML = html`Für gemeinsame Abende. <span>Spielstände bleiben auf diesem Gerät.</span><span id="offline-status">${offlineState === 'ready' ? t('◇ Offline bereit') : offlineState === 'failed' ? t('Offline-Cache nicht verfügbar') : ''}</span>`;
+  const storageStatus = storageFailed ? t('Speichern fehlgeschlagen') : game ? t('● Auf diesem Gerät gespeichert') : t('Lokal gespeichert');
+  const offlineStatus = html`<span id="offline-status">${offlineState === 'ready' ? t('◇ Offline bereit') : offlineState === 'failed' ? t('Offline-Cache nicht verfügbar') : ''}</span>`;
+  document.querySelector('footer').innerHTML = screen === 'home'
+    ? html`Für gemeinsame Abende. <span>Spielstände bleiben auf diesem Gerät.</span>${offlineStatus}`
+    : html`<span id="storage-status" role="status">${storageStatus}</span>${offlineStatus}`;
 }
 function languagePicker() {
   return html`<div class="language-picker" role="group" aria-label="Sprache / Language"><span>Sprache / Language</span><button class="secondary" data-action="language" data-language="de" lang="de" aria-pressed="${getLanguage()==='de'}">Deutsch</button><button class="secondary" data-action="language" data-language="en" lang="en" aria-pressed="${getLanguage()==='en'}">English</button></div>`;
@@ -70,7 +76,7 @@ function home() {
     <div class="home-features"><span>◉ Ein Gerät für alle</span><span>↺ Jederzeit korrigieren</span><span>◇ Auch offline spielbar</span></div><div class="file-actions"><button class="text-button" data-action="import">Spielstand importieren</button>${game ? htmlText('<button class="text-button" data-action="export">Spielstand exportieren</button>') : ''}</div>`;
 }
 function setup() {
-  app.innerHTML = html`<button class="text-button" data-action="home">← Spielauswahl</button>${title(t('FOOD CHAIN MAGNATE · NEUE PARTIE'), t('Wer sitzt am Tisch?'), t('Namen und Farben wählen. Die Bank bereiten wir vor.'))}
+  app.innerHTML = html`<div class="setup-heading"><div class="setup-top"><p class="eyebrow">${t('FOOD CHAIN MAGNATE · NEUE PARTIE')}</p><button class="text-button" data-action="home">← Spielauswahl</button></div><h1>Wer sitzt am Tisch?</h1></div>
     <section class="panel setup"><label class="count-label">Anzahl der Spieler <select id="player-count">${[2,3,4,5].map(n => html`<option ${n === setupCount ? 'selected' : ''}>${n}</option>`).join('')}</select></label><div class="setup-players">${setupPlayers.slice(0, setupCount).map((p,i) => html`<div class="setup-row"><span class="row-number">0${i+1}</span><label>Name<input data-setup-name="${i}" maxlength="40" value="${esc(p.name)}" placeholder="Spieler ${i+1}" autocomplete="off" required></label><label>Farbe<select data-setup-color="${i}" style="border-left:6px solid ${p.color}">${COLORS.map((color,j) => html`<option value="${color}" ${p.color === color ? 'selected' : ''}>${[t('Rot'),t('Gelb'),t('Blau'),t('Grün'),t('Violett')][j]}</option>`).join('')}</select></label></div>`).join('')}</div><div class="bank-start"><div><span class="eyebrow">DIE BANK STARTET MIT</span><strong>${money(setupCount * 50)}</strong></div><p>50 $ pro Spieler · Spielerkonten starten bei 0 $.<br>Reservekarten bleiben bis zum ersten Bankbruch geheim.</p></div>${game ? htmlText('<p class="hint">Beim Start wird die bisherige Partie ersetzt. Exportiere sie vorher, wenn du sie behalten möchtest.</p><button class="text-button" data-action="export">Bisherige Partie exportieren</button>') : ''}<button data-action="start">Partie starten →</button></section>`;
 }
 function beginEditor(index = null) {
