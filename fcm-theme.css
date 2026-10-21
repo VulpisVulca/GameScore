@@ -559,7 +559,7 @@ body.fcm-theme{--green:#225b5e;--muted:#59656a;--line:#c9caba;--paper:#fffcf2;--
 .fcm-theme .bank-removal p {margin-bottom:0}
 .fcm-theme .module-settings {flex-wrap:wrap;gap:.5rem;margin-top:.6rem}
 .fcm-theme .house-actions {flex-wrap:wrap;gap:4px}
-.fcm-theme .house-actions .coffee-house-action {margin-right:auto}
+
 .fcm-theme .house-coffee-heading small {font-size:13px}
 
 .fcm-theme .coffee-form-button {margin-top:10px;display:inline-flex;align-items:center;gap:8px}
@@ -583,3 +583,22 @@ body.fcm-theme{--green:#225b5e;--muted:#59656a;--line:#c9caba;--paper:#fffcf2;--
 .fcm-theme .coffee-dialog-actions button {min-height:44px;padding:9px 12px}
 
 .fcm-theme .house-tile:disabled,.fcm-theme .house-tile:disabled:hover{background:#b9b9b3;color:#565952;border-color:#a1aaa0;box-shadow:none;opacity:1;cursor:not-allowed}
+
+/* Keep house actions alongside the player rather than in a separate card row. */
+.fcm-theme .house-item{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:4px 12px;align-items:center}
+.fcm-theme .house-number{grid-column:1;grid-row:1 / 3;min-width:0}
+.fcm-theme .house-detail{display:contents}
+.fcm-theme .house-detail-heading{grid-column:2;grid-row:1;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:2px 8px;min-width:0}
+.fcm-theme .house-detail-heading>strong{font-size:16px;overflow-wrap:anywhere}
+.fcm-theme .house-detail>span{grid-column:2;grid-row:2;margin:0}
+.fcm-theme .house-item>strong{grid-column:3;grid-row:1 / 3}
+.fcm-theme .house-detail-heading .house-actions{width:auto;display:flex;gap:4px;margin:0;padding:0;border:0}
+.fcm-theme .house-detail-heading .house-actions button{font-size:13px;min-height:32px;padding:4px 3px;white-space:nowrap}
+.fcm-theme .house-coffee-summary{grid-column:1 / -1;margin-top:8px}
+@media(max-width:760px){
+.fcm-theme .house-item{grid-template-columns:minmax(0,1fr) auto}
+.fcm-theme .house-number{grid-column:1;grid-row:1}
+.fcm-theme .house-detail-heading{grid-column:1 / -1;grid-row:2}
+.fcm-theme .house-detail>span{grid-column:1 / -1;grid-row:3}
+.fcm-theme .house-item>strong{grid-column:2;grid-row:1}
+}
