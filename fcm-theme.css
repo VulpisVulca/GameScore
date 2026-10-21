@@ -476,11 +476,23 @@ body.fcm-theme{--green:#225b5e;--muted:#59656a;--line:#c9caba;--paper:#fffcf2;--
 .fcm-theme .setup-top .eyebrow{margin:0}
 .fcm-theme .setup-top .text-button{flex-shrink:0;min-height:44px;padding:8px 0;font-size:16px}
 .fcm-theme .setup-heading h1{font-size:36px;margin:4px 0 0}
+.fcm-theme.playing .table-top{margin-bottom:10px}
+.fcm-theme.playing .table-title{font-size:30px}
+.fcm-theme.playing .accounts{margin-bottom:12px}
+.fcm-theme.playing .tabs{margin-bottom:14px}
+.fcm-theme .round-toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px 20px;margin-bottom:16px}
+.fcm-theme .round-toolbar h2{margin:0 0 3px}
+.fcm-theme .round-toolbar>div>span{display:block;font-size:14px;line-height:1.4;color:#526164}
+.fcm-theme .round-toolbar>button{min-height:48px;padding:11px 20px}
+.fcm-theme .salary-pending{font-size:17px;font-weight:600;margin:0 0 12px;color:#315f64}
 @media(max-width:760px){
   .fcm-theme .setup-top{align-items:flex-start;gap:8px 14px}
   .fcm-theme .setup-top .eyebrow{font-size:12px;padding-top:12px}
   .fcm-theme .setup-top .text-button{font-size:15px}
   .fcm-theme .setup-heading h1{font-size:32px;margin-top:3px}
+  .fcm-theme .round-toolbar{grid-template-columns:minmax(0,1fr);gap:14px;margin-bottom:16px}
+  .fcm-theme .round-toolbar>button{grid-row:1;width:100%}
+  .fcm-theme .round-toolbar>div>span{font-size:14px}
 }
 .fcm-theme.sales-round .round-top{border-bottom:0;padding-bottom:0;margin-bottom:4px;gap:8px 18px;min-height:44px}
 .fcm-theme.sales-round .wizard-steps{margin-bottom:14px;gap:24px}
