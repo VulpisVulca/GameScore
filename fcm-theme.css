@@ -607,3 +607,14 @@ body.fcm-theme{--green:#225b5e;--muted:#59656a;--line:#c9caba;--paper:#fffcf2;--
 
 .fcm-theme .park-toggle{display:flex;align-items:center;gap:12px;width:100%;margin-top:10px}
 .fcm-theme .park-marker{font-size:16px;vertical-align:middle}
+
+.fcm-theme .food-addon-buttons{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}
+.fcm-theme .food-addon-buttons .coffee-form-button{margin:0}
+.fcm-theme .food-addon-buttons .coffee-form-summary{flex-basis:100%;order:2}
+.fcm-theme .kimchi-toggle{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-height:44px}
+.fcm-theme .kimchi-toggle.is-active{background:linear-gradient(#468865,#286446);color:#fffdf2;border-color:#24593e}
+.fcm-theme .employee-fields{border:0;padding:0;margin:0;min-width:0}
+.fcm-theme .employee-fields:disabled{opacity:.65}
+
+.fcm-theme .eliminated-label{display:block;font-size:12px;color:#9d3e32;margin-top:3px}
+.fcm-theme .food-addon-buttons>.coffee-form-button,.fcm-theme .food-addon-buttons>.kimchi-toggle{height:44px;min-height:44px;padding:8px;font-size:16px;gap:6px;white-space:nowrap}

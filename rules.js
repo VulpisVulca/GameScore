@@ -1,11 +1,19 @@
 import { t, html } from './i18n.js';
-import { houseOptions, houseId, isNativeGarden, isApartment, houseMultiplier } from './houses.js';
+import { houseOptions, houseId, isNativeGarden, isApartment, isRural, houseMultiplier } from './houses.js';
 export const GOODS = [
   ['burger', 'Burger', '🍔'], ['pizza', 'Pizza', '🍕'],
   ['beer', 'Bier · braun', '🟤'], ['lemonade', 'Limonade · gelb', '🟡'], ['soda', 'Softdrinks · rot', '🔴']
 ];
 export const COFFEE = ['coffee','Kaffee','☕'];
-export const allGoods = [...GOODS,COFFEE];
+export const NOODLES=['noodles','Nudeln','🍜'];
+export const KIMCHI=['kimchi','Kimchi','🥬'];
+export const mealGoods=[...GOODS,NOODLES,KIMCHI];
+export const allGoods = [...mealGoods,COFFEE];
+export const goodsForGame = game => [...GOODS,...(game.modules?.noodles?[NOODLES]:[]),...(game.modules?.kimchi?[KIMCHI]:[]),...(game.modules?.coffee?[COFFEE]:[])];
+export function unitPrice(value) {
+  if(!Number.isSafeInteger(value)||value < -100 || value>100) throw new Error(t('Bitte einen ganzzahligen Preis zwischen −100 und 100 eingeben.'));
+  return value;
+}
 export const isCoffeeSale = house => (house.coffee ?? 0)>0;
 export const sameHouse = (a,b) => (houseId(a) ?? String(a).trim())===(houseId(b) ?? String(b).trim());
 export function validateCoffeeSales(rows) {
@@ -31,9 +39,10 @@ export const NEW_MILESTONES = [
   ['beer','Erstes Bier verkauft','Warenzahlung selbst berücksichtigen'],
   ['discount','Erster Discount Manager eingesetzt','Ab 3 $ Preisnachlass: 100 $ aus der Bank entfernen']
 ];
-export const milestoneList = m => m?.newSet ? NEW_MILESTONES : MILESTONES;
+export const KETCHUP_MILESTONE=['ketchup','Jemand verkauft deine Nachfrage','Vergleich Preis + Entfernung −1'];
+export const milestoneList = (m,game) => [...(m?.newSet ? NEW_MILESTONES : MILESTONES),...(game?.modules?.ketchup?[KETCHUP_MILESTONE]:[])];
 export function emptyMilestones(set='base') {
-  return {...Object.fromEntries([...MILESTONES,...NEW_MILESTONES].map(([key])=>[key,false])),newSet:set==='new'};
+  return {...Object.fromEntries([...MILESTONES,...NEW_MILESTONES,KETCHUP_MILESTONE].map(([key])=>[key,false])),newSet:set==='new'};
 }
 export const salaryRate = row => row?.milestones?.salary ? 3 : 5;
 export const marketingIncome = row => row?.milestones?.marketeer ? integer(row.demand ?? 0)*5 : 0;
@@ -57,14 +66,15 @@ export function applyReservePrices(game) {
   if(!game.modules?.reservePrices) return game;
   const next=structuredClone(game);
   let bank=next.players.length*50, broken=false, basePrice=10, lastSaleBase=10;
+  const balances=next.players.map(()=>0),bankrupt=next.players.map(()=>null);
   const breakBank=()=>{if(bank<=0&&!broken){broken=true;bank+=reserveAmount(next);basePrice=reserveBasePrice(next.reserves) ?? 10;}};
   for(let i=0;i<next.events.length;i++) {
     const event=next.events[i];
     if(event.type==='sale') {
       lastSaleBase=basePrice;
-      for(const row of event.rows){rebaseRow(row,basePrice);bank-=bankRemoval(row)+calculateSale(row).total;}
+      event.rows.forEach((row,j)=>{rebaseRow(row,basePrice);if(bankrupt[j]!==null)return;const total=calculateSale(row).total,payment=Math.max(total,-balances[j]);if(total<payment)bankrupt[j]=event.round;balances[j]+=payment;bank-=bankRemoval(row)+payment;});
     } else {
-      event.rows.forEach((count,j)=>{const row=next.events[i-1].rows[j];bank+=count*salaryRate(row)-marketingIncome(row);});
+      event.rows.forEach((count,j)=>{const row=next.events[i-1].rows[j];if(bankrupt[j]!==null)return;const delta=marketingIncome(row)-count*salaryRate(row);bank-=delta;balances[j]+=delta;});
     }
     breakBank();
   }
@@ -84,19 +94,23 @@ export function integer(value, max = 1000000) {
   return value;
 }
 export function emptySale(milestones = {},basePrice=10) {
-  return { burger: 0, pizza: 0, beer: 0, lemonade: 0, soda: 0, coffee:0, coffeeGarden:0, waitresses: 0, fryChefs:0, basePrice, price: basePrice, garden: 0, cfo: false, demand:0, milestones: { ...milestones } };
+  return { burger: 0, pizza: 0, beer: 0, lemonade: 0, soda: 0, noodles:0, kimchi:0, coffee:0, coffeeGarden:0, waitresses: 0, fryChefs:0, basePrice, price: basePrice, garden: 0, cfo: false, demand:0, milestones: { ...milestones } };
 }
 export function calculateHouse(house, milestones = {}) {
   if (!house || !['normal', 'garden'].includes(house.type) || typeof house.number !== 'string' || house.number.length > 24) throw new Error(t('Bitte ein gültiges Haus auswählen.'));
   if (house.park!==undefined && typeof house.park!=='boolean') throw new Error(t('Ungültiger Parkstatus.'));
+  if(isRural(house.number) && (house.type==='garden'||house.park)) throw new Error(t('Das ländliche Gebiet hat weder Garten noch Park.'));
   if (isApartment(house.number) && house.type==='garden') throw new Error(t('Apartments können keinen Garten haben.'));
   if (house.order !== undefined) integer(house.order);
-  const quantity = GOODS.reduce((sum, [key]) => sum + integer(house[key]), 0);
+  const ordinary=GOODS.reduce((sum,[key])=>sum+integer(house[key]),0);
+  const noodles=integer(house.noodles ?? 0),kimchi=integer(house.kimchi ?? 0,1);
+  if(noodles && ordinary) throw new Error(t('Nudeln ersetzen die gesamte Bestellung. Bitte nicht mit anderen Waren mischen.'));
+  if(kimchi && !ordinary && !noodles) throw new Error(t('Kimchi kann nur zusätzlich zu einer Bestellung verkauft werden.'));
+  const quantity=ordinary+noodles+kimchi;
   const coffee = integer(house.coffee ?? 0);
   if (!quantity && !coffee) throw new Error(t('Bitte mindestens eine verkaufte Ware eingeben.'));
   if (quantity && coffee) throw new Error(t('Kaffee bitte als eigenen Verkauf erfassen.'));
-  const price = integer(house.price, 100) - (milestones.price ? 1 : 0);
-  if (price < 0) throw new Error(t('Der Stückpreis darf nach dem Meilenstein nicht negativ sein.'));
+  const price = unitPrice(house.price) - (milestones.price ? 1 : 0);
   const revenue = quantity * price * houseMultiplier(house);
   const coffeeRevenue = coffee * price * houseMultiplier(house);
   const bonus = (milestones.burger ? house.burger * 5 : 0) + (milestones.pizza ? house.pizza * 5 : 0) + (milestones.drink ? (house.beer + house.lemonade + house.soda) * 5 : 0);
@@ -110,7 +124,7 @@ export function houseRows(configs, houses) {
     const row = rows[player];
     const result = calculateHouse(house, row.milestones);
     row.houses.push(structuredClone(house));
-    GOODS.forEach(([key]) => { row[key] += house[key]; });
+    mealGoods.forEach(([key]) => { row[key] += house[key] ?? 0; });
     row.coffee += result.coffee;
     if (house.type === 'garden') row.garden += result.quantity;
     if (house.type === 'garden') row.coffeeGarden += result.coffee;
@@ -121,10 +135,10 @@ export function houseRows(configs, houses) {
 export function calculateSale(sale) {
   const m = sale.milestones;
   if(sale.basePrice!==undefined && ![5,10,20].includes(sale.basePrice)) throw new Error(t('Ungültiger Grundpreis.'));
-  const quantity = GOODS.reduce((sum, [key]) => sum + integer(sale[key]), 0);
+  const quantity = mealGoods.reduce((sum, [key]) => sum + integer(sale[key] ?? 0), 0);
   integer(sale.demand ?? 0);
-  const price = integer(sale.price, 100) - (m.price ? 1 : 0);
-  if (price < 0) throw new Error(t('Der Stückpreis darf nach dem Meilenstein nicht negativ sein.'));
+  const price = unitPrice(sale.price) - (m.price ? 1 : 0);
+  if(((sale.noodles ?? 0)>0||(sale.kimchi ?? 0)>0) && !Array.isArray(sale.houses))throw new Error(t('Neue Waren benötigen erfasste Hausverkäufe.'));
   const garden = integer(sale.garden);
   const coffee=integer(sale.coffee ?? 0), coffeeGarden=integer(sale.coffeeGarden ?? 0);
   if (coffeeGarden>coffee) throw new Error(t('Ungültige Garten-Kaffeemenge.'));
@@ -133,20 +147,20 @@ export function calculateSale(sale) {
   let coffeeRevenue=(coffee+coffeeGarden)*price;
   if (sale.houses !== undefined) {
     if (!Array.isArray(sale.houses) || sale.houses.length > 1000) throw new Error(t('Ungültige Hausverkäufe.'));
-    const counts = Object.fromEntries(GOODS.map(([key]) => [key, 0]));
+    const counts = Object.fromEntries(mealGoods.map(([key]) => [key, 0]));
     let gardenCount = 0;
     let coffeeCount=0, gardenCoffee=0;
     coffeeRevenue=0;
     revenue = sale.houses.reduce((sum, house) => {
       const result = calculateHouse(house, m);
-      GOODS.forEach(([key]) => { counts[key] += house[key]; });
+      mealGoods.forEach(([key]) => { counts[key] += house[key] ?? 0; });
       if (house.type === 'garden') gardenCount += result.quantity;
       coffeeCount+=result.coffee;
       if (house.type==='garden') gardenCoffee+=result.coffee;
       coffeeRevenue+=result.coffeeRevenue;
       return sum + result.revenue;
     }, 0);
-    if (GOODS.some(([key]) => counts[key] !== sale[key]) || gardenCount !== garden) throw new Error(t('Hausverkäufe und Warenübersicht stimmen nicht überein.'));
+    if (mealGoods.some(([key]) => counts[key] !== (sale[key] ?? 0)) || gardenCount !== garden) throw new Error(t('Hausverkäufe und Warenübersicht stimmen nicht überein.'));
     if (coffeeCount!==coffee || gardenCoffee!==coffeeGarden) throw new Error(t('Kaffeeverkäufe und Übersicht stimmen nicht überein.'));
   }
   const bonus = (m.burger ? sale.burger * 5 : 0) + (m.pizza ? sale.pizza * 5 : 0) + (m.drink ? (sale.beer + sale.lemonade + sale.soda) * 5 : 0);
@@ -155,7 +169,7 @@ export function calculateSale(sale) {
   const fryHouses=new Set((sale.houses || []).filter(h=>!isCoffeeSale(h)).map(h=>houseId(h.number) ?? h.number.trim())).size;
   const fry=fryChefs*fryHouses*10;
   const tips = integer(sale.waitresses) * (m.waitress ? 5 : 3);
-  const cfo = sale.cfo || m.cfo ? Math.ceil((revenue + coffeeRevenue + bonus + tips + fry) / 2) : 0;
+  const cfo = sale.cfo || m.cfo ? (Math.ceil((revenue + coffeeRevenue + bonus + tips + fry) / 2)||0) : 0;
   return { quantity, coffee, price, revenue, coffeeRevenue, bonus, tips, fry, fryHouses, cfo, total: revenue + coffeeRevenue + bonus + tips + fry + cfo };
 }
 export function account(game) {
@@ -165,13 +179,20 @@ export function account(game) {
   let firstBreak = null;
   let secondBreak = null;
   const issues = [];
+  const bankrupt=game.players.map(()=>null),salePayments={};
   for (let index = 0; index < game.events.length; index++) {
     const event = game.events[index];
     if (secondBreak !== null) issues.push(t('Nach dem Spielende liegen weitere Buchungen vor. Bitte spätere Runden entfernen.'));
     if (event.type === 'sale') {
       // Restructuring precedes Dinnertime. Removed cash never belongs to a player.
-      bank -= event.rows.reduce((sum,row)=>sum+bankRemoval(row),0);
-      event.rows.forEach((row, player) => { const total = calculateSale(row).total; balances[player] += total; bank -= total; });
+      bank -= event.rows.reduce((sum,row,player)=>sum+(bankrupt[player]===null?bankRemoval(row):0),0);
+      salePayments[index]=event.rows.map((row,player)=>{
+        const result=calculateSale(row);
+        if(bankrupt[player]!==null){if(result.quantity||result.coffee||row.waitresses||result.total)issues.push(html`${game.players[player].name}: Bereits ausgeschieden, keine weiteren Verkäufe möglich.`);return 0;}
+        const payment=Math.max(result.total,-balances[player]);
+        if(result.total<payment)bankrupt[player]=event.round;
+        balances[player]+=payment;bank-=payment;return payment;
+      });
       if (bank <= 0 && firstBreak === null) {
         firstBreak = index;
         if (game.reserves) bank += reserveAmount(game);
@@ -180,6 +201,7 @@ export function account(game) {
     } else {
       event.rows.forEach((count, player) => {
         const row=game.events[index-1]?.rows[player];
+        if(bankrupt[player]!==null){if(count)issues.push(t('Ausgeschiedene Spieler zahlen keine weiteren Löhne.'));return;}
         const cost = integer(count) * salaryRate(row);
         if (cost > balances[player]) issues.push(html`${game.players[player].name}: Lohn übersteigt das Guthaben in Runde ${event.round}.`);
         balances[player] -= cost;
@@ -187,6 +209,7 @@ export function account(game) {
       });
       // Marketing follows Payday: these earnings cannot fund this round's wages.
       event.rows.forEach((_,player)=>{
+        if(bankrupt[player]!==null)return;
         const income=marketingIncome(game.events[index-1]?.rows[player]);
         balances[player]+=income; bank-=income;
       });
@@ -197,7 +220,7 @@ export function account(game) {
       // A later bank break during Marketing ends the game at the next Dinnertime.
     }
   }
-  return { bank, balances, firstBreak, secondBreak, basePrice:game.modules?.reservePrices && firstBreak!==null && game.reserves ? reserveBasePrice(game.reserves) : 10, needsReserve: firstBreak !== null && !game.reserves, issues: [...new Set(issues)] };
+  return { bank, balances, firstBreak, secondBreak, bankrupt, salePayments, basePrice:game.modules?.reservePrices && firstBreak!==null && game.reserves ? reserveBasePrice(game.reserves) : 10, needsReserve: firstBreak !== null && !game.reserves, issues: [...new Set(issues)] };
 }
 export function roundSettlement(game, rows, wages, index = null, reserves = game.reserves) {
   if (rows.length !== game.players.length || wages.length !== game.players.length) throw new Error(t('Ungültige Anzahl Spieler.'));
@@ -219,13 +242,13 @@ export function roundSettlement(game, rows, wages, index = null, reserves = game
   let candidate = { ...structuredClone(game), reserves:reserves && [...reserves] };
   const before = account({ ...candidate, events:prefix });
   const afterSales = account({ ...candidate, events:[...prefix,sale] });
-  const incomes = rows.map(row => calculateSale(row).total);
+  const incomes = afterSales.salePayments[position];
   if (afterSales.needsReserve) return {candidate:null,before,afterSales,incomes,expenses:null,balances:null,needsReserve:true,ended:false,issues:[]};
   const ended = afterSales.secondBreak !== null;
-  const expenses = wages.map((n,i) => ended ? 0 : n * salaryRate(rows[i]));
-  const marketing = rows.map(row=>ended?0:marketingIncome(row));
-  const removed = rows.map(bankRemoval);
-  const salary = { ...oldSalary, type:'salary', round, rows:[...wages], createdAt:oldSalary?.createdAt || time, combined:true, ...(oldSalary ? {updatedAt:time} : {}) };
+  const expenses = wages.map((n,i) => ended || afterSales.bankrupt[i]!==null ? 0 : n * salaryRate(rows[i]));
+  const marketing = rows.map((row,i)=>ended||afterSales.bankrupt[i]!==null?0:marketingIncome(row));
+  const removed = rows.map((row,i)=>before.bankrupt[i]!==null?0:bankRemoval(row));
+  const salary = { ...oldSalary, type:'salary', round, rows:wages.map((n,i)=>afterSales.bankrupt[i]!==null?0:n), createdAt:oldSalary?.createdAt || time, combined:true, ...(oldSalary ? {updatedAt:time} : {}) };
   const events = [...prefix,sale,...(ended ? [] : [salary])];
   const after = account({ ...candidate, events });
   if (after.needsReserve) return {candidate:null,before,afterSales,incomes,expenses,marketing,removed,balances:null,needsReserve:true,ended:false,issues:[]};
@@ -237,10 +260,11 @@ export function roundSettlement(game, rows, wages, index = null, reserves = game
 }
 export function validateGame(game) {
   if (!game || game.version !== 1 || !Array.isArray(game.players) || game.players.length < 2 || game.players.length > 6) throw new Error(t('Kein gültiger GameScores-Spielstand.'));
-  if (game.modules!==undefined && (!game.modules || typeof game.modules!=='object' || Array.isArray(game.modules) || Object.entries(game.modules).some(([key,value])=>!['newDistricts','apartments','coffee','fryChef','lobbyist','reservePrices'].includes(key)||typeof value!=='boolean'))) throw new Error(t('Ungültige Erweiterungsmodule.'));
+  if (game.modules!==undefined && (!game.modules || typeof game.modules!=='object' || Array.isArray(game.modules) || Object.entries(game.modules).some(([key,value])=>!['newDistricts','apartments','coffee','fryChef','lobbyist','reservePrices','kimchi','noodles','rural','ketchup'].includes(key)||typeof value!=='boolean'))) throw new Error(t('Ungültige Erweiterungsmodule.'));
   const options=houseOptions(game);
-  if (game.builtParks!==undefined && (!Array.isArray(game.builtParks) || new Set(game.builtParks).size!==game.builtParks.length || game.builtParks.some(id=>!options.includes(id)))) throw new Error(t('Ungültige Parks.'));
-  if (game.builtParkRounds!==undefined && (!game.builtParkRounds || typeof game.builtParkRounds!=='object' || Array.isArray(game.builtParkRounds) || Object.entries(game.builtParkRounds).some(([id,round])=>!options.some(option=>String(option)===id) || !Number.isSafeInteger(round) || round<1 || round>10001))) throw new Error(t('Ungültige Park-Baurunden.'));
+  const parkOptions=options.filter(id=>!isRural(id));
+  if (game.builtParks!==undefined && (!Array.isArray(game.builtParks) || new Set(game.builtParks).size!==game.builtParks.length || game.builtParks.some(id=>!parkOptions.includes(id)))) throw new Error(t('Ungültige Parks.'));
+  if (game.builtParkRounds!==undefined && (!game.builtParkRounds || typeof game.builtParkRounds!=='object' || Array.isArray(game.builtParkRounds) || Object.entries(game.builtParkRounds).some(([id,round])=>!parkOptions.some(option=>String(option)===id) || !Number.isSafeInteger(round) || round<1 || round>10001))) throw new Error(t('Ungültige Park-Baurunden.'));
   if (!game.modules?.lobbyist && ((game.builtParks?.length ?? 0)>0 || Object.keys(game.builtParkRounds || {}).length)) throw new Error(t('Das Lobbyist-Modul ist nicht aktiviert.'));
   const gardenNumbers=houseOptions(game).filter(number=>typeof number==='number'&&!isNativeGarden(number));
   if (game.milestoneSet!==undefined && !['base','new'].includes(game.milestoneSet)) throw new Error(t('Ungültiger Meilensteinsatz.'));
@@ -249,6 +273,7 @@ export function validateGame(game) {
   game.players.forEach(p => {
     if (typeof p.name !== 'string' || !p.name.trim() || p.name.length > 40 || !COLORS.includes(p.color)) throw new Error(t('Ungültige Spielerdaten.'));
     validateMilestones(p.milestones,game.milestoneSet==='new');
+    validateExtraModules({milestones:p.milestones},game);
   });
   if (new Set(game.players.map(p => p.color)).size !== game.players.length) throw new Error(t('Jede Farbe darf nur einmal vergeben sein.'));
   if (game.reserves !== null && (!Array.isArray(game.reserves) || game.reserves.length !== game.players.length || game.reserves.some(n => !reserveOptions(game).includes(n)))) throw new Error(t('Ungültige Reservekarten.'));
@@ -294,8 +319,10 @@ export function validateGame(game) {
       if (type !== 'sale' || !h || typeof h.number !== 'string' || h.number.length > 24 || !['normal','garden'].includes(h.type)) throw new Error(t('Ungültiger Hausentwurf.'));
       if (isApartment(h.number)&&h.type==='garden') throw new Error(t('Apartments können keinen Garten haben.'));
       if (h.player !== null) integer(h.player, game.players.length - 1);
-      integer(h.price,100);
+      unitPrice(h.price);
       GOODS.forEach(([key]) => integer(h[key]));
+      integer(h.noodles ?? 0);integer(h.kimchi ?? 0,1);
+      validateExtraModules(h,game);
       integer(h.coffee ?? 0);
       if (h.coffees!==undefined) {
         if (!Array.isArray(h.coffees)||h.coffees.length!==game.players.length) throw new Error(t('Ungültiger Kaffeeentwurf.'));
@@ -315,11 +342,18 @@ export function validateGame(game) {
 }
 function validateMilestones(m,newSet) {
   if (!m || MILESTONES.some(([key]) => typeof m[key] !== 'boolean')) throw new Error(t('Ungültige Meilensteine.'));
-  if (['newSet','coffee',...NEW_MILESTONES.map(([key])=>key)].some(key=>m[key]!==undefined&&typeof m[key]!=='boolean')) throw new Error(t('Ungültige Meilensteine.'));
+  if (['newSet','coffee','ketchup',...NEW_MILESTONES.map(([key])=>key)].some(key=>m[key]!==undefined&&typeof m[key]!=='boolean')) throw new Error(t('Ungültige Meilensteine.'));
   if (Boolean(m.newSet)!==newSet || (!m.newSet && NEW_MILESTONES.some(([key])=>m[key]))) throw new Error(t('Ungültige Meilensteine.'));
   if (m.newSet && (MILESTONES.some(([key])=>m[key]) || NEW_MILESTONES.some(([key])=>typeof m[key]!=='boolean'))) throw new Error(t('Ungültige Meilensteine.'));
 }
+function validateExtraModules(row,game) {
+  for(const key of ['kimchi','noodles']) if((row[key] ?? 0)>0 && !game.modules?.[key])throw new Error(t('Das Modul für diese Ware ist nicht aktiviert.'));
+  if(row.milestones?.ketchup && !game.modules?.ketchup)throw new Error(t('Das Ketchup-Modul ist nicht aktiviert.'));
+  if((row.number==='rural'||row.houses?.some(h=>h.number==='rural')) && !game.modules?.rural)throw new Error(t('Das Landleben-Modul ist nicht aktiviert.'));
+}
 function validateCoffeeModule(row,game) {
+  validateExtraModules(row,game);
+  for(const house of row.houses || [])validateExtraModules(house,game);
   if(!game.modules?.reservePrices && row.basePrice!==undefined && row.basePrice!==10)throw new Error(t('Alternative Reservekarten sind nicht aktiviert.'));
   if(row.houses?.some(h=>h.park && !houseOptions(game).includes(houseId(h.number)))) throw new Error(t('Ungültiges Haus für einen Park.'));
   if (!game.modules?.lobbyist && row.houses?.some(h=>h.park)) throw new Error(t('Das Lobbyist-Modul ist nicht aktiviert.'));

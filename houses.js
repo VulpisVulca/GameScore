@@ -4,17 +4,19 @@ export const DISTRICT_HOUSES = [21,22,25];
 export const APARTMENTS = ['π','9¾'];
 export const isNativeGarden = number => NATIVE_GARDENS.includes(number) || number===25;
 export function houseOptions(game) {
-  return [...HOUSE_NUMBERS,...(game.modules?.newDistricts?DISTRICT_HOUSES:[]),...(game.modules?.apartments?APARTMENTS:[])]
+  return [...HOUSE_NUMBERS,...(game.modules?.newDistricts?DISTRICT_HOUSES:[]),...(game.modules?.apartments?APARTMENTS:[]),...(game.modules?.rural?['rural']:[])]
     .sort((a,b)=>houseOrder(a)-houseOrder(b));
 }
 export function houseId(label) {
   const text=String(label).trim().replace(/^(?:Haus|House|Apartment)\s+/i,'');
+  if(text==='rural')return 'rural';
   if (/^(?:π|pi)$/i.test(text)) return 'π';
   if (/^(?:9¾|9\s+3\s*\/\s*4)$/.test(text)) return '9¾';
   return houseNumber(text);
 }
+export const isRural = label => houseId(label)==='rural';
 export const isApartment = label => APARTMENTS.includes(houseId(label));
-export const houseOrder = label => houseId(label)==='π'?Math.PI:houseId(label)==='9¾'?9.75:houseNumber(label) ?? Infinity;
+export const houseOrder = label => houseId(label)==='rural'?1000: houseId(label)==='π'?Math.PI:houseId(label)==='9¾'?9.75:houseNumber(label) ?? Infinity;
 
 // Accept labels used by earlier versions without rewriting saved house names.
 export function houseNumber(label) {
@@ -90,7 +92,7 @@ export function removeBuiltGarden(game,label,round) {
     let changed=false;
     for (const row of rows) if (Array.isArray(row.houses)) {
       for (const house of row.houses) if (correctHouse(house)) changed=true;
-      row.garden=row.houses.filter(house=>house.type==='garden').reduce((sum,house)=>sum+['burger','pizza','beer','lemonade','soda'].reduce((count,key)=>count+house[key],0),0);
+      row.garden=row.houses.filter(house=>house.type==='garden').reduce((sum,house)=>sum+['burger','pizza','beer','lemonade','soda','noodles','kimchi'].reduce((count,key)=>count+(house[key] ?? 0),0),0);
       if (row.coffeeGarden!==undefined) row.coffeeGarden=row.houses.filter(house=>house.type==='garden').reduce((sum,house)=>sum+(house.coffee ?? 0),0);
     }
     return changed;
@@ -121,7 +123,7 @@ export const parkAtRound = (game,label,round) => game.modules?.lobbyist===true &
 export const canRemoveBuiltPark = (game,label,round) => parkAtRound(game,label,round) && builtParkOrigins(game)[houseId(label)]===round;
 function changePark(game,label,round,enabled) {
   const id=houseId(label);
-  if(!game.modules?.lobbyist || !houseOptions(game).includes(id))throw new Error('Invalid park house.');
+  if(!game.modules?.lobbyist || isRural(id) || !houseOptions(game).includes(id))throw new Error('Invalid park house.');
   const next=structuredClone(game);
   next.builtParkRounds=builtParkOrigins(game);
   if(enabled)next.builtParkRounds[id]=Math.min(next.builtParkRounds[id] ?? Infinity,round);

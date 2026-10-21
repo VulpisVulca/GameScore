@@ -24,8 +24,8 @@ test('Garten verdoppelt nur den Stückpreis, nicht die Warenboni', () => {
   const r = calculateSale(sale({burger:1,beer:2,price:20,garden:3,milestones:milestones({burger:true})}));
   assert.equal(r.total,125);
 });
-test('Unmögliche Mengen, negative Preise und nicht ganzzahlige Werte werden abgewiesen', () => {
-  for (const row of [sale({burger:-1}),sale({beer:0.5}),sale({burger:NaN}),sale({garden:1}),sale({price:0,milestones:milestones({price:true})})]) assert.throws(() => calculateSale(row));
+test('Unmögliche Mengen und ungültige Preise werden abgewiesen', () => {
+  for (const row of [sale({burger:-1}),sale({beer:0.5}),sale({burger:NaN}),sale({garden:1}),sale({price:0.5}),sale({price:-101})]) assert.throws(() => calculateSale(row));
 });
 test('Startbank und vollständige Geldkonservierung bei Verkauf und Lohn', () => {
   const state = game([sales(1,{burger:3},{pizza:2}),wages(1,2,1)]);

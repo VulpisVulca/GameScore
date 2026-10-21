@@ -1,19 +1,20 @@
 import { t, html } from './i18n.js';
-import { applyReservePrices, GOODS, allGoods, isCoffeeSale, calculateSale, salaryRate, marketingIncome } from './rules.js';
+import { applyReservePrices, account, mealGoods, GOODS, allGoods, isCoffeeSale, calculateSale, salaryRate, marketingIncome } from './rules.js';
 import { houseId, houseOrder, houseMultiplier } from './houses.js';
 
 // Rebuild from the ledger so historical corrections also update every chart.
 export function gameStatistics(game) {
   game=applyReservePrices(game);
-  const players = game.players.map(p => ({ ...p, income:0, wages:0, balance:0, tips:0, fry:0, cfo:0, marketing:0, quantity:0, houses:0, gardens:0, bonus:0, discount:0,
+  const ledger=account(game);
+  const players = game.players.map(p => ({ ...p, income:0, wages:0, balance:0, tips:0, fry:0, cfo:0, marketing:0, unpaidLoss:0, quantity:0, houses:0, gardens:0, bonus:0, discount:0,
     goods:Object.fromEntries(allGoods.map(([key]) => [key,{quantity:0,income:0}])) }));
   const rounds = [];
   const visits=game.players.map(()=>new Map());
   let saleRows=[];
   let firstSale=null, firstSaleChecked=false, firstSaleUnavailable=false, housesIncomplete=false;
-  const firstGoodsRound=event=>event.rows.some(row=>GOODS.some(([key])=>row[key]>0));
+  const firstGoodsRound=event=>event.rows.some(row=>mealGoods.some(([key])=>(row[key] ?? 0)>0));
   let estimated = false;
-  for (const event of game.events) {
+  for (const [eventIndex,event] of game.events.entries()) {
     if (event.type === 'sale') {
       saleRows=event.rows;
       const round = { number:event.round, players:[] };
@@ -34,7 +35,7 @@ export function gameStatistics(game) {
         if (Array.isArray(row.houses)) {
           for (const house of row.houses) {
             const price = (house.price - (row.milestones.price ? 1 : 0)) * houseMultiplier(house);
-            const quantity = GOODS.reduce((sum,[key])=>sum+house[key],0)+(house.coffee ?? 0);
+            const quantity = mealGoods.reduce((sum,[key])=>sum+(house[key] ?? 0),0)+(house.coffee ?? 0);
             p.discount += quantity * Math.max(0,(row.basePrice ?? 10)-(house.price-(row.milestones.price?1:0))) * houseMultiplier(house);
             for (const [key] of allGoods) goods[key] += (house[key] ?? 0) * price;
             const number=houseId(house.number);
@@ -54,21 +55,23 @@ export function gameStatistics(game) {
         }
         goods.coffee=c.coffeeRevenue;
         for (const [key] of allGoods) {
-          const bonus = key!=='coffee'&&row.milestones[['burger','pizza'].includes(key) ? key : 'drink'] ? row[key] * 5 : 0;
+          const bonus = GOODS.some(([id])=>id===key)&&row.milestones[['burger','pizza'].includes(key) ? key : 'drink'] ? row[key] * 5 : 0;
           goods[key] += bonus;
           p.goods[key].quantity += row[key] ?? 0;
           p.goods[key].income += goods[key];
         }
-        p.income += c.total; p.balance += c.total; p.tips += c.tips; p.fry += c.fry; p.cfo += c.cfo;
+        const paid=ledger.salePayments[eventIndex][i];p.unpaidLoss+=paid-c.total;
+        p.income += paid; p.balance += paid; p.tips += c.tips; p.fry += c.fry; p.cfo += c.cfo;
         p.quantity += c.quantity+c.coffee; p.bonus += c.bonus;
         p.gardenQuantity=(p.gardenQuantity || 0)+row.garden+(row.coffeeGarden ?? 0);
-        round.players.push({income:c.total,wages:0,net:c.total,balance:p.balance});
+        round.players.push({income:paid,wages:0,net:paid,balance:p.balance});
       });
       rounds.push(round);
     } else {
       const round = rounds.at(-1);
       event.rows.forEach((count,i) => {
-        const cost = count * salaryRate(saleRows[i]), income=marketingIncome(saleRows[i]);
+        const out=ledger.bankrupt[i]!==null&&ledger.bankrupt[i]<=event.round;
+        const cost = out?0:count * salaryRate(saleRows[i]), income=out?0:marketingIncome(saleRows[i]);
         players[i].wages += cost; players[i].balance += income-cost;
         players[i].marketing += income; players[i].income += income;
         if (round) Object.assign(round.players[i],{income:round.players[i].income+income,wages:cost,net:round.players[i].income+income-cost,balance:players[i].balance});
