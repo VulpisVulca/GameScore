@@ -7,7 +7,7 @@ const number = n => n.toLocaleString(locale(),{maximumFractionDigits:2});
 const money = n => html`${number(n)} $`;
 const name = p => html`<span class="player-dot" style="background:${p.color}"></span>${esc(p.name)}`;
 const sources = [...GOODS.map(([key,label],i) => ({key,label:label.split(' · ')[0],color:['#b34335','#d3a323','#75548c','#4e8052','#336f9b'][i]})),
-  {key:'tips',label:'Bedienungen',color:'#359b96'},{key:'cfo',label:'CFO',color:'#cc7749'}];
+  {key:'tips',label:'Bedienungen',color:'#359b96'},{key:'cfo',label:'CFO',color:'#cc7749'},{key:'marketing',label:'Marketing',color:'#8c586f'}];
 const metrics = {balance:'Kontostand',income:'Rundeneinnahmen',net:'Gewinn nach Löhnen',wages:'Löhne pro Runde'};
 
 function timeline(stats, metric) {
@@ -25,7 +25,7 @@ function timeline(stats, metric) {
 }
 
 function pie(p) {
-  const entries = sources.map(s => ({...s,value:s.key==='tips'||s.key==='cfo'?p[s.key]:p.goods[s.key].income})).filter(s => s.value>0);
+  const entries = sources.map(s => ({...s,value:['tips','cfo','marketing'].includes(s.key)?p[s.key]:p.goods[s.key].income})).filter(s => s.value>0);
   let offset = 0;
   const slices = entries.map(s => {
     const part=s.value/p.income*100;

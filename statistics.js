@@ -1,18 +1,20 @@
 import { t, html } from './i18n.js';
-import { GOODS, calculateSale } from './rules.js';
+import { GOODS, calculateSale, salaryRate, marketingIncome } from './rules.js';
 import { houseNumber } from './houses.js';
 
 // Rebuild from the ledger so historical corrections also update every chart.
 export function gameStatistics(game) {
-  const players = game.players.map(p => ({ ...p, income:0, wages:0, balance:0, tips:0, cfo:0, quantity:0, houses:0, gardens:0, bonus:0, discount:0,
+  const players = game.players.map(p => ({ ...p, income:0, wages:0, balance:0, tips:0, cfo:0, marketing:0, quantity:0, houses:0, gardens:0, bonus:0, discount:0,
     goods:Object.fromEntries(GOODS.map(([key]) => [key,{quantity:0,income:0}])) }));
   const rounds = [];
   const visits=game.players.map(()=>new Map());
+  let saleRows=[];
   let firstSale=null, firstSaleChecked=false, firstSaleUnavailable=false, housesIncomplete=false;
   const firstGoodsRound=event=>event.rows.some(row=>GOODS.some(([key])=>row[key]>0));
   let estimated = false;
   for (const event of game.events) {
     if (event.type === 'sale') {
+      saleRows=event.rows;
       const round = { number:event.round, players:[] };
       if (!firstSaleChecked && firstGoodsRound(event)) {
         firstSaleChecked=true;
@@ -62,9 +64,10 @@ export function gameStatistics(game) {
     } else {
       const round = rounds.at(-1);
       event.rows.forEach((count,i) => {
-        const cost = count * 5;
-        players[i].wages += cost; players[i].balance -= cost;
-        if (round) Object.assign(round.players[i],{wages:cost,net:round.players[i].income-cost,balance:players[i].balance});
+        const cost = count * salaryRate(saleRows[i]), income=marketingIncome(saleRows[i]);
+        players[i].wages += cost; players[i].balance += income-cost;
+        players[i].marketing += income; players[i].income += income;
+        if (round) Object.assign(round.players[i],{income:round.players[i].income+income,wages:cost,net:round.players[i].income+income-cost,balance:players[i].balance});
       });
     }
   }

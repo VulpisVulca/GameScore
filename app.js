@@ -1,16 +1,17 @@
 import { HOUSE_NUMBERS, gardenKind, houseNumber, builtGardenNumbers, builtGardenOrigins, canRemoveBuiltGarden, removeBuiltGarden, gardenKindAtRound } from './houses.js';
 import { t, html, htmlText, locale, getLanguage, setLanguage } from './i18n.js';
 import { renderStatistics, renderAwards } from './statistics-view.js';
-import { GOODS, MILESTONES, COLORS, emptySale, calculateSale, calculateHouse, houseRows, account, roundSettlement, validateGame } from './rules.js';
+import { GOODS, milestoneList, emptyMilestones, salaryRate, marketingIncome, bankRemoval, COLORS, emptySale, calculateSale, calculateHouse, houseRows, account, roundSettlement, validateGame } from './rules.js';
 
 const KEY = 'gamescores.fcm.v1';
 const app = document.querySelector('#app');
 const money = n => html`${n.toLocaleString(locale())} $`;
 const esc = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-const milestones = () => Object.fromEntries(MILESTONES.map(([key]) => [key, false]));
+const milestones = () => emptyMilestones(setupMilestones);
 let game = null;
 let screen = 'home';
 let setupCount = 3;
+let setupMilestones = 'base';
 let setupPlayers = Array.from({ length: 6 }, (_, i) => ({ name: '', color: null }));
 let editor = null;
 let review = false;
@@ -77,7 +78,7 @@ function home() {
 }
 function setup() {
   app.innerHTML = html`<div class="setup-heading"><div class="setup-top"><p class="eyebrow">${t('FOOD CHAIN MAGNATE · NEUE PARTIE')}</p><button class="text-button" data-action="home">← Spielauswahl</button></div><h1>Wer sitzt am Tisch?</h1></div>
-    <section class="panel setup"><div class="count-label"><span>Anzahl der Spieler</span><div class="player-count-options" role="group" aria-label="Anzahl der Spieler">${[2,3,4,5,6].map(n => html`<button class="secondary" data-action="setup-count" data-count="${n}" aria-pressed="${n===setupCount}">${n}</button>`).join('')}</div></div><div class="setup-players">${setupPlayers.slice(0, setupCount).map((p,i) => html`<div class="setup-row"><span class="row-number">0${i+1}</span><label>Name<input data-setup-name="${i}" maxlength="40" value="${esc(p.name)}" placeholder="Spieler ${i+1}" autocomplete="off" required></label><div class="setup-color-field"><span>Farbe</span><div class="setup-colors" role="group" aria-label="Farbe für Spieler ${i+1}">${COLORS.map((color,j) => {const used=setupPlayers.slice(0,setupCount).some((other,k)=>k!==i&&other.color===color);return html`<button class="secondary color-choice" style="--choice-color:${color}" data-action="setup-color" data-index="${i}" data-color="${color}" aria-pressed="${p.color===color}" ${used?'disabled':''}><span class="color-swatch" aria-hidden="true"></span>${t(['Rot','Gelb','Blau','Grün','Violett','Rosa'][j])}</button>`;}).join('')}</div></div></div>`).join('')}</div><p class="hint">Eine gewählte Farbe erneut anklicken, um sie freizugeben.</p>${setupCount===6 ? htmlText('<p class="hint">Für sechs Spieler wird die Erweiterung benötigt.</p>') : ''}<div class="bank-start"><div><span class="eyebrow">DIE BANK STARTET MIT</span><strong>${money(setupCount * 50)}</strong></div><p>50 $ pro Spieler · Spielerkonten starten bei 0 $.<br>Reservekarten bleiben bis zum ersten Bankbruch geheim.</p></div>${game ? htmlText('<p class="hint">Beim Start wird die bisherige Partie ersetzt. Exportiere sie vorher, wenn du sie behalten möchtest.</p><button class="text-button" data-action="export">Bisherige Partie exportieren</button>') : ''}<button data-action="start">Partie starten →</button></section>`;
+    <section class="panel setup"><div class="count-label"><span>Anzahl der Spieler</span><div class="player-count-options" role="group" aria-label="Anzahl der Spieler">${[2,3,4,5,6].map(n => html`<button class="secondary" data-action="setup-count" data-count="${n}" aria-pressed="${n===setupCount}">${n}</button>`).join('')}</div></div><div class="count-label milestone-set"><span>Meilensteine</span><div class="player-count-options" role="group" aria-label="Meilensteinsatz">${[['base',t('Grundspiel')],['new',t('Neue Meilensteine')]].map(([set,label])=>html`<button class="secondary" data-action="setup-milestones" data-set="${set}" aria-pressed="${setupMilestones===set}">${label}</button>`).join('')}</div></div><div class="setup-players">${setupPlayers.slice(0, setupCount).map((p,i) => html`<div class="setup-row"><span class="row-number">0${i+1}</span><label>Name<input data-setup-name="${i}" maxlength="40" value="${esc(p.name)}" placeholder="Spieler ${i+1}" autocomplete="off" required></label><div class="setup-color-field"><span>Farbe</span><div class="setup-colors" role="group" aria-label="Farbe für Spieler ${i+1}">${COLORS.map((color,j) => {const used=setupPlayers.slice(0,setupCount).some((other,k)=>k!==i&&other.color===color);return html`<button class="secondary color-choice" style="--choice-color:${color}" data-action="setup-color" data-index="${i}" data-color="${color}" aria-pressed="${p.color===color}" ${used?'disabled':''}><span class="color-swatch" aria-hidden="true"></span>${t(['Rot','Gelb','Blau','Grün','Violett','Rosa'][j])}</button>`;}).join('')}</div></div></div>`).join('')}</div><p class="hint">Eine gewählte Farbe erneut anklicken, um sie freizugeben.</p>${setupCount===6 ? htmlText('<p class="hint">Für sechs Spieler wird die Erweiterung benötigt.</p>') : ''}<div class="bank-start"><div><span class="eyebrow">DIE BANK STARTET MIT</span><strong>${money(setupCount * 50)}</strong></div><p>50 $ pro Spieler · Spielerkonten starten bei 0 $.<br>Reservekarten bleiben bis zum ersten Bankbruch geheim.</p></div>${game ? htmlText('<p class="hint">Beim Start wird die bisherige Partie ersetzt. Exportiere sie vorher, wenn du sie behalten möchtest.</p><button class="text-button" data-action="export">Bisherige Partie exportieren</button>') : ''}<button data-action="start">Partie starten →</button></section>`;
 }
 function beginEditor(index = null) {
   // Complete older, already booked sales in the same four-step round editor.
@@ -141,7 +142,7 @@ function dashboard() {
 function renderTable(target) {
   const salaryDue = game.events.length % 2 === 1;
   target.innerHTML = html`${salaryDue ? htmlText('<p class="salary-pending">Jetzt die Löhne abrechnen.</p>') : ''}<div class="milestone-heading round-toolbar"><div><h2>Meilensteine</h2><span>Auswahl wird automatisch gespeichert · gilt für die nächste Verkaufsbuchung</span></div><button data-action="open-round">${game.draft ? t('Eingabe fortsetzen') : salaryDue ? t('Lohnrunde öffnen') : t('Verkaufsrunde öffnen')} →</button></div>
-    <section class="achievement-grid">${game.players.map((p,i) => html`<article class="panel achievement-card" style="--player-color:${p.color}"><h3>${playerName(p)}</h3><div class="milestones">${MILESTONES.map(([key,label,hint]) => html`<label class="check"><input type="checkbox" data-player="${i}" data-achievement="${key}" ${p.milestones[key] ? 'checked' : ''}><span>${t(label)}<small>${t(hint)}</small></span></label>`).join('')}</div></article>`).join('')}</section><p class="hint">Den 100-$-Meilenstein nach der erreichten Verkaufsrunde auswählen: Der CFO-Bonus zählt ab dem nächsten Verkauf. Mehrere Spieler können denselben Meilenstein erhalten.</p>`;
+    <section class="achievement-grid">${game.players.map((p,i) => html`<article class="panel achievement-card" style="--player-color:${p.color}"><h3>${playerName(p)}</h3><div class="milestones">${milestoneList(p.milestones).map(([key,label,hint]) => html`<label class="check"><input type="checkbox" data-player="${i}" data-achievement="${key}" ${p.milestones[key] ? 'checked' : ''}><span>${t(label)}<small>${t(hint)}</small></span></label>`).join('')}</div></article>`).join('')}</section>${game.milestoneSet==='new'?htmlText('<p class="hint">Neue Meilensteine: Marketing erst nach den Löhnen, Bedienung senkt den Lohn auf 3 $. Bier wird nur angezeigt. CFO bleibt optional.</p>'):htmlText('<p class="hint">Den 100-$-Meilenstein nach der erreichten Verkaufsrunde auswählen: Der CFO-Bonus zählt ab dem nächsten Verkauf. Mehrere Spieler können denselben Meilenstein erhalten.</p>')}`;
 }
 function roundHeader() {
   return html`<div class="round-top"><button class="text-button" data-action="leave-round">← ${editor.index === null || editor.completing ? t('Spieltisch') : t('Protokoll')}</button><span>Food Chain Magnate · Runde ${currentRound()}</span><span class="draft-badge">${editor.index === null ? t('Entwurf · noch nicht gebucht') : editor.completing ? t('Löhne noch nicht gebucht') : t('Runde bearbeiten')}</span></div>`;
@@ -188,13 +189,17 @@ function housePreview() {
   try { return money(calculateHouse(editor.houseForm, editor.rows[editor.houseForm.player].milestones).total); }
   catch { return '0 $'; }
 }
-const MILESTONE_TAGS = {burger:'Burger +5 $',pizza:'Pizza +5 $',drink:'Getränke +5 $',waitress:'Waitress 5 $',price:'Stückpreis −1 $',cfo:'CFO +50 %'};
+const MILESTONE_TAGS = {burger:'Burger +5 $',pizza:'Pizza +5 $',drink:'Getränke +5 $',waitress:'Waitress 5 $',price:'Stückpreis −1 $',cfo:'CFO +50 %',marketeer:'Marketing +5 $ · Entfernung −2',salary:'Löhne 3 $',beer:'Warenzahlung',discount:'Bank −100 $ ab 3 $ Rabatt'};
 function comparisonPrice(i) {
   const raw = editor.houseForm.player === i ? editor.houseForm.price : editor.rows[i].price;
   return raw - (editor.rows[i].milestones.price ? 1 : 0);
 }
+function comparisonValue(i) {
+  const price=comparisonPrice(i);
+  return editor.rows[i].milestones.marketeer ? html`${money(price-2)}<small>Vergleich · Zahlung: ${money(price)}</small>` : money(price);
+}
 function playerChoices() {
-  return html`<div class="player-options">${game.players.map((p,i) => html`<div class="player-option"><button class="choice ${editor.houseForm.player === i ? 'selected' : ''}" style="--player-color:${p.color}" data-action="house-player" data-index="${i}" aria-pressed="${editor.houseForm.player === i}"><span class="player-choice-name">${playerName(p)}</span><small class="player-unit-price" data-player-price="${i}">${money(comparisonPrice(i))} / Ware</small></button><div class="milestone-tags" aria-label="Meilensteine von ${esc(p.name)}">${MILESTONES.filter(([key]) => editor.rows[i].milestones[key]).map(([key,label,hint]) => html`<span class="milestone-tag" title="${esc(t(label))}: ${esc(t(hint))}">${t(MILESTONE_TAGS[key])}</span>`).join('') || htmlText('<span class="no-milestones">Keine Meilensteine</span>')}</div></div>`).join('')}</div>`;
+  return html`<div class="player-options">${game.players.map((p,i) => html`<div class="player-option"><button class="choice ${editor.houseForm.player === i ? 'selected' : ''}" style="--player-color:${p.color}" data-action="house-player" data-index="${i}" aria-pressed="${editor.houseForm.player === i}"><span class="player-choice-name">${playerName(p)}</span><small class="player-unit-price" data-player-price="${i}">${money(comparisonPrice(i))} / Ware</small></button><div class="milestone-tags" aria-label="Meilensteine von ${esc(p.name)}">${milestoneList(editor.rows[i].milestones).filter(([key]) => editor.rows[i].milestones[key]).map(([key,label,hint]) => html`<span class="milestone-tag" title="${esc(t(label))}: ${esc(t(hint))}">${t(MILESTONE_TAGS[key])}</span>`).join('') || htmlText('<span class="no-milestones">Keine Meilensteine</span>')}</div></div>`).join('')}</div>`;
 }
 function goodsUnitPrice(key) {
   const i = editor.houseForm.player;
@@ -204,12 +209,12 @@ function goodsUnitPrice(key) {
   return html`${money(comparisonPrice(i) * (editor.houseForm.type === 'garden' ? 2 : 1) + (bonus ? 5 : 0))} / Stück`;
 }
 function priceComparison() {
-  return html`<section class="price-comparison"><div class="sidebar-heading"><h2>Preisvergleich</h2></div><p class="comparison-intro">Stückpreise aller Spieler auf einen Blick.</p><div class="comparison-columns"><span>Spieler</span><span>Basispreis</span><span>Stückpreis</span></div>${game.players.map((p,i) => html`<div class="comparison-row"><span>${playerName(p)}</span><label><span class="sr-only">Basispreis vor Preis-Meilenstein für ${esc(p.name)}</span><div class="stepper"><button type="button" data-action="price-count" data-index="${i}" data-delta="-1" aria-label="Basispreis für ${esc(p.name)} um 1 Dollar senken">−</button><input type="number" inputmode="numeric" min="${editor.rows[i].milestones.price ? 1 : 0}" max="100" step="1" required data-comparison-price="${i}" value="${editor.houseForm.player === i ? editor.houseForm.price : editor.rows[i].price}"><button type="button" data-action="price-count" data-index="${i}" data-delta="1" aria-label="Basispreis für ${esc(p.name)} um 1 Dollar erhöhen">+</button></div></label><strong data-comparison-unit="${i}">${money(comparisonPrice(i))}</strong></div>`).join('')}<p class="hint">Basispreis an Mitarbeiter anpassen. Der −1-$-Meilenstein ist im Stückpreis bereits enthalten. Warenboni und CFO erhöhen die Einnahmen.</p></section>`;
+  return html`<section class="price-comparison"><div class="sidebar-heading"><h2>Preisvergleich</h2></div><p class="comparison-intro">Stückpreise aller Spieler auf einen Blick.</p><div class="comparison-columns"><span>Spieler</span><span>Basispreis</span><span>${game.milestoneSet==='new'?t('Vergleichspreis'):t('Stückpreis')}</span></div>${game.players.map((p,i) => html`<div class="comparison-row"><span>${playerName(p)}</span><label><span class="sr-only">Basispreis vor Preis-Meilenstein für ${esc(p.name)}</span><div class="stepper"><button type="button" data-action="price-count" data-index="${i}" data-delta="-1" aria-label="Basispreis für ${esc(p.name)} um 1 Dollar senken">−</button><input type="number" inputmode="numeric" min="${editor.rows[i].milestones.price ? 1 : 0}" max="100" step="1" required data-comparison-price="${i}" value="${editor.houseForm.player === i ? editor.houseForm.price : editor.rows[i].price}"><button type="button" data-action="price-count" data-index="${i}" data-delta="1" aria-label="Basispreis für ${esc(p.name)} um 1 Dollar erhöhen">+</button></div></label><strong data-comparison-unit="${i}">${comparisonValue(i)}</strong></div>`).join('')}${game.milestoneSet==='new'?htmlText('<p class="hint">Marketeer: −2 nur für den Vergleich Preis + Entfernung, nicht für die Zahlung. Discount Manager: Bei Basispreis 7 $ oder weniger werden 100 $ aus der Bank entfernt, auch ohne Verkauf.</p>'):htmlText('<p class="hint">Basispreis an Mitarbeiter anpassen. Der −1-$-Meilenstein ist im Stückpreis bereits enthalten. Warenboni und CFO erhöhen die Einnahmen.</p>')}</section>`;
 }
 function refreshHousePrices() {
   game.players.forEach((_,i) => {
     document.querySelector(`[data-player-price="${i}"]`).textContent = html`${money(comparisonPrice(i))} / Ware`;
-    document.querySelector(`[data-comparison-unit="${i}"]`).textContent = money(comparisonPrice(i));
+    document.querySelector(`[data-comparison-unit="${i}"]`).innerHTML = comparisonValue(i);
   });
   GOODS.forEach(([key]) => { document.querySelector(`[data-goods-price="${key}"]`).textContent = goodsUnitPrice(key); });
   document.querySelector('#house-income').textContent = housePreview();
@@ -224,20 +229,33 @@ function renderSales() {
     const h = editor.houseForm;
     target.innerHTML = html`<div class="house-layout"><section class="panel house-form"><div class="form-title"><h2>${editor.editingHouse === null ? html`Verkauf ${editor.houses.length + 1}` : t('Verkauf bearbeiten')}</h2><div class="house-selector"><span>Hausnummer</span><button class="secondary house-picker-trigger" data-action="open-house-picker" aria-haspopup="dialog">${h.number ? houseNumber(h.number) ? html`Haus ${houseNumber(h.number)}` : esc(h.number) : t('Haus wählen')}<small>${visibleGardenKind(h.number)==='built'?t('Garten gebaut'):visibleGardenKind(h.number)==='native'?t('Mit Garten'):t('Hausnummer auswählen')}</small></button></div></div><fieldset><legend>1. Wer beliefert das Haus?</legend>${playerChoices()}</fieldset><fieldset><legend>2. Was wurde verkauft?</legend><div class="house-goods">${GOODS.map(([key,label,icon]) => html`<label><span>${icon} ${t(label)}</span><small class="goods-unit-price" data-goods-price="${key}">${goodsUnitPrice(key)}</small><div class="stepper"><button data-action="house-count" data-field="${key}" data-delta="-1" aria-label="${t(label)} weniger">−</button><input type="number" inputmode="numeric" min="0" max="1000000" step="1" required data-house="${key}" value="${h[key]}" aria-label="Anzahl ${t(label)}"><button data-action="house-count" data-field="${key}" data-delta="1" aria-label="${t(label)} mehr">+</button></div></label>`).join('')}</div><p class="goods-price-note">Erlös je Stück inkl. Meilenstein- und Gartenbonus, ohne CFO.</p></fieldset><fieldset><legend>3. Welches Haus?</legend><div class="house-types">${[['normal','⌂',t('Ohne Garten'),t('Einfacher Stückpreis')],['garden','♧',t('Mit Garten'),t('Doppelter Stückpreis')]].map(([type,icon,label,hint]) => html`<button class="choice ${h.type === type ? 'selected' : ''}" data-action="house-type" data-type="${type}" aria-pressed="${h.type === type}" ${type==='normal'&&visibleGardenKind(h.number)!=='none'&&!editableGarden(h.number)?'disabled':''}><span class="type-icon">${icon}</span><span>${t(label)}<small>${t(hint)}</small></span></button>`).join('')}</div>${editableGarden(h.number) ? htmlText('<p class="hint">In dieser Baurunde kannst du den Garten korrigieren. Die Änderung wird mit der Runde bestätigt; spätere Verkäufe dieses Hauses werden neu berechnet.</p>') : ''}</fieldset><div class="house-price"><div><span>Verkauf inkl. Meilensteinen</span><strong id="house-income">${housePreview()}</strong><small>Trinkgeld und CFO folgen in Schritt 2.</small></div></div><div class="house-form-actions">${editor.editingHouse !== null ? htmlText('<button class="secondary" data-action="cancel-house">Abbrechen</button>') : ''}<button data-action="save-house">${editor.editingHouse !== null ? t('Verkauf speichern') : t('Haus übernehmen & nächstes')} →</button></div></section><aside class="house-sidebar">${priceComparison()}<div class="sidebar-heading"><h2>Diese Runde</h2><span>${editor.houses.length} ${editor.houses.length === 1 ? t('Haus') : t('Häuser')}</span></div>${houseList()}<div class="sidebar-total"><span>Warenumsatz inkl. Meilensteinen</span><strong>${money(editor.houses.reduce((sum, house) => sum + calculateHouse(house, editor.rows[house.player].milestones).total, 0))}</strong></div><button class="secondary" data-action="sales-step" data-step="extras">Essenszeit abschließen →</button></aside></div>`;
   } else if (step === 'extras') {
-    target.innerHTML = html`<div class="entry-grid">${game.players.map((p,i) => html`<article class="panel player-entry" style="--player-color:${p.color}"><h3>${playerName(p)}</h3>${waitressField(editor.rows[i],i)}${cfoButton(editor.rows[i],i)}${roundCalculation(editor.rows[i],i)}</article>`).join('')}</div><div class="commit-bar"><button class="secondary" data-action="sales-step" data-step="houses">← Häuser</button><button data-action="sales-step" data-step="wages">Weiter zu den Löhnen →</button></div>`;
+    target.innerHTML = html`<div class="entry-grid">${game.players.map((p,i) => html`<article class="panel player-entry" style="--player-color:${p.color}"><h3>${playerName(p)}</h3>${roundMilestones(editor.rows[i],i)}${waitressField(editor.rows[i],i)}${cfoButton(editor.rows[i],i)}${roundCalculation(editor.rows[i],i)}</article>`).join('')}</div><div class="commit-bar"><button class="secondary" data-action="sales-step" data-step="houses">← Häuser</button><button data-action="sales-step" data-step="wages">Weiter zu den Löhnen →</button></div>`;
   } else if (step === 'wages') {
     renderRoundWages(target);
   } else {
     const settlement = previewRound();
-    target.innerHTML = html`<section class="panel summary-houses"><div class="sidebar-heading"><h2>Alle Hausverkäufe</h2><button class="secondary" data-action="add-house">+ Weiteres Haus</button></div>${houseList()}</section><div class="summary-heading"><h2>Rundenabrechnung pro Spieler</h2><div><button class="text-button" data-action="sales-step" data-step="extras">Bedienungen & CFO bearbeiten</button><button class="text-button" data-action="sales-step" data-step="wages">Löhne bearbeiten</button></div></div>${settlement.ended ? htmlText('<p class="round-warning">Zweiter Bankbruch: Alle Einnahmen werden ausgezahlt, Löhne entfallen.</p>') : ''}${renderReview()}<div class="commit-bar"><span>${editor.index === null ? t('Einnahmen und Löhne werden zusammen gebucht.') : t('Die Korrektur berechnet alle folgenden Kontostände neu.')}</span><button data-action="commit">${editor.index === null ? t('Runde bestätigen') : t('Änderung speichern')} ✓</button></div>`;
+    target.innerHTML = html`<section class="panel summary-houses"><div class="sidebar-heading"><h2>Alle Hausverkäufe</h2><button class="secondary" data-action="add-house">+ Weiteres Haus</button></div>${houseList()}</section><div class="summary-heading"><h2>Rundenabrechnung pro Spieler</h2><div><button class="text-button" data-action="sales-step" data-step="extras">Bedienungen & CFO bearbeiten</button><button class="text-button" data-action="sales-step" data-step="wages">Löhne bearbeiten</button></div></div>${settlement.ended ? htmlText('<p class="round-warning">Zweiter Bankbruch: Alle Einnahmen werden ausgezahlt, Löhne entfallen.</p>') : ''}${bankNotice()}${renderReview()}<div class="commit-bar"><span>${editor.index === null ? t('Einnahmen und Löhne werden zusammen gebucht.') : t('Die Korrektur berechnet alle folgenden Kontostände neu.')}</span><button data-action="commit">${editor.index === null ? t('Runde bestätigen') : t('Änderung speichern')} ✓</button></div>`;
   }
   app.insertAdjacentHTML('beforeend', renderHousePicker());
+}
+function bankNotice() {
+  const removed=editor.rows.map(bankRemoval);
+  if (!removed.some(Boolean)) return '';
+  return html`<section class="round-warning bank-removal"><strong>Discount Manager · Geld wird aus dem Spiel entfernt</strong><p>Mindestens 3 $ Preisnachlass: je 100 $ pro berechtigtem Spieler.</p>${removed.map((value,i)=>value?html`<div>${playerName(game.players[i])}: −${money(value)} aus der Bank</div>`:'').join('')}<p>Keine Spielereinnahmen. Gilt auch in der letzten Runde und kann einen Bankbruch auslösen.</p></section>`;
+}
+function roundMilestones(row,i) {
+  if (!row.milestones.newSet) return '';
+  return html`<details><summary>Meilensteine dieser Runde <span>${milestoneList(row.milestones).filter(([key])=>row.milestones[key]).length} aktiv</span></summary><div class="milestones">${milestoneList(row.milestones).map(([key,label,hint])=>html`<label class="check"><input type="checkbox" data-row="${i}" data-milestone="${key}" ${row.milestones[key]?'checked':''}><span>${t(label)}<small>${t(hint)}</small></span></label>`).join('')}</div></details>`;
+}
+function demandField(row,i) {
+  if (!row.milestones.marketeer) return '';
+  return html`<label class="waitress-field"><span>Nachfragemarker durch eigenes Marketing</span><div class="stepper"><button data-action="demand-count" data-index="${i}" data-delta="-1" aria-label="Ein Nachfragemarker weniger">−</button><input type="number" inputmode="numeric" min="0" max="1000000" step="1" required data-demand="${i}" value="${row.demand ?? 0}" aria-label="Nachfragemarker für ${esc(game.players[i].name)}"><button data-action="demand-count" data-index="${i}" data-delta="1" aria-label="Ein Nachfragemarker mehr">+</button></div><small>5 $ je Marker · nach Löhnen, ohne CFO. Nur durch eigene Marketeers platzierte Marker zählen.</small></label>`;
 }
 function previewRound() { return roundSettlement(gardenGame(),editor.rows,editor.wages,editor.index,editor.reserves); }
 function wageCardCalculation(i, settlement = previewRound()) {
   if (settlement.ended) return "";
   const cost = settlement.expenses[i];
-  return html`<dl><div><dt>Bisheriger Stand</dt><dd>${money(settlement.before.balances[i])}</dd></div><div><dt>+ Einnahmen</dt><dd>${money(settlement.incomes[i])}</dd></div><div><dt>− Ausgaben / Löhne</dt><dd>${money(cost)}</dd></div><div class="calculation-total"><dt>Neuer Stand</dt><dd>${money(settlement.balances[i])}</dd></div></dl>`;
+  return html`<dl><div><dt>Bisheriger Stand</dt><dd>${money(settlement.before.balances[i])}</dd></div><div><dt>+ Einnahmen</dt><dd>${money(settlement.incomes[i])}</dd></div><div><dt>− Ausgaben / Löhne</dt><dd>${money(cost)}</dd></div>${settlement.marketing[i]?html`<div><dt>+ Marketing nach Löhnen</dt><dd>${money(settlement.marketing[i])}</dd></div>`:''}<div class="calculation-total"><dt>Neuer Stand</dt><dd>${money(settlement.balances[i])}</dd></div></dl>`;
 }
 function renderRoundWages(target) {
   const settlement = previewRound();
@@ -246,10 +264,11 @@ function renderRoundWages(target) {
     return;
   }
   if (settlement.ended) {
-    target.innerHTML = htmlText('<section class="panel final-round-notice"><span class="final-round-icon" aria-hidden="true">&#9733;</span><h2>Das Spiel ist zu Ende.</h2><p>Die Bank ist zum zweiten Mal gebrochen. Es werden keine L&ouml;hne mehr gezahlt.</p><p>Pr&uuml;ft jetzt die letzte Runde. Gewinner und Endst&auml;nde werden nach der Best&auml;tigung aufgedeckt.</p></section><div class="commit-bar"><button class="secondary" data-action="sales-step" data-step="extras">&larr; Bedienung &amp; CFO</button><button data-action="sales-step" data-step="summary">Letzte Runde pr&uuml;fen &rarr;</button></div>');
+    target.innerHTML = bankNotice() + htmlText('<section class="panel final-round-notice"><span class="final-round-icon" aria-hidden="true">&#9733;</span><h2>Das Spiel ist zu Ende.</h2><p>Die Bank ist zum zweiten Mal gebrochen. Es werden keine L&ouml;hne mehr gezahlt.</p><p>Pr&uuml;ft jetzt die letzte Runde. Gewinner und Endst&auml;nde werden nach der Best&auml;tigung aufgedeckt.</p></section><div class="commit-bar"><button class="secondary" data-action="sales-step" data-step="extras">&larr; Bedienung &amp; CFO</button><button data-action="sales-step" data-step="summary">Letzte Runde pr&uuml;fen &rarr;</button></div>');
+    if (game.milestoneSet==='new') target.querySelector('.final-round-notice').insertAdjacentHTML('beforeend',htmlText('<p>Es folgt keine Marketingphase: Nachfragemarker bringen in dieser letzten Runde kein weiteres Geld.</p>'));
     return;
   }
-  target.innerHTML = html`<div class="entry-grid">${game.players.map((p,i) => html`<article class="panel player-entry" style="--player-color:${p.color}"><h3>${playerName(p)}</h3><label class="waitress-field"><span>Zu bezahlende Mitarbeiter</span><div class="stepper"><button data-action="wage-count" data-index="${i}" data-delta="-1" aria-label="Ein Mitarbeiter weniger für ${esc(p.name)}">−</button><input type="number" inputmode="numeric" min="0" max="1000000" step="1" required data-wage="${i}" value="${editor.wages[i]}" aria-label="Zu bezahlende Mitarbeiter für ${esc(p.name)}"><button data-action="wage-count" data-index="${i}" data-delta="1" aria-label="Ein Mitarbeiter mehr für ${esc(p.name)}">+</button></div><small>5 $ je Mitarbeiter · Rabatte vorher selbst berücksichtigen</small></label><div class="round-calculation" id="wage-calculation-${i}" aria-live="polite">${wageCardCalculation(i,settlement)}</div></article>`).join('')}</div><p class="round-warning" id="wage-issues" ${settlement.issues.length ? '' : 'hidden'}>${esc(settlement.issues.join(' '))}</p><div class="commit-bar"><button class="secondary" data-action="sales-step" data-step="extras">← Bedienung & CFO</button><button data-action="sales-step" data-step="summary">Gesamtübersicht prüfen →</button></div>`;
+  target.innerHTML = html`<div class="entry-grid">${game.players.map((p,i) => html`<article class="panel player-entry" style="--player-color:${p.color}"><h3>${playerName(p)}</h3><label class="waitress-field"><span>Zu bezahlende Mitarbeiter</span><div class="stepper"><button data-action="wage-count" data-index="${i}" data-delta="-1" aria-label="Ein Mitarbeiter weniger für ${esc(p.name)}">−</button><input type="number" inputmode="numeric" min="0" max="1000000" step="1" required data-wage="${i}" value="${editor.wages[i]}" aria-label="Zu bezahlende Mitarbeiter für ${esc(p.name)}"><button data-action="wage-count" data-index="${i}" data-delta="1" aria-label="Ein Mitarbeiter mehr für ${esc(p.name)}">+</button></div><small>${money(salaryRate(editor.rows[i]))} je Mitarbeiter · Rabatte vorher selbst berücksichtigen</small></label>${demandField(editor.rows[i],i)}<div class="round-calculation" id="wage-calculation-${i}" aria-live="polite">${wageCardCalculation(i,settlement)}</div></article>`).join('')}</div><p class="round-warning" id="wage-issues" ${settlement.issues.length ? '' : 'hidden'}>${esc(settlement.issues.join(' '))}</p><div class="commit-bar"><button class="secondary" data-action="sales-step" data-step="extras">← Bedienung & CFO</button><button data-action="sales-step" data-step="summary">Gesamtübersicht prüfen →</button></div>`;
 }
 function refreshWages() {
   const settlement = previewRound();
@@ -338,7 +357,7 @@ function renderEditor(target) {
 function saleFields(row, i) {
   return html`<div class="goods-grid">${GOODS.map(([key,label,icon]) => numberField(html`${icon} ${t(label)}`,key,i,row[key])).join('')}${waitressField(row,i)}</div>
     <div class="pricing">${numberField(t('Stückpreis vor −1-$-Meilenstein'),'price',i,row.price,100)}</div>${cfoButton(row,i)}
-    <details><summary>Meilensteine <span>${MILESTONES.filter(([key]) => row.milestones[key]).length} aktiv</span></summary><div class="milestones">${MILESTONES.map(([key,label,hint]) => html`<label class="check"><input type="checkbox" data-row="${i}" data-milestone="${key}" ${row.milestones[key] ? 'checked' : ''}><span>${t(label)}<small>${t(hint)}</small></span></label>`).join('')}</div><p class="hint">Den 100-$-Meilenstein erst ab der Folgerunde aktivieren. Meilensteine werden beim Buchen für kommende Runden übernommen.</p></details>
+    <details><summary>Meilensteine <span>${milestoneList(row.milestones).filter(([key]) => row.milestones[key]).length} aktiv</span></summary><div class="milestones">${milestoneList(row.milestones).map(([key,label,hint]) => html`<label class="check"><input type="checkbox" data-row="${i}" data-milestone="${key}" ${row.milestones[key] ? 'checked' : ''}><span>${t(label)}<small>${t(hint)}</small></span></label>`).join('')}</div><p class="hint">Den 100-$-Meilenstein erst ab der Folgerunde aktivieren. Meilensteine werden beim Buchen für kommende Runden übernommen.</p></details>
     <details><summary>Gartenbonus</summary>${numberField(t('Davon an Häuser mit Garten verkauft'),'garden',i,row.garden)}<p class="hint">Nur die Gesamtzahl der Gartenwaren. Ihr Stückpreis zählt doppelt, Meilensteinboni zählen einfach. Keine Häuserverwaltung.</p></details>
     ${roundCalculation(row,i)}`;
 }
@@ -347,10 +366,10 @@ function renderReview() {
   const sale = editor.type === 'sale';
   const settlement = sale && editor.wizard ? previewRound() : null;
   const revealBalance = settlement && !settlement.ended;
-  return html`<section class="panel review"><div class="table-scroll"><table><thead><tr><th>Spieler</th>${sale ? GOODS.map(([,label]) => html`<th>${t(label)}</th>`).join('') + htmlText('<th>Bedienungen</th><th>Warenumsatz¹</th><th>Meilensteine</th><th>Trinkgeld</th><th>CFO</th>') : htmlText('<th>Mitarbeiter</th>')}<th>${sale ? t('Einnahmen') : t('Lohn')}</th>${settlement ? htmlText('<th>Ausgaben / Löhne</th>') + (revealBalance ? htmlText('<th>Neuer Stand</th>') : '') : ''}</tr></thead><tbody>${game.players.map((p,i) => {
+  return html`<section class="panel review"><div class="table-scroll"><table><thead><tr><th>Spieler</th>${sale ? GOODS.map(([,label]) => html`<th>${t(label)}</th>`).join('') + htmlText('<th>Bedienungen</th><th>Warenumsatz¹</th><th>Meilensteine</th><th>Trinkgeld</th><th>CFO</th>') : htmlText('<th>Mitarbeiter</th>')}<th>${sale ? t('Einnahmen') : t('Lohn')}</th>${settlement ? htmlText('<th>Ausgaben / Löhne</th>') + (game.milestoneSet==='new'?htmlText('<th>Marketing nach Löhnen</th>'):'') + (revealBalance ? htmlText('<th>Neuer Stand</th>') : '') : ''}</tr></thead><tbody>${game.players.map((p,i) => {
     const r = editor.rows[i]; const c = sale ? calculateSale(r) : null;
-    return html`<tr><th>${playerName(p)}</th>${sale ? GOODS.map(([key]) => html`<td>${r[key]}</td>`).join('') + html`<td>${r.waitresses}</td><td>${money(c.revenue)}</td><td>${money(c.bonus)}</td><td>${money(c.tips)}</td><td>${money(c.cfo)}</td>` : html`<td>${r}</td>`}<td class="${settlement ? 'income-amount' : 'amount'}">${money(sale ? c.total : r*5)}</td>${settlement ? html`<td class="expense-amount">${money(settlement.expenses[i])}</td>${revealBalance ? html`<td class="amount new-balance">${money(settlement.balances[i])}</td>` : ''}` : ''}</tr>`;
-  }).join('')}</tbody></table></div>${sale ? htmlText('<p class="hint">¹ Mit eingestelltem Stückpreis und gegebenenfalls Gartenbonus. CFO wird einmal auf alle Rundeneinnahmen berechnet und aufgerundet.</p>') : ''}</section>`;
+    return html`<tr><th>${playerName(p)}</th>${sale ? GOODS.map(([key]) => html`<td>${r[key]}</td>`).join('') + html`<td>${r.waitresses}</td><td>${money(c.revenue)}</td><td>${money(c.bonus)}</td><td>${money(c.tips)}</td><td>${money(c.cfo)}</td>` : html`<td>${r}</td>`}<td class="${settlement ? 'income-amount' : 'amount'}">${money(sale ? c.total : r*5)}</td>${settlement ? html`<td class="expense-amount">${money(settlement.expenses[i])}</td>${game.milestoneSet==='new'?html`<td>${money(settlement.marketing[i])}</td>`:''}${revealBalance ? html`<td class="amount new-balance">${money(settlement.balances[i])}</td>` : ''}` : ''}</tr>`;
+  }).join('')}</tbody></table></div>${sale ? htmlText('<p class="hint">¹ Mit eingestelltem Stückpreis und gegebenenfalls Gartenbonus. CFO zählt auf Waren und Trinkgeld, nicht auf Marketing, und wird einmal aufgerundet.</p>') : ''}</section>`;
 }
 function renderReserve(target, preview = false) {
   target.innerHTML = html`<section class="panel reserve"><p class="eyebrow">ERSTER BANKBRUCH</p><h2>Zeit, die Reserve aufzudecken.</h2><p>Wählt den Geldbetrag der zu Beginn verdeckt gewählten Karte jedes Spielers. ${preview ? t('Die Bank reicht für die erfassten Verkäufe nicht aus. Die Reserve wird für die Vorschau berücksichtigt und erst mit der Runde gebucht.') : t('Noch ausstehende Einnahmen werden vollständig ausgezahlt.')}</p><div class="reserve-grid">${game.players.map((p,i) => html`<div class="reserve-player" role="group" aria-label="Reservekarte f&uuml;r ${esc(p.name)}"><strong>${playerName(p)}</strong><input type="hidden" data-reserve="${i}" value=""><div class="reserve-options">${[100,200,300].map(n => html`<button class="secondary" data-action="reserve-card" data-index="${i}" data-value="${n}" aria-pressed="false">${money(n)}</button>`).join('')}</div></div>`).join('')}</div><div class="reserve-total" aria-live="polite"><span>Neue Bankreserve<small id="reserve-equation">Bitte pro Spieler eine Karte w&auml;hlen.</small></span><strong id="reserve-total">${money(0)}</strong></div><button data-action="${preview ? 'round-reserve' : 'reserve'}">${preview ? t('Reserve für Vorschau übernehmen') : t('Reserve der Bank hinzufügen')}</button></section>`;
@@ -362,22 +381,22 @@ function renderLog(target) {
   for (let index = 0; index < game.events.length; index++) {
     const sale = game.events[index];
     const salary = game.events[index + 1]?.type === 'salary' ? game.events[index + 1] : null;
-    const incomes = sale.rows.map(row => calculateSale(row).total);
-    const expenses = game.players.map((_,i) => salary ? salary.rows[i] * 5 : 0);
+    const incomes = sale.rows.map(row => calculateSale(row).total+(salary?marketingIncome(row):0));
+    const expenses = game.players.map((_,i) => salary ? salary.rows[i] * salaryRate(sale.rows[i]) : 0);
     game.players.forEach((_,i) => { balances[i] += incomes[i] - expenses[i]; });
     const dates = [sale.updatedAt,salary?.updatedAt,salary?.createdAt,sale.createdAt].map(value => new Date(value)).filter(date => Number.isFinite(date.getTime()));
     const date = dates.sort((a,b) => b-a)[0];
-    rounds.push({sale,salary,index,incomes,expenses,balances:[...balances],date,ended:state.secondBreak === index,reserve:state.firstBreak === index});
+    rounds.push({sale,salary,index,incomes,expenses,balances:[...balances],date,ended:state.secondBreak === index,reserve:state.firstBreak === index || (salary && state.firstBreak === index+1)});
     if (salary) index++;
   }
   target.innerHTML = html`<div class="ledger-heading"><h2>Protokoll</h2><p>+ Einnahmen <span>− Löhne</span> <strong>Neuer Stand</strong> · neueste Runde zuerst</p></div>${!rounds.length ? htmlText('<section class="panel"><p>Noch keine Buchungen. Los geht’s mit dem ersten Verkauf.</p></section>') : html`<div class="ledger-scroll"><table class="ledger-table"><caption class="sr-only">Einnahmen, Lohnausgaben und Kontostand pro Spieler nach jeder Runde</caption><thead><tr><th scope="col">Runde</th>${game.players.map(p => html`<th scope="col">${playerName(p)}<small>Einnahmen · Löhne · Stand</small></th>`).join('')}<th scope="col"><span class="sr-only">Aktionen</span></th></tr></thead>${rounds.reverse().map(round => html`<tbody class="ledger-round" data-round="${round.sale.round}"><tr class="ledger-main"><th scope="row" class="ledger-meta"><strong>Runde ${round.sale.round}</strong><small>${round.date ? esc(round.date.toLocaleString(locale(),{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})) : t('Ohne Zeitangabe')}${round.sale.updatedAt || round.salary?.updatedAt ? t(' · korrigiert') : ''}</small>${round.ended ? htmlText('<em>Spielende</em>') : !round.salary ? htmlText('<em>Löhne offen</em>') : ''}</th>${game.players.map((p,i) => html`<td class="ledger-player-cell"><span class="ledger-player-mobile">${playerName(p)}</span><div class="ledger-amounts"><span class="ledger-income" aria-label="Einnahmen">+${money(round.incomes[i])}</span><span class="ledger-expense" aria-label="Löhne">${round.salary || round.ended ? '−' + money(round.expenses[i]) : t('offen')}</span><strong aria-label="Neuer Stand">${money(round.balances[i])}</strong></div></td>`).join('')}<td class="ledger-actions"><button class="text-button" data-action="toggle-log-details" data-index="${round.index}" aria-expanded="false" aria-controls="log-details-${round.index}">Details</button><button class="secondary" data-action="edit" data-index="${round.index}" aria-label="Runde ${round.sale.round} bearbeiten">Bearbeiten</button></td></tr><tr class="ledger-detail-row" id="log-details-${round.index}" hidden><td colspan="${game.players.length + 2}">${logRoundDetails(round)}</td></tr></tbody>`).join('')}</table></div><button class="text-button danger ledger-undo" data-action="undo">${game.events.at(-1).combined ? t('Letzte Runde') : t('Letzte Buchung')} zurücknehmen</button>`}`;
 }
 function logRoundDetails(round) {
-  return html`${round.reserve ? html`<p class="ledger-bank-note">Erster Bankbruch${game.reserves ? html` · Reserve: ${money(game.reserves.reduce((sum,n) => sum+n,0))}` : t(' · Reserve noch offen')}</p>` : ''}<div class="ledger-detail-grid">${game.players.map((p,i) => {
+  return html`${round.sale.rows.some(row=>bankRemoval(row))?html`<p class="ledger-bank-note">Discount Manager: −${money(round.sale.rows.reduce((sum,row)=>sum+bankRemoval(row),0))} aus der Bank · keine Spielereinnahmen</p>`:''}${round.reserve ? html`<p class="ledger-bank-note">Erster Bankbruch${game.reserves ? html` · Reserve: ${money(game.reserves.reduce((sum,n) => sum+n,0))}` : t(' · Reserve noch offen')}</p>` : ''}<div class="ledger-detail-grid">${game.players.map((p,i) => {
     const row = round.sale.rows[i];
     const c = calculateSale(row);
     const goods = GOODS.filter(([key]) => row[key]).map(([key,label]) => html`${row[key]} ${t(label.split(' · ')[0])}`).join(' · ') || t('Keine Waren verkauft');
-    return html`<section class="ledger-detail-player"><h3>${playerName(p)}</h3><p>${goods}</p><dl><div><dt>Warenumsatz</dt><dd>${money(c.revenue)}</dd></div><div><dt>Meilensteinboni</dt><dd>+${money(c.bonus)}</dd></div><div><dt>${row.waitresses} Waitresses</dt><dd>+${money(c.tips)}</dd></div><div><dt>CFO${row.cfo || row.milestones.cfo ? t(' · aktiv') : t(' · inaktiv')}</dt><dd>+${money(c.cfo)}</dd></div><div><dt>${round.salary ? html`${round.salary.rows[i]} Mitarbeiter × 5 $` : round.ended ? t('Löhne entfallen') : t('Löhne noch offen')}</dt><dd>−${money(round.expenses[i])}</dd></div></dl>${row.houses?.length ? html`<ul class="ledger-houses">${row.houses.map(h => html`<li><div><strong>${houseLabel(h.number)}</strong><small>${h.type === 'garden' ? t('Mit Garten') : t('Ohne Garten')} · ${houseDescription(h)} · Stückpreis ${money(h.price - (row.milestones.price ? 1 : 0))}</small></div><span>${money(calculateHouse(h,row.milestones).total)}</span></li>`).join('')}</ul>` : ''}</section>`;
+    return html`<section class="ledger-detail-player"><h3>${playerName(p)}</h3><p>${goods}</p><dl><div><dt>Warenumsatz</dt><dd>${money(c.revenue)}</dd></div><div><dt>Meilensteinboni</dt><dd>+${money(c.bonus)}</dd></div><div><dt>${row.waitresses} Waitresses</dt><dd>+${money(c.tips)}</dd></div><div><dt>CFO${row.cfo || row.milestones.cfo ? t(' · aktiv') : t(' · inaktiv')}</dt><dd>+${money(c.cfo)}</dd></div><div><dt>${round.salary ? html`${round.salary.rows[i]} Mitarbeiter × ${money(salaryRate(row))}` : round.ended ? t('Löhne entfallen') : t('Löhne noch offen')}</dt><dd>−${money(round.expenses[i])}</dd></div>${round.salary&&marketingIncome(row)?html`<div><dt>Marketing nach Löhnen</dt><dd>+${money(marketingIncome(row))}</dd></div>`:''}</dl>${row.houses?.length ? html`<ul class="ledger-houses">${row.houses.map(h => html`<li><div><strong>${houseLabel(h.number)}</strong><small>${h.type === 'garden' ? t('Mit Garten') : t('Ohne Garten')} · ${houseDescription(h)} · Stückpreis ${money(h.price - (row.milestones.price ? 1 : 0))}</small></div><span>${money(calculateHouse(h,row.milestones).total)}</span></li>`).join('')}</ul>` : ''}</section>`;
   }).join('')}</div>${round.salary && !round.sale.rows.every(row => Array.isArray(row.houses)) ? html`<button class="text-button" data-action="edit" data-index="${round.index + 1}">Alte Lohnbuchung bearbeiten</button>` : ''}`;
 }
 function render() {
@@ -433,6 +452,11 @@ app.addEventListener('input', event => {
     game.players[+input.dataset.player].milestones[input.dataset.achievement] = input.checked;
     save(); return;
   }
+  if (input.dataset.demand !== undefined && editor?.wizard) {
+    if (!input.validity.valid || !Number.isFinite(input.valueAsNumber)) return;
+    editor.rows[+input.dataset.demand].demand=input.valueAsNumber;
+    refreshWages(); persistDraft(); return;
+  }
   if (input.dataset.wage !== undefined && editor?.wizard) {
     if (!input.validity.valid || !Number.isFinite(input.valueAsNumber)) return;
     editor.wages[+input.dataset.wage] = input.valueAsNumber;
@@ -460,7 +484,7 @@ app.addEventListener('input', event => {
     editor.rows[i].milestones[input.dataset.milestone] = input.checked;
     // Explicit CFO selection remains independent of the permanent milestone.
     const card = input.closest('.player-entry');
-    card.querySelector('summary span').textContent = html`${MILESTONES.filter(([key]) => editor.rows[i].milestones[key]).length} aktiv`;
+    card.querySelector('summary span').textContent = html`${milestoneList(editor.rows[i].milestones).filter(([key]) => editor.rows[i].milestones[key]).length} aktiv`;
   } else {
     const value = input.type === 'checkbox' ? input.checked : input.valueAsNumber;
     if (typeof value === 'number' && (!input.validity.valid || !Number.isFinite(value))) return;
@@ -488,8 +512,13 @@ app.addEventListener('click', async event => {
       case 'home': screen = 'home'; editor = null; break;
       case 'setup':
         setupCount = game?.players.length ?? 3;
+        setupMilestones = 'base';
         setupPlayers = Array.from({ length: 6 }, (_,i) => ({ name:'', color:null }));
         screen = 'setup'; break;
+      case 'setup-milestones':
+        readSetupPlayers();
+        if (!['base','new'].includes(button.dataset.set)) return;
+        setupMilestones=button.dataset.set; break;
       case 'setup-count': {
         readSetupPlayers();
         const count=+button.dataset.count;
@@ -517,7 +546,7 @@ app.addEventListener('click', async event => {
         }
         if (setupPlayers.slice(0,setupCount).some(player=>!player.color)) throw new Error(t('Bitte für jeden Spieler eine Farbe auswählen.'));
         const players = setupPlayers.slice(0,setupCount).map(p => ({ name: p.name.trim(), color: p.color, milestones: milestones() }));
-        const next = validateGame({ version: 1, players, reserves: null, events: [], draft: null, builtGardens:[] });
+        const next = validateGame({ version: 1, players, milestoneSet:setupMilestones, reserves: null, events: [], draft: null, builtGardens:[] });
         if (game && !confirm(t('Die bisherige Partie auf diesem Gerät ersetzen? Vorher bei Bedarf exportieren.'))) return;
         game = next; save(); screen = 'table'; editor = null; break;
       }
@@ -588,6 +617,12 @@ app.addEventListener('click', async event => {
         if (editor.rows[i].milestones.cfo) return;
         editor.rows[i].cfo = !editor.rows[i].cfo;
         refreshSaleCard(i); persistDraft(); return;
+      }
+      case 'demand-count': {
+        if (!validInputs()) return;
+        const input=app.querySelector(`[data-demand="${button.dataset.index}"]`);
+        input.value=Math.max(0,Math.min(1000000,input.valueAsNumber + +button.dataset.delta));
+        input.dispatchEvent(new Event('input',{bubbles:true})); return;
       }
       case 'wage-count': {
         if (!validInputs()) return;

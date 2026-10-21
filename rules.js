@@ -12,13 +12,26 @@ export const MILESTONES = [
   ['price', 'Als Erster Preise gesenkt', '−1 $ auf den Stückpreis'],
   ['cfo', 'Als Erster 100 $ erreicht', 'CFO immer aktiv · ab nächster Runde']
 ];
+export const NEW_MILESTONES = [
+  ['marketeer','Erster Marketeer eingesetzt','5 $ je Nachfragemarker · Entfernung −2'],
+  ['salary','Erste Bedienung eingesetzt','3 $ Lohn je Mitarbeiter'],
+  ['beer','Erstes Bier verkauft','Warenzahlung selbst berücksichtigen'],
+  ['discount','Erster Discount Manager eingesetzt','Ab 3 $ Preisnachlass: 100 $ aus der Bank entfernen']
+];
+export const milestoneList = m => m?.newSet ? NEW_MILESTONES : MILESTONES;
+export function emptyMilestones(set='base') {
+  return {...Object.fromEntries([...MILESTONES,...NEW_MILESTONES].map(([key])=>[key,false])),newSet:set==='new'};
+}
+export const salaryRate = row => row?.milestones?.salary ? 3 : 5;
+export const marketingIncome = row => row?.milestones?.marketeer ? integer(row.demand ?? 0)*5 : 0;
+export const bankRemoval = row => row.milestones.discount && row.price<=7 ? 100 : 0;
 export const COLORS = ['#b34335', '#d3a323', '#336f9b', '#4e8052', '#75548c', '#c55b86'];
 export function integer(value, max = 1000000) {
   if (!Number.isSafeInteger(value) || value < 0 || value > max) throw new Error(t('Bitte eine gültige, nicht negative ganze Zahl eingeben.'));
   return value;
 }
 export function emptySale(milestones = {}) {
-  return { burger: 0, pizza: 0, beer: 0, lemonade: 0, soda: 0, waitresses: 0, price: 10, garden: 0, cfo: false, milestones: { ...milestones } };
+  return { burger: 0, pizza: 0, beer: 0, lemonade: 0, soda: 0, waitresses: 0, price: 10, garden: 0, cfo: false, demand:0, milestones: { ...milestones } };
 }
 export function calculateHouse(house, milestones = {}) {
   if (!house || !['normal', 'garden'].includes(house.type) || typeof house.number !== 'string' || house.number.length > 24) throw new Error(t('Bitte ein gültiges Haus auswählen.'));
@@ -33,7 +46,7 @@ export function calculateHouse(house, milestones = {}) {
 }
 export function houseRows(configs, houses) {
   if (!Array.isArray(houses) || houses.length > 1000) throw new Error(t('Zu viele Hausverkäufe.'));
-  const rows = configs.map(config => ({ ...emptySale(config.milestones), waitresses: config.waitresses, cfo: config.cfo, price: config.price, houses: [] }));
+  const rows = configs.map(config => ({ ...emptySale(config.milestones), waitresses: config.waitresses, cfo: config.cfo, price: config.price, demand:config.demand ?? 0, houses: [] }));
   for (const house of houses) {
     const player = integer(house.player, rows.length - 1);
     const row = rows[player];
@@ -47,6 +60,7 @@ export function houseRows(configs, houses) {
 export function calculateSale(sale) {
   const m = sale.milestones;
   const quantity = GOODS.reduce((sum, [key]) => sum + integer(sale[key]), 0);
+  integer(sale.demand ?? 0);
   const price = integer(sale.price, 100) - (m.price ? 1 : 0);
   if (price < 0) throw new Error(t('Der Stückpreis darf nach dem Meilenstein nicht negativ sein.'));
   const garden = integer(sale.garden);
@@ -79,6 +93,8 @@ export function account(game) {
     const event = game.events[index];
     if (secondBreak !== null) issues.push(t('Nach dem Spielende liegen weitere Buchungen vor. Bitte spätere Runden entfernen.'));
     if (event.type === 'sale') {
+      // Restructuring precedes Dinnertime. Removed cash never belongs to a player.
+      bank -= event.rows.reduce((sum,row)=>sum+bankRemoval(row),0);
       event.rows.forEach((row, player) => { const total = calculateSale(row).total; balances[player] += total; bank -= total; });
       if (bank <= 0 && firstBreak === null) {
         firstBreak = index;
@@ -87,11 +103,22 @@ export function account(game) {
       if (bank <= 0 && firstBreak !== null && game.reserves && secondBreak === null) secondBreak = index;
     } else {
       event.rows.forEach((count, player) => {
-        const cost = integer(count) * 5;
+        const row=game.events[index-1]?.rows[player];
+        const cost = integer(count) * salaryRate(row);
         if (cost > balances[player]) issues.push(html`${game.players[player].name}: Lohn übersteigt das Guthaben in Runde ${event.round}.`);
         balances[player] -= cost;
         bank += cost;
       });
+      // Marketing follows Payday: these earnings cannot fund this round's wages.
+      event.rows.forEach((_,player)=>{
+        const income=marketingIncome(game.events[index-1]?.rows[player]);
+        balances[player]+=income; bank-=income;
+      });
+      if (bank<=0 && firstBreak===null) {
+        firstBreak=index;
+        if (game.reserves) bank+=game.reserves.reduce((sum,n)=>sum+n,0);
+      }
+      // A later bank break during Marketing ends the game at the next Dinnertime.
     }
   }
   return { bank, balances, firstBreak, secondBreak, needsReserve: firstBreak !== null && !game.reserves, issues: [...new Set(issues)] };
@@ -116,22 +143,26 @@ export function roundSettlement(game, rows, wages, index = null, reserves = game
   const incomes = rows.map(row => calculateSale(row).total);
   if (afterSales.needsReserve) return {candidate:null,before,afterSales,incomes,expenses:null,balances:null,needsReserve:true,ended:false,issues:[]};
   const ended = afterSales.secondBreak !== null;
-  const expenses = wages.map(n => ended ? 0 : n * 5);
+  const expenses = wages.map((n,i) => ended ? 0 : n * salaryRate(rows[i]));
+  const marketing = rows.map(row=>ended?0:marketingIncome(row));
+  const removed = rows.map(bankRemoval);
   const salary = { ...oldSalary, type:'salary', round, rows:[...wages], createdAt:oldSalary?.createdAt || time, combined:true, ...(oldSalary ? {updatedAt:time} : {}) };
   const events = [...prefix,sale,...(ended ? [] : [salary])];
   const after = account({ ...candidate, events });
+  if (after.needsReserve) return {candidate:null,before,afterSales,incomes,expenses,marketing,removed,balances:null,needsReserve:true,ended:false,issues:[]};
   candidate.events = [...events,...suffix];
   if (index === null || (position === game.events.length - 1 && game.draft?.type === 'salary')) candidate.draft = null;
   const issues = account(candidate).issues;
-  return {candidate,before,afterSales,incomes,expenses,balances:after.balances,needsReserve:false,ended,issues};
+  return {candidate,before,afterSales,incomes,expenses,marketing,removed,balances:after.balances,needsReserve:false,ended,issues};
 }
 export function validateGame(game) {
   if (!game || game.version !== 1 || !Array.isArray(game.players) || game.players.length < 2 || game.players.length > 6) throw new Error(t('Kein gültiger GameScores-Spielstand.'));
+  if (game.milestoneSet!==undefined && !['base','new'].includes(game.milestoneSet)) throw new Error(t('Ungültiger Meilensteinsatz.'));
   if (game.builtGardens !== undefined && (!Array.isArray(game.builtGardens) || game.builtGardens.length > 11 || new Set(game.builtGardens).size !== game.builtGardens.length || game.builtGardens.some(number => !HOUSE_NUMBERS.includes(number) || NATIVE_GARDENS.includes(number)))) throw new Error(t('Ungültige gebaute Gärten.'));
   if (game.builtGardenRounds !== undefined && (!game.builtGardenRounds || typeof game.builtGardenRounds!=='object' || Array.isArray(game.builtGardenRounds) || Object.keys(game.builtGardenRounds).length>11 || Object.entries(game.builtGardenRounds).some(([number,round])=>String(Number(number))!==number || !HOUSE_NUMBERS.includes(Number(number)) || NATIVE_GARDENS.includes(Number(number)) || !Number.isSafeInteger(round) || round<1 || round>10001))) throw new Error(t('Ungültige Garten-Baurunden.'));
   game.players.forEach(p => {
     if (typeof p.name !== 'string' || !p.name.trim() || p.name.length > 40 || !COLORS.includes(p.color)) throw new Error(t('Ungültige Spielerdaten.'));
-    validateMilestones(p.milestones);
+    validateMilestones(p.milestones,game.milestoneSet==='new');
   });
   if (new Set(game.players.map(p => p.color)).size !== game.players.length) throw new Error(t('Jede Farbe darf nur einmal vergeben sein.'));
   if (game.reserves !== null && (!Array.isArray(game.reserves) || game.reserves.length !== game.players.length || game.reserves.some(n => ![100, 200, 300].includes(n)))) throw new Error(t('Ungültige Reservekarten.'));
@@ -139,7 +170,7 @@ export function validateGame(game) {
   game.events.forEach((event, index) => {
     if (event.type !== (index % 2 ? 'salary' : 'sale') || event.round !== Math.floor(index / 2) + 1 || !Array.isArray(event.rows) || event.rows.length !== game.players.length) throw new Error(t('Ungültige Rundenfolge.'));
     if (event.type === 'sale') event.rows.forEach((row, player) => {
-      validateMilestones(row.milestones);
+      validateMilestones(row.milestones,game.milestoneSet==='new');
       if (typeof row.cfo !== 'boolean') throw new Error(t('Ungültiger CFO-Wert.'));
       calculateSale(row);
       if (row.houses?.some(h => h.player !== player)) throw new Error(t('Ungültige Spielerzuordnung eines Hauses.'));
@@ -152,7 +183,7 @@ export function validateGame(game) {
     game.draft.rows.forEach((row, player) => {
       if (type === 'salary') integer(row);
       else {
-        validateMilestones(row.milestones);
+        validateMilestones(row.milestones,game.milestoneSet==='new');
         if (typeof row.cfo !== 'boolean') throw new Error(t('Ungültiger CFO-Wert.'));
         calculateSale(row);
         if (row.houses?.some(h => h.player !== player)) throw new Error(t('Ungültige Spielerzuordnung eines Hauses.'));
@@ -180,6 +211,9 @@ export function validateGame(game) {
   account(game);
   return game;
 }
-function validateMilestones(m) {
+function validateMilestones(m,newSet) {
   if (!m || MILESTONES.some(([key]) => typeof m[key] !== 'boolean')) throw new Error(t('Ungültige Meilensteine.'));
+  if (['newSet',...NEW_MILESTONES.map(([key])=>key)].some(key=>m[key]!==undefined&&typeof m[key]!=='boolean')) throw new Error(t('Ungültige Meilensteine.'));
+  if (Boolean(m.newSet)!==newSet || (!m.newSet && NEW_MILESTONES.some(([key])=>m[key]))) throw new Error(t('Ungültige Meilensteine.'));
+  if (m.newSet && (MILESTONES.some(([key])=>m[key]) || NEW_MILESTONES.some(([key])=>typeof m[key]!=='boolean'))) throw new Error(t('Ungültige Meilensteine.'));
 }

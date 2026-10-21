@@ -553,3 +553,7 @@ body.fcm-theme{--green:#225b5e;--muted:#59656a;--line:#c9caba;--paper:#fffcf2;--
   .fcm-theme.sales-round .wizard-steps button{min-height:70px;padding:6px 0 8px;gap:5px;font-size:14px}
   .fcm-theme.sales-round .wizard-steps b{width:26px;height:26px}
 }
+.fcm-theme .comparison-row strong small {display:block;font-size:.75rem;font-weight:400;white-space:normal;line-height:1.3;margin-top:.2rem}
+.fcm-theme .milestone-set {flex-wrap:wrap;gap:.5rem;margin-top:.6rem}
+.fcm-theme .bank-removal strong {display:block;margin-bottom:.5rem}
+.fcm-theme .bank-removal p {margin-bottom:0}
