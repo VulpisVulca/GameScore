@@ -484,6 +484,40 @@ body.fcm-theme{--green:#225b5e;--muted:#59656a;--line:#c9caba;--paper:#fffcf2;--
 .fcm-theme .round-toolbar h2{margin:0 0 3px}
 .fcm-theme .round-toolbar>div>span{display:block;font-size:14px;line-height:1.4;color:#526164}
 .fcm-theme .round-toolbar>button{min-height:48px;padding:11px 20px}
+.fcm-theme .setup{max-width:1000px}
+.fcm-theme .setup-row{grid-template-columns:24px minmax(180px,1fr) minmax(300px,1.4fr);gap:18px}
+.fcm-theme .player-count-options{display:flex;flex-wrap:wrap;gap:8px}
+.fcm-theme .player-count-options button{min-width:48px;min-height:48px;padding:8px 13px;font-size:22px}
+.fcm-theme .player-count-options [aria-pressed=true],.fcm-theme .setup-colors [aria-pressed=true]{background:linear-gradient(#448b89,#235b5c);color:#fffdf2;border-color:#164a4e;box-shadow:0 3px 0 #244f55}
+.fcm-theme .setup-color-field>span{display:block;font-size:16px;margin-bottom:8px;color:#526164}
+.fcm-theme .setup-colors{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.fcm-theme .color-choice{display:flex;align-items:center;justify-content:center;gap:7px;padding:9px 6px;min-height:44px;font-size:15px}
+.fcm-theme .color-choice .color-swatch{display:inline-block;width:14px;height:14px;flex-shrink:0;border-radius:50%;background:var(--choice-color);margin:0;box-shadow:inset 0 1px 0 #fff6,0 0 0 1px #0002}
+.fcm-theme .color-choice:disabled{background:#e1e2dc;color:#93978e;border-color:#d0d2c6;box-shadow:none;cursor:not-allowed;transform:none}
+.fcm-theme .color-choice:disabled .color-swatch{background:#a7aaa1;box-shadow:none}
+.fcm-theme .house-selector{min-width:190px;max-width:240px;flex-shrink:0}
+.fcm-theme .house-selector>span{display:block;font-size:15px;margin-bottom:6px}
+.fcm-theme .house-picker-trigger{width:100%;text-align:left;padding:10px 13px;font-size:20px}
+.fcm-theme .house-picker-trigger small{display:block;font-size:14px;font-weight:400;margin-top:3px}
+.fcm-theme .house-types button:disabled{cursor:default;opacity:.45;transform:none;box-shadow:none}
+.fcm-theme .house-picker{width:min(650px,calc(100vw - 24px));max-height:calc(100dvh - 32px);padding:22px;border:2px solid #6b8e7a;border-radius:14px;background:#fffcf2;color:#26353b;box-shadow:0 12px 50px #16352f55;overflow:auto}
+.fcm-theme .house-picker::backdrop{background:#173a37a6}
+.fcm-theme .house-picker-heading{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-bottom:12px}
+.fcm-theme .house-picker-heading h2{margin:0}
+.fcm-theme .house-picker-heading button{font-size:29px;padding:0 12px;min-width:44px}
+.fcm-theme .house-picker-legend{display:flex;flex-wrap:wrap;gap:10px 16px;margin-bottom:18px;font-size:14px}
+.fcm-theme .house-picker-legend>span{display:flex;align-items:center;gap:7px}
+.fcm-theme .house-key{display:inline-block;width:22px;height:22px;background:#75548c;border:3px solid transparent;border-radius:3px}
+.fcm-theme .house-key.native{border-color:#419c56}
+.fcm-theme .house-key.built{border-color:#419c56;border-style:dashed}
+.fcm-theme .house-number-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+.fcm-theme .house-tile,.fcm-theme .house-tile:hover{background:#75548c;color:#fffaf0;border:4px solid transparent;border-radius:8px;box-shadow:none;min-height:88px;padding:8px 4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
+.fcm-theme .house-tile:hover{background:#654477}
+.fcm-theme .house-tile strong{font-size:27px;line-height:1.1}
+.fcm-theme .house-tile small{font-size:12px;font-weight:400;line-height:1.25}
+.fcm-theme .house-tile.native-garden{border-color:#419c56}
+.fcm-theme .house-tile.built-garden{border-color:#419c56;border-style:dashed}
+.fcm-theme .house-tile.selected{box-shadow:0 0 0 3px #d6a341}
 .fcm-theme .salary-pending{font-size:17px;font-weight:600;margin:0 0 12px;color:#315f64}
 @media(max-width:760px){
   .fcm-theme .setup-top{align-items:flex-start;gap:8px 14px}
@@ -493,7 +527,18 @@ body.fcm-theme{--green:#225b5e;--muted:#59656a;--line:#c9caba;--paper:#fffcf2;--
   .fcm-theme .round-toolbar{grid-template-columns:minmax(0,1fr);gap:14px;margin-bottom:16px}
   .fcm-theme .round-toolbar>button{grid-row:1;width:100%}
   .fcm-theme .round-toolbar>div>span{font-size:14px}
+  .fcm-theme .setup-row{grid-template-columns:22px minmax(0,1fr);gap:12px}
+  .fcm-theme .setup-color-field{grid-column:2}
+  .fcm-theme .count-label{flex-wrap:wrap;gap:12px;justify-content:flex-start}
+  .fcm-theme .player-count-options{gap:7px}
+  .fcm-theme .player-count-options button{min-width:43px;padding:8px 11px}
+  .fcm-theme .house-selector{max-width:none;min-width:0;width:100%}
+  .fcm-theme .house-picker{padding:16px 12px}
+  .fcm-theme .house-picker-legend{gap:8px 12px;font-size:13px}
+  .fcm-theme .house-number-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+  .fcm-theme .house-tile,.fcm-theme .house-tile:hover{min-height:78px}
 }
+@media(max-width:360px){.fcm-theme .setup-colors{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .fcm-theme.sales-round .round-top{border-bottom:0;padding-bottom:0;margin-bottom:4px;gap:8px 18px;min-height:44px}
 .fcm-theme.sales-round .wizard-steps{margin-bottom:14px;gap:24px}
 .fcm-theme.sales-round .wizard-steps button{min-height:46px;padding:4px 0 8px}

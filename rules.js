@@ -1,4 +1,5 @@
 import { t, html } from './i18n.js';
+import { HOUSE_NUMBERS, NATIVE_GARDENS } from './houses.js';
 export const GOODS = [
   ['burger', 'Burger', '🍔'], ['pizza', 'Pizza', '🍕'],
   ['beer', 'Bier · braun', '🟤'], ['lemonade', 'Limonade · gelb', '🟡'], ['soda', 'Softdrinks · rot', '🔴']
@@ -11,7 +12,7 @@ export const MILESTONES = [
   ['price', 'Als Erster Preise gesenkt', '−1 $ auf den Stückpreis'],
   ['cfo', 'Als Erster 100 $ erreicht', 'CFO immer aktiv · ab nächster Runde']
 ];
-export const COLORS = ['#b34335', '#d3a323', '#336f9b', '#4e8052', '#75548c'];
+export const COLORS = ['#b34335', '#d3a323', '#336f9b', '#4e8052', '#75548c', '#c55b86'];
 export function integer(value, max = 1000000) {
   if (!Number.isSafeInteger(value) || value < 0 || value > max) throw new Error(t('Bitte eine gültige, nicht negative ganze Zahl eingeben.'));
   return value;
@@ -125,7 +126,8 @@ export function roundSettlement(game, rows, wages, index = null, reserves = game
   return {candidate,before,afterSales,incomes,expenses,balances:after.balances,needsReserve:false,ended,issues};
 }
 export function validateGame(game) {
-  if (!game || game.version !== 1 || !Array.isArray(game.players) || game.players.length < 2 || game.players.length > 5) throw new Error(t('Kein gültiger GameScores-Spielstand.'));
+  if (!game || game.version !== 1 || !Array.isArray(game.players) || game.players.length < 2 || game.players.length > 6) throw new Error(t('Kein gültiger GameScores-Spielstand.'));
+  if (game.builtGardens !== undefined && (!Array.isArray(game.builtGardens) || game.builtGardens.length > 11 || new Set(game.builtGardens).size !== game.builtGardens.length || game.builtGardens.some(number => !HOUSE_NUMBERS.includes(number) || NATIVE_GARDENS.includes(number)))) throw new Error(t('Ungültige gebaute Gärten.'));
   game.players.forEach(p => {
     if (typeof p.name !== 'string' || !p.name.trim() || p.name.length > 40 || !COLORS.includes(p.color)) throw new Error(t('Ungültige Spielerdaten.'));
     validateMilestones(p.milestones);

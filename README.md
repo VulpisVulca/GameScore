@@ -6,7 +6,7 @@
 
 ## English
 
-A small bilingual web app for board-game accounting, starting with Food Chain Magnate (base game, 2–5 players). No backend, account, external services, or runtime dependencies. All entries stay on the shared device.
+A small bilingual web app for board-game accounting, starting with Food Chain Magnate (base-game accounting, 2–6 players; six players require the expansion). No backend, account, external services, or runtime dependencies. All entries stay on the shared device.
 
 ### Run locally
 
@@ -36,12 +36,13 @@ The app uses relative paths and also works at `https://name.github.io/repository
 
 ### Playing a game
 
-- Select a game, then enter player names and assign unique colors. Player balances start at 0 $; the bank starts with 50 $ per player.
+- Select a game, choose 2–6 players with the count buttons, enter names, and choose a color for each player. Colors assigned to someone else are disabled and gray; clicking your own selected color releases it. Player balances start at 0 $; the bank starts with 50 $ per player.
 - The compact game table shows the bank, balances, round status, and selectable milestones. Sales are entered in a separate view.
 - **Open sales round** starts a four-step flow: Houses → Waitresses & CFO → Salaries → Review.
-- For each house, select the serving player and enter burgers, pizza, beer (brown), lemonade (yellow), and soft drinks (red). Choose **Without garden** or **With garden**. A house number or label is optional. **Add house & next** saves that sale and opens an empty entry for the next house.
+- For each house, select the serving player and enter burgers, pizza, beer (brown), lemonade (yellow), and soft drinks (red). Choose **Without garden** or **With garden**. Choose a house number from the popup (1–19). Houses with native gardens automatically select the garden option. **Add house & next** saves that sale and opens an empty entry for the next house.
 - Active milestones appear as tags below each player button, with the current unit price beside the name. Once a player is selected, each product shows earnings per item including product milestone and garden bonuses, excluding the CFO.
 - The price comparison shows every player's unit price and lets you adjust base prices before the −1 $ milestone. Prices are remembered for that player's next houses within the round. The comparison includes the price milestone but excludes product bonuses, the CFO, and gardens. Existing house sales keep their original prices. There is no distance counter.
+- The house picker uses purple tiles: no visible border for normal houses, a solid green border for native gardens (1, 3, 6, 9, 11, 14, 17, 19), and a dashed green border for built gardens. Adding a garden to another numbered house is saved for the rest of the game, including across reloads, undo, and JSON export/import. Starting a new game resets built gardens.
 - The default base price is 10 $. A garden doubles only the base unit price, not milestone bonuses. The app does not manage an employee roster.
 - After entering houses, enter waitresses and the CFO for each player. The corresponding milestone activates the CFO automatically. The 50% bonus is calculated once on all earnings for the round, including tips, and rounded up.
 - In the salary step, enter the employees actually requiring payment, at 5 $ each. Players account for discounts beforehand. A running calculation shows the previous balance, earnings, salaries, and new balance. Salaries cannot exceed the player's balance.
@@ -98,7 +99,7 @@ Rules reference: [Food Chain Magnate English base-game rulebook](https://splotte
 
 ## Deutsch
 
-Eine kleine zweisprachige Webanwendung für Brettspiel-Abrechnungen, zunächst Food Chain Magnate (Grundspiel, 2–5 Spieler). Ohne Backend, Konto, externe Dienste oder Laufzeitabhängigkeiten. Alle Buchungen und Eingaben bleiben auf dem gemeinsamen Gerät.
+Eine kleine zweisprachige Webanwendung für Brettspiel-Abrechnungen, zunächst Food Chain Magnate (Grundspiel-Abrechnung, 2–6 Spieler; zu sechst mit Erweiterung). Ohne Backend, Konto, externe Dienste oder Laufzeitabhängigkeiten. Alle Buchungen und Eingaben bleiben auf dem gemeinsamen Gerät.
 
 ### Lokal starten
 
@@ -127,12 +128,13 @@ Die Anwendung verwendet relative Pfade und funktioniert auch unter `https://name
 
 ### Spielablauf
 
-- Spielauswahl → Setup mit Namen und eindeutigen Farben. Konten starten bei 0 $, die Bank bei 50 $ pro Spieler.
+- Spielauswahl → Setup mit Buttons für 2–6 Spieler, leeren Namensfeldern und einzelnen Farbbuttons. Vergebene Farben sind bei anderen Spielern grau und gesperrt; erneutes Anklicken der eigenen Farbe gibt sie frei. Konten starten bei 0 $, die Bank bei 50 $ pro Spieler.
 - Der kompakte Spieltisch zeigt Bank, Konten, Rundenstatus und direkt auswählbare Meilensteine. Noch keine Verkaufseingaben auf dieser Ansicht.
 - **Verkaufsrunde öffnen** startet eine getrennte Ansicht mit vier festen Schritten: Häuser → Bedienungen & CFO → Löhne → Gesamtübersicht.
-- Pro Haus den liefernden Spieler auswählen, verkaufte Burger, Pizza, Bier (braun), Limonade (gelb) und Softdrinks (rot) erfassen und „Ohne Garten“ oder „Mit Garten“ wählen. Eine Hausnummer oder Bezeichnung ist optional. „Haus übernehmen & nächstes“ fügt den Verkauf hinzu und öffnet eine leere Eingabe für das nächste Haus.
+- Pro Haus den liefernden Spieler auswählen, verkaufte Burger, Pizza, Bier (braun), Limonade (gelb) und Softdrinks (rot) erfassen und „Ohne Garten“ oder „Mit Garten“ wählen. Die Hausnummer wird aus einem Popup mit den Nummern 1–19 gewählt. Bei Häusern mit vorhandenem Garten wird die Gartenoption automatisch gesetzt. „Haus übernehmen & nächstes“ fügt den Verkauf hinzu und öffnet eine leere Eingabe für das nächste Haus.
 - Direkt unter den Spielerbuttons stehen aktive Meilensteine als kurze Tags; bei den Namen steht der aktuelle Stückpreis. Nach der Spielerwahl zeigt jede Ware den Erlös pro Stück inklusive Waren- und gegebenenfalls Gartenbonus, ohne CFO.
 - Der Preisvergleich zeigt die Stückpreise aller Spieler und erlaubt das Anpassen der Basispreise vor dem −1-$-Meilenstein. Preisänderungen werden innerhalb der laufenden Runde für die nächsten Häuser des jeweiligen Spielers gemerkt. Der Vergleichspreis enthält den Preis-Meilenstein; Warenboni, CFO und Gartenbonus zählen nicht zum Vergleichspreis. Bereits gespeicherte Hausverkäufe behalten ihren ursprünglichen Preis. Es gibt keinen Entfernungszähler.
+- In der Hausauswahl sind die Flächen lila: normale Häuser ohne sichtbaren Rahmen, vorhandene Gärten (1, 3, 6, 9, 11, 14, 17, 19) mit durchgezogenem grünem Rahmen und gebaute Gärten mit grün gestricheltem Rahmen. Ein nachträglich gewählter Garten bleibt für die Partie gespeichert, auch nach Neuladen, Rücknahme und Export/Import. Neue Partien beginnen ohne gebaute Gärten.
 - Der Stückpreis je Haus (vor dem −1-$-Meilenstein) ist anpassbar, Standard 10 $. Ein Garten verdoppelt nur diesen Stückpreis, nicht die Meilensteinboni. Mitarbeiter werden nicht verwaltet.
 - Nach den Häusern Bedienungen und CFO je Spieler erfassen. Der CFO ist durch den entsprechenden Meilenstein automatisch aktiv. Der 50-%-Bonus zählt einmal auf sämtliche Rundeneinnahmen einschließlich Trinkgeld und wird aufgerundet.
 - Im dritten Schritt die tatsächliche Anzahl bezahlter Mitarbeiter eingeben (5 $ je Person). Rabatte werden von den Spielern vorher berücksichtigt. Eine laufende Rechnung zeigt bisherigen Stand, Einnahmen, Lohnausgaben und neuen Stand. Ungedeckte Lohnzahlungen sind nicht zulässig.

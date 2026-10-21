@@ -1,3 +1,4 @@
+import { HOUSE_NUMBERS, gardenKind, houseNumber, builtGardenNumbers } from './houses.js';
 import { t, html, htmlText, locale, getLanguage, setLanguage } from './i18n.js';
 import { renderStatistics, renderAwards } from './statistics-view.js';
 import { GOODS, MILESTONES, COLORS, emptySale, calculateSale, calculateHouse, houseRows, account, roundSettlement, validateGame } from './rules.js';
@@ -10,7 +11,7 @@ const milestones = () => Object.fromEntries(MILESTONES.map(([key]) => [key, fals
 let game = null;
 let screen = 'home';
 let setupCount = 3;
-let setupPlayers = Array.from({ length: 5 }, (_, i) => ({ name: '', color: COLORS[i] }));
+let setupPlayers = Array.from({ length: 6 }, (_, i) => ({ name: '', color: null }));
 let editor = null;
 let review = false;
 let statisticsMetric = 'balance';
@@ -50,7 +51,6 @@ function title(kicker, heading, text = '') {
 function playerName(p) { return html`<span class="player-dot" style="background:${p.color}"></span>${esc(p.name)}`; }
 function readSetupPlayers() {
   app.querySelectorAll('[data-setup-name]').forEach(input => { setupPlayers[+input.dataset.setupName].name = input.value; });
-  app.querySelectorAll('[data-setup-color]').forEach(input => { setupPlayers[+input.dataset.setupColor].color = input.value; });
 }
 function updateChrome() {
   document.documentElement.lang = getLanguage();
@@ -72,12 +72,12 @@ function home() {
   app.innerHTML = html`${languagePicker()}${title(t('WENIGER RECHNEN. MEHR SPIELEN.'), t('Dein Abend. Dein Spieltisch.'), t('Wähle ein Spiel und lass das Kleingeld in der Schachtel.'))}
     ${game ? html`<section class="resume"><div><span class="eyebrow">DEINE LETZTE PARTIE</span><h2>Food Chain Magnate</h2><p>${game.players.map(p => esc(p.name)).join(' · ')} · ${html`Runde ${Math.floor(game.events.length / 2) + 1}`}</p></div><button data-action="resume">Partie fortsetzen <span>→</span></button></section>` : ''}
     <div class="section-label">DEINE SPIELE <span>01</span></div>
-    <section class="game-grid"><article class="game-card"><div class="game-art"><div class="art-tag">DAS GRUNDSPIEL</div><div class="diner-sign">FOOD CHAIN<br><strong>MAGNATE</strong><span>BURGERS · PIZZA · BIG BUSINESS</span></div><div class="awning"></div><div class="art-bottom"><span>OPEN</span><span>🍔 &nbsp; 🍕 &nbsp; 🥤</span></div></div><div class="game-info"><div class="eyebrow">WIRTSCHAFT · 2–5 SPIELER</div><h2>Food Chain Magnate</h2><p>Verkäufe, Gehälter und die ganze Bank.<br>Alles auf einem Spieltisch.</p><button data-action="setup">Neue Partie <span>↗</span></button></div></article><article class="coming"><span class="coming-icon">＋</span><h2>Platz für mehr Spielabende</h2><p>Weitere Spiele kommen nach und nach dazu.</p></article></section>
+    <section class="game-grid"><article class="game-card"><div class="game-art"><div class="art-tag">DAS GRUNDSPIEL</div><div class="diner-sign">FOOD CHAIN<br><strong>MAGNATE</strong><span>BURGERS · PIZZA · BIG BUSINESS</span></div><div class="awning"></div><div class="art-bottom"><span>OPEN</span><span>🍔 &nbsp; 🍕 &nbsp; 🥤</span></div></div><div class="game-info"><div class="eyebrow">WIRTSCHAFT · 2–6 SPIELER</div><h2>Food Chain Magnate</h2><p>Verkäufe, Gehälter und die ganze Bank.<br>Alles auf einem Spieltisch.</p><button data-action="setup">Neue Partie <span>↗</span></button></div></article><article class="coming"><span class="coming-icon">＋</span><h2>Platz für mehr Spielabende</h2><p>Weitere Spiele kommen nach und nach dazu.</p></article></section>
     <div class="home-features"><span>◉ Ein Gerät für alle</span><span>↺ Jederzeit korrigieren</span><span>◇ Auch offline spielbar</span></div><div class="file-actions"><button class="text-button" data-action="import">Spielstand importieren</button>${game ? htmlText('<button class="text-button" data-action="export">Spielstand exportieren</button>') : ''}</div>`;
 }
 function setup() {
   app.innerHTML = html`<div class="setup-heading"><div class="setup-top"><p class="eyebrow">${t('FOOD CHAIN MAGNATE · NEUE PARTIE')}</p><button class="text-button" data-action="home">← Spielauswahl</button></div><h1>Wer sitzt am Tisch?</h1></div>
-    <section class="panel setup"><label class="count-label">Anzahl der Spieler <select id="player-count">${[2,3,4,5].map(n => html`<option ${n === setupCount ? 'selected' : ''}>${n}</option>`).join('')}</select></label><div class="setup-players">${setupPlayers.slice(0, setupCount).map((p,i) => html`<div class="setup-row"><span class="row-number">0${i+1}</span><label>Name<input data-setup-name="${i}" maxlength="40" value="${esc(p.name)}" placeholder="Spieler ${i+1}" autocomplete="off" required></label><label>Farbe<select data-setup-color="${i}" style="border-left:6px solid ${p.color}">${COLORS.map((color,j) => html`<option value="${color}" ${p.color === color ? 'selected' : ''}>${[t('Rot'),t('Gelb'),t('Blau'),t('Grün'),t('Violett')][j]}</option>`).join('')}</select></label></div>`).join('')}</div><div class="bank-start"><div><span class="eyebrow">DIE BANK STARTET MIT</span><strong>${money(setupCount * 50)}</strong></div><p>50 $ pro Spieler · Spielerkonten starten bei 0 $.<br>Reservekarten bleiben bis zum ersten Bankbruch geheim.</p></div>${game ? htmlText('<p class="hint">Beim Start wird die bisherige Partie ersetzt. Exportiere sie vorher, wenn du sie behalten möchtest.</p><button class="text-button" data-action="export">Bisherige Partie exportieren</button>') : ''}<button data-action="start">Partie starten →</button></section>`;
+    <section class="panel setup"><div class="count-label"><span>Anzahl der Spieler</span><div class="player-count-options" role="group" aria-label="Anzahl der Spieler">${[2,3,4,5,6].map(n => html`<button class="secondary" data-action="setup-count" data-count="${n}" aria-pressed="${n===setupCount}">${n}</button>`).join('')}</div></div><div class="setup-players">${setupPlayers.slice(0, setupCount).map((p,i) => html`<div class="setup-row"><span class="row-number">0${i+1}</span><label>Name<input data-setup-name="${i}" maxlength="40" value="${esc(p.name)}" placeholder="Spieler ${i+1}" autocomplete="off" required></label><div class="setup-color-field"><span>Farbe</span><div class="setup-colors" role="group" aria-label="Farbe für Spieler ${i+1}">${COLORS.map((color,j) => {const used=setupPlayers.slice(0,setupCount).some((other,k)=>k!==i&&other.color===color);return html`<button class="secondary color-choice" style="--choice-color:${color}" data-action="setup-color" data-index="${i}" data-color="${color}" aria-pressed="${p.color===color}" ${used?'disabled':''}><span class="color-swatch" aria-hidden="true"></span>${t(['Rot','Gelb','Blau','Grün','Violett','Rosa'][j])}</button>`;}).join('')}</div></div></div>`).join('')}</div><p class="hint">Eine gewählte Farbe erneut anklicken, um sie freizugeben.</p>${setupCount===6 ? htmlText('<p class="hint">Für sechs Spieler wird die Erweiterung benötigt.</p>') : ''}<div class="bank-start"><div><span class="eyebrow">DIE BANK STARTET MIT</span><strong>${money(setupCount * 50)}</strong></div><p>50 $ pro Spieler · Spielerkonten starten bei 0 $.<br>Reservekarten bleiben bis zum ersten Bankbruch geheim.</p></div>${game ? htmlText('<p class="hint">Beim Start wird die bisherige Partie ersetzt. Exportiere sie vorher, wenn du sie behalten möchtest.</p><button class="text-button" data-action="export">Bisherige Partie exportieren</button>') : ''}<button data-action="start">Partie starten →</button></section>`;
 }
 function beginEditor(index = null) {
   // Complete older, already booked sales in the same four-step round editor.
@@ -151,11 +151,25 @@ function newHouse() {
 function syncHouseRows() {
   editor.rows = houseRows(editor.rows, editor.houses);
 }
+function houseLabel(label) {
+  const number=houseNumber(label);
+  return number ? html`Haus ${number}` : esc(label);
+}
 function houseDescription(house) {
   return GOODS.filter(([key]) => house[key]).map(([key,label]) => html`${house[key]} ${t(label.split(' · ')[0])}`).join(' · ');
 }
 function houseList(editable = true) {
-  return editor.houses.length ? html`<div class="house-list">${editor.houses.map((house,i) => html`<article class="house-item"><div class="house-number"><span>${house.type === 'garden' ? '♧' : '⌂'}</span><strong>${esc(house.number || html`Haus ${i + 1}`)}</strong><small>${house.type === 'garden' ? t('Mit Garten') : t('Ohne Garten')}</small></div><div class="house-detail"><strong>${playerName(game.players[house.player])}</strong><span>${houseDescription(house)}</span></div><strong>${money(calculateHouse(house, editor.rows[house.player].milestones).total)}</strong>${editable ? html`<div class="house-actions"><button class="text-button" data-action="edit-house" data-index="${i}" aria-label="${esc(house.number || html`Haus ${i + 1}`)} bearbeiten">Bearbeiten</button><button class="text-button danger" data-action="remove-house" data-index="${i}" aria-label="${esc(house.number || html`Haus ${i + 1}`)} entfernen">Entfernen</button></div>` : ''}</article>`).join('')}</div>` : htmlText('<div class="empty-houses"><span>⌂</span><p>Noch kein Haus erfasst.</p><small>Verkäufe hinzufügen oder nur Bedienungen abrechnen.</small></div>');
+  return editor.houses.length ? html`<div class="house-list">${editor.houses.map((house,i) => html`<article class="house-item"><div class="house-number"><span>${house.type === 'garden' ? '♧' : '⌂'}</span><strong>${houseLabel(house.number || html`Haus ${i + 1}`)}</strong><small>${house.type === 'garden' ? t('Mit Garten') : t('Ohne Garten')}</small></div><div class="house-detail"><strong>${playerName(game.players[house.player])}</strong><span>${houseDescription(house)}</span></div><strong>${money(calculateHouse(house, editor.rows[house.player].milestones).total)}</strong>${editable ? html`<div class="house-actions"><button class="text-button" data-action="edit-house" data-index="${i}" aria-label="${esc(house.number || html`Haus ${i + 1}`)} bearbeiten">Bearbeiten</button><button class="text-button danger" data-action="remove-house" data-index="${i}" aria-label="${esc(house.number || html`Haus ${i + 1}`)} entfernen">Entfernen</button></div>` : ''}</article>`).join('')}</div>` : htmlText('<div class="empty-houses"><span>⌂</span><p>Noch kein Haus erfasst.</p><small>Verkäufe hinzufügen oder nur Bedienungen abrechnen.</small></div>');
+}
+function rememberBuiltGarden(label) {
+  const number=houseNumber(label);
+  if (!number || gardenKind(game,number)==='native') return;
+  game.builtGardens=[...new Set([...builtGardenNumbers(game),number])].sort((a,b)=>a-b);
+  save();
+}
+function renderHousePicker() {
+  const selected=houseNumber(editor.houseForm.number);
+  return html`<dialog id="house-picker" class="house-picker" aria-labelledby="house-picker-title"><div class="house-picker-heading"><h2 id="house-picker-title">Haus wählen</h2><button class="text-button" data-action="close-house-picker" aria-label="Schließen">×</button></div><div class="house-picker-legend"><span><i class="house-key"></i>Ohne Garten</span><span><i class="house-key native"></i>Mit Garten</span><span><i class="house-key built"></i>Garten gebaut</span></div><div class="house-number-grid">${HOUSE_NUMBERS.map(number=>{const kind=gardenKind(game,number);return html`<button class="house-tile ${kind==='native'?'native-garden':kind==='built'?'built-garden':''} ${selected===number?'selected':''}" data-action="select-house" data-number="${number}" aria-label="Haus ${number} · ${kind==='native'?t('Mit Garten'):kind==='built'?t('Garten gebaut'):t('Ohne Garten')}" aria-pressed="${selected===number}"><strong>${number}</strong><small>${kind==='built'?t('Garten gebaut'):kind==='native'?t('Mit Garten'):t('Ohne Garten')}</small></button>`;}).join('')}</div><p class="hint">Gebaute Gärten bleiben für diese Partie gespeichert.</p></dialog>`;
 }
 function housePreview() {
   if (editor.houseForm.player === null) return t('Spieler auswählen');
@@ -196,7 +210,7 @@ function renderSales() {
   const target = document.querySelector('#sales-workspace');
   if (step === 'houses') {
     const h = editor.houseForm;
-    target.innerHTML = html`<div class="house-layout"><section class="panel house-form"><div class="form-title"><h2>${editor.editingHouse === null ? html`Verkauf ${editor.houses.length + 1}` : t('Verkauf bearbeiten')}</h2><label>Hausnummer / Bezeichnung<input maxlength="24" data-house="number" value="${esc(h.number)}" placeholder="z. B. Haus 7"></label></div><fieldset><legend>1. Wer beliefert das Haus?</legend>${playerChoices()}</fieldset><fieldset><legend>2. Was wurde verkauft?</legend><div class="house-goods">${GOODS.map(([key,label,icon]) => html`<label><span>${icon} ${t(label)}</span><small class="goods-unit-price" data-goods-price="${key}">${goodsUnitPrice(key)}</small><div class="stepper"><button data-action="house-count" data-field="${key}" data-delta="-1" aria-label="${t(label)} weniger">−</button><input type="number" inputmode="numeric" min="0" max="1000000" step="1" required data-house="${key}" value="${h[key]}" aria-label="Anzahl ${t(label)}"><button data-action="house-count" data-field="${key}" data-delta="1" aria-label="${t(label)} mehr">+</button></div></label>`).join('')}</div><p class="goods-price-note">Erlös je Stück inkl. Meilenstein- und Gartenbonus, ohne CFO.</p></fieldset><fieldset><legend>3. Welches Haus?</legend><div class="house-types">${[['normal','⌂',t('Ohne Garten'),t('Einfacher Stückpreis')],['garden','♧',t('Mit Garten'),t('Doppelter Stückpreis')]].map(([type,icon,label,hint]) => html`<button class="choice ${h.type === type ? 'selected' : ''}" data-action="house-type" data-type="${type}" aria-pressed="${h.type === type}"><span class="type-icon">${icon}</span><span>${t(label)}<small>${t(hint)}</small></span></button>`).join('')}</div></fieldset><div class="house-price"><div><span>Verkauf inkl. Meilensteinen</span><strong id="house-income">${housePreview()}</strong><small>Trinkgeld und CFO folgen in Schritt 2.</small></div></div><div class="house-form-actions">${editor.editingHouse !== null ? htmlText('<button class="secondary" data-action="cancel-house">Abbrechen</button>') : ''}<button data-action="save-house">${editor.editingHouse !== null ? t('Verkauf speichern') : t('Haus übernehmen & nächstes')} →</button></div></section><aside class="house-sidebar">${priceComparison()}<div class="sidebar-heading"><h2>Diese Runde</h2><span>${editor.houses.length} ${editor.houses.length === 1 ? t('Haus') : t('Häuser')}</span></div>${houseList()}<div class="sidebar-total"><span>Warenumsatz inkl. Meilensteinen</span><strong>${money(editor.houses.reduce((sum, house) => sum + calculateHouse(house, editor.rows[house.player].milestones).total, 0))}</strong></div><button class="secondary" data-action="sales-step" data-step="extras">Essenszeit abschließen →</button></aside></div>`;
+    target.innerHTML = html`<div class="house-layout"><section class="panel house-form"><div class="form-title"><h2>${editor.editingHouse === null ? html`Verkauf ${editor.houses.length + 1}` : t('Verkauf bearbeiten')}</h2><div class="house-selector"><span>Hausnummer</span><button class="secondary house-picker-trigger" data-action="open-house-picker" aria-haspopup="dialog">${h.number ? houseNumber(h.number) ? html`Haus ${houseNumber(h.number)}` : esc(h.number) : t('Haus wählen')}<small>${gardenKind(game,h.number)==='built'?t('Garten gebaut'):gardenKind(game,h.number)==='native'?t('Mit Garten'):t('Hausnummer auswählen')}</small></button></div></div><fieldset><legend>1. Wer beliefert das Haus?</legend>${playerChoices()}</fieldset><fieldset><legend>2. Was wurde verkauft?</legend><div class="house-goods">${GOODS.map(([key,label,icon]) => html`<label><span>${icon} ${t(label)}</span><small class="goods-unit-price" data-goods-price="${key}">${goodsUnitPrice(key)}</small><div class="stepper"><button data-action="house-count" data-field="${key}" data-delta="-1" aria-label="${t(label)} weniger">−</button><input type="number" inputmode="numeric" min="0" max="1000000" step="1" required data-house="${key}" value="${h[key]}" aria-label="Anzahl ${t(label)}"><button data-action="house-count" data-field="${key}" data-delta="1" aria-label="${t(label)} mehr">+</button></div></label>`).join('')}</div><p class="goods-price-note">Erlös je Stück inkl. Meilenstein- und Gartenbonus, ohne CFO.</p></fieldset><fieldset><legend>3. Welches Haus?</legend><div class="house-types">${[['normal','⌂',t('Ohne Garten'),t('Einfacher Stückpreis')],['garden','♧',t('Mit Garten'),t('Doppelter Stückpreis')]].map(([type,icon,label,hint]) => html`<button class="choice ${h.type === type ? 'selected' : ''}" data-action="house-type" data-type="${type}" aria-pressed="${h.type === type}" ${type==='normal'&&gardenKind(game,h.number)!=='none'?'disabled':''}><span class="type-icon">${icon}</span><span>${t(label)}<small>${t(hint)}</small></span></button>`).join('')}</div></fieldset><div class="house-price"><div><span>Verkauf inkl. Meilensteinen</span><strong id="house-income">${housePreview()}</strong><small>Trinkgeld und CFO folgen in Schritt 2.</small></div></div><div class="house-form-actions">${editor.editingHouse !== null ? htmlText('<button class="secondary" data-action="cancel-house">Abbrechen</button>') : ''}<button data-action="save-house">${editor.editingHouse !== null ? t('Verkauf speichern') : t('Haus übernehmen & nächstes')} →</button></div></section><aside class="house-sidebar">${priceComparison()}<div class="sidebar-heading"><h2>Diese Runde</h2><span>${editor.houses.length} ${editor.houses.length === 1 ? t('Haus') : t('Häuser')}</span></div>${houseList()}<div class="sidebar-total"><span>Warenumsatz inkl. Meilensteinen</span><strong>${money(editor.houses.reduce((sum, house) => sum + calculateHouse(house, editor.rows[house.player].milestones).total, 0))}</strong></div><button class="secondary" data-action="sales-step" data-step="extras">Essenszeit abschließen →</button></aside></div>`;
   } else if (step === 'extras') {
     target.innerHTML = html`<div class="entry-grid">${game.players.map((p,i) => html`<article class="panel player-entry" style="--player-color:${p.color}"><h3>${playerName(p)}</h3>${waitressField(editor.rows[i],i)}${cfoButton(editor.rows[i],i)}${roundCalculation(editor.rows[i],i)}</article>`).join('')}</div><div class="commit-bar"><button class="secondary" data-action="sales-step" data-step="houses">← Häuser</button><button data-action="sales-step" data-step="wages">Weiter zu den Löhnen →</button></div>`;
   } else if (step === 'wages') {
@@ -205,6 +219,7 @@ function renderSales() {
     const settlement = previewRound();
     target.innerHTML = html`<section class="panel summary-houses"><div class="sidebar-heading"><h2>Alle Hausverkäufe</h2><button class="secondary" data-action="add-house">+ Weiteres Haus</button></div>${houseList()}</section><div class="summary-heading"><h2>Rundenabrechnung pro Spieler</h2><div><button class="text-button" data-action="sales-step" data-step="extras">Bedienungen & CFO bearbeiten</button><button class="text-button" data-action="sales-step" data-step="wages">Löhne bearbeiten</button></div></div>${settlement.ended ? htmlText('<p class="round-warning">Zweiter Bankbruch: Alle Einnahmen werden ausgezahlt, Löhne entfallen.</p>') : ''}${renderReview()}<div class="commit-bar"><span>${editor.index === null ? t('Einnahmen und Löhne werden zusammen gebucht.') : t('Die Korrektur berechnet alle folgenden Kontostände neu.')}</span><button data-action="commit">${editor.index === null ? t('Runde bestätigen') : t('Änderung speichern')} ✓</button></div>`;
   }
+  app.insertAdjacentHTML('beforeend', renderHousePicker());
 }
 function previewRound() { return roundSettlement(game,editor.rows,editor.wages,editor.index,editor.reserves); }
 function wageCardCalculation(i, settlement = previewRound()) {
@@ -245,6 +260,7 @@ function storeHouse() {
   if (!validInputs()) return false;
   const house = editor.houseForm;
   if (house.player === null || !game.players[house.player]) throw new Error(t('Bitte den Spieler auswählen, der dieses Haus beliefert.'));
+  if (!house.number.trim()) throw new Error(t('Bitte eine Hausnummer auswählen.'));
   calculateHouse(house, editor.rows[house.player].milestones);
   const order = editor.editingHouse === null ? Math.max(-1, ...editor.houses.map(h => h.order ?? 0)) + 1 : editor.houses[editor.editingHouse].order;
   const saved = { ...house, order, number: house.number.trim() || html`Haus ${(order ?? editor.editingHouse) + 1}` };
@@ -341,7 +357,7 @@ function logRoundDetails(round) {
     const row = round.sale.rows[i];
     const c = calculateSale(row);
     const goods = GOODS.filter(([key]) => row[key]).map(([key,label]) => html`${row[key]} ${t(label.split(' · ')[0])}`).join(' · ') || t('Keine Waren verkauft');
-    return html`<section class="ledger-detail-player"><h3>${playerName(p)}</h3><p>${goods}</p><dl><div><dt>Warenumsatz</dt><dd>${money(c.revenue)}</dd></div><div><dt>Meilensteinboni</dt><dd>+${money(c.bonus)}</dd></div><div><dt>${row.waitresses} Waitresses</dt><dd>+${money(c.tips)}</dd></div><div><dt>CFO${row.cfo || row.milestones.cfo ? t(' · aktiv') : t(' · inaktiv')}</dt><dd>+${money(c.cfo)}</dd></div><div><dt>${round.salary ? html`${round.salary.rows[i]} Mitarbeiter × 5 $` : round.ended ? t('Löhne entfallen') : t('Löhne noch offen')}</dt><dd>−${money(round.expenses[i])}</dd></div></dl>${row.houses?.length ? html`<ul class="ledger-houses">${row.houses.map(h => html`<li><div><strong>${esc(h.number)}</strong><small>${h.type === 'garden' ? t('Mit Garten') : t('Ohne Garten')} · ${houseDescription(h)} · Stückpreis ${money(h.price - (row.milestones.price ? 1 : 0))}</small></div><span>${money(calculateHouse(h,row.milestones).total)}</span></li>`).join('')}</ul>` : ''}</section>`;
+    return html`<section class="ledger-detail-player"><h3>${playerName(p)}</h3><p>${goods}</p><dl><div><dt>Warenumsatz</dt><dd>${money(c.revenue)}</dd></div><div><dt>Meilensteinboni</dt><dd>+${money(c.bonus)}</dd></div><div><dt>${row.waitresses} Waitresses</dt><dd>+${money(c.tips)}</dd></div><div><dt>CFO${row.cfo || row.milestones.cfo ? t(' · aktiv') : t(' · inaktiv')}</dt><dd>+${money(c.cfo)}</dd></div><div><dt>${round.salary ? html`${round.salary.rows[i]} Mitarbeiter × 5 $` : round.ended ? t('Löhne entfallen') : t('Löhne noch offen')}</dt><dd>−${money(round.expenses[i])}</dd></div></dl>${row.houses?.length ? html`<ul class="ledger-houses">${row.houses.map(h => html`<li><div><strong>${houseLabel(h.number)}</strong><small>${h.type === 'garden' ? t('Mit Garten') : t('Ohne Garten')} · ${houseDescription(h)} · Stückpreis ${money(h.price - (row.milestones.price ? 1 : 0))}</small></div><span>${money(calculateHouse(h,row.milestones).total)}</span></li>`).join('')}</ul>` : ''}</section>`;
   }).join('')}</div>${round.salary && !round.sale.rows.every(row => Array.isArray(row.houses)) ? html`<button class="text-button" data-action="edit" data-index="${round.index + 1}">Alte Lohnbuchung bearbeiten</button>` : ''}`;
 }
 function render() {
@@ -438,8 +454,6 @@ app.addEventListener('input', event => {
 app.addEventListener('change', event => {
   const input = event.target;
   if (input.dataset.setupName !== undefined) setupPlayers[+input.dataset.setupName].name = input.value;
-  if (input.id === 'player-count') { readSetupPlayers(); setupCount = +input.value; setup(); }
-  if (input.dataset.setupColor !== undefined) { setupPlayers[+input.dataset.setupColor].color = input.value; input.style.borderLeftColor = input.value; }
 });
 app.addEventListener('click', async event => {
   const button = event.target.closest('[data-action]');
@@ -454,8 +468,23 @@ app.addEventListener('click', async event => {
       case 'home': screen = 'home'; editor = null; break;
       case 'setup':
         setupCount = game?.players.length ?? 3;
-        setupPlayers = Array.from({ length: 5 }, (_,i) => ({ name:'', color:COLORS[i] }));
+        setupPlayers = Array.from({ length: 6 }, (_,i) => ({ name:'', color:null }));
         screen = 'setup'; break;
+      case 'setup-count': {
+        readSetupPlayers();
+        const count=+button.dataset.count;
+        if (![2,3,4,5,6].includes(count)) return;
+        setupCount=count;
+        setupPlayers.slice(count).forEach(player=>{player.color=null;});
+        break;
+      }
+      case 'setup-color': {
+        readSetupPlayers();
+        const index=+button.dataset.index, color=button.dataset.color;
+        if (!COLORS.includes(color) || index<0 || index>=setupCount || setupPlayers.slice(0,setupCount).some((p,i)=>i!==index&&p.color===color)) return;
+        setupPlayers[index].color=setupPlayers[index].color===color?null:color;
+        break;
+      }
       case 'start': {
         // Autofill and some mobile keyboards do not reliably emit input events.
         // The visible setup fields are authoritative when starting the game.
@@ -466,8 +495,9 @@ app.addEventListener('click', async event => {
           missingName.reportValidity();
           return;
         }
+        if (setupPlayers.slice(0,setupCount).some(player=>!player.color)) throw new Error(t('Bitte für jeden Spieler eine Farbe auswählen.'));
         const players = setupPlayers.slice(0,setupCount).map(p => ({ name: p.name.trim(), color: p.color, milestones: milestones() }));
-        const next = validateGame({ version: 1, players, reserves: null, events: [], draft: null });
+        const next = validateGame({ version: 1, players, reserves: null, events: [], draft: null, builtGardens:[] });
         if (game && !confirm(t('Die bisherige Partie auf diesem Gerät ersetzen? Vorher bei Bedarf exportieren.'))) return;
         game = next; save(); screen = 'table'; editor = null; break;
       }
@@ -494,9 +524,26 @@ app.addEventListener('click', async event => {
         if (!validInputs()) return;
         if (editor.houseForm.player !== +button.dataset.index) editor.houseForm.price = editor.rows[+button.dataset.index].price;
         editor.houseForm.player = +button.dataset.index; persistDraft(); break;
+      case 'open-house-picker':
+        if (!validInputs()) return;
+        app.querySelector('#house-picker').showModal();
+        return;
+      case 'close-house-picker': app.querySelector('#house-picker').close(); return;
+      case 'select-house': {
+        const number=+button.dataset.number;
+        if (!HOUSE_NUMBERS.includes(number)) return;
+        editor.houseForm.number=String(number);
+        editor.houseForm.type=gardenKind(game,number)==='none'?'normal':'garden';
+        persistDraft();
+        requestAnimationFrame(()=>app.querySelector('[data-action="open-house-picker"]')?.focus());
+        break;
+      }
       case 'house-type':
         if (!validInputs()) return;
-        editor.houseForm.type = button.dataset.type; persistDraft(); break;
+        if (button.dataset.type==='normal' && gardenKind(game,editor.houseForm.number)!=='none') return;
+        editor.houseForm.type = button.dataset.type;
+        if (button.dataset.type==='garden') rememberBuiltGarden(editor.houseForm.number);
+        persistDraft(); break;
       case 'house-count': {
         if (!validInputs()) return;
         const key = button.dataset.field;
