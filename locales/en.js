@@ -1,5 +1,9 @@
 // German source texts are stable translation keys. {0}, {1}, … are values.
 export const en = {
+  "Für dieses Haus":"For this house",
+  "☕ Kaffee{0}":"☕ Coffee{0}",
+  "Übernehmen ✓":"Apply ✓",
+  "Ungültiger Kaffeeentwurf.":"Invalid coffee draft.",
   "☕ Kaffee":"☕ Coffee",
   "Kaffee für {0}":"Coffee for {0}",
   "Erlös ohne CFO":"Revenue excluding CFO",

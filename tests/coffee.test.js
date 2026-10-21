@@ -111,3 +111,17 @@ test('Import checks coffee quantities, availability and drafts while older saves
   g.draft.houseForm.coffee=1;g.modules.coffee=false;assert.throws(()=>validateGame(g));
   g.draft=null;g.modules={};assert.doesNotThrow(()=>validateGame(g));
 });
+
+test('Confirmed coffee quantities on an unfinished house are validated and preserved without booking money',()=>{
+  const g=game();
+  g.draft={type:'sale',rows:g.players.map(p=>emptySale(p.milestones)),houseForm:house({player:null,burger:1,coffees:[0,2,1]})};
+  const restored=validateGame(JSON.parse(JSON.stringify(g)));
+  assert.deepEqual(restored.draft.houseForm.coffees,[0,2,1]);
+  assert.deepEqual(account(restored).balances,[0,0,0]);
+  for (const quantities of [[1],[-1,0,0],[0,1.5,0],[0,1000001,0],null]) {
+    g.draft.houseForm.coffees=quantities;
+    assert.throws(()=>validateGame(g));
+  }
+  g.draft.houseForm.coffees=[0,2,1];g.modules.coffee=false;
+  assert.throws(()=>validateGame(g));
+});

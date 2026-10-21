@@ -240,6 +240,11 @@ export function validateGame(game) {
       integer(h.price,100);
       GOODS.forEach(([key]) => integer(h[key]));
       integer(h.coffee ?? 0);
+      if (h.coffees!==undefined) {
+        if (!Array.isArray(h.coffees)||h.coffees.length!==game.players.length) throw new Error(t('Ungültiger Kaffeeentwurf.'));
+        h.coffees.forEach(n=>integer(n));
+        if (h.coffees.some(n=>n>0)&&!game.modules?.coffee) throw new Error(t('Das Kaffeemodul ist nicht aktiviert.'));
+      }
       if ((h.coffee ?? 0)>0&&!game.modules?.coffee) throw new Error(t('Das Kaffeemodul ist nicht aktiviert.'));
     }
     if (game.draft.completion !== undefined) {

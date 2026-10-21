@@ -168,85 +168,58 @@ function coffeeRecords(house,player=null) {
 function coffeeQuantity(house,player) {
   return coffeeRecords(house,player).reduce((sum,h)=>sum+h.coffee,0);
 }
-function coffeePrice(house,player) {
-  return coffeeRecords(house,player).at(-1)?.price ?? editor.rows[player].price;
+function coffeeDraftQuantities() {
+  if (editor.houseForm.coffees) return [...editor.houseForm.coffees];
+  const parent=editor.editingHouse===null?null:editor.houses[editor.editingHouse];
+  return game.players.map((_,i)=>parent?coffeeQuantity(parent,i):0);
 }
-function coffeePanel(house,index,editable) {
-  const records=coffeeRecords(house);
-  const expanded=records.length || editor.openCoffee?.has(house.number);
-  if (!game.modules?.coffee || !expanded) return '';
-  const total=records.reduce((sum,h)=>sum+calculateHouse(h,editor.rows[h.player].milestones).total,0);
-  return html`<section class="house-coffee" aria-label="Kaffee für ${esc(house.number)}"><div class="house-coffee-heading"><strong>☕ Kaffee</strong><small>Erlös ohne CFO</small></div>${game.players.map((p,player)=>{
-    const quantity=coffeeQuantity(house,player), price=coffeePrice(house,player), min=editor.rows[player].milestones.price?1:0;
-    const sales=coffeeRecords(house,player);
-    const income=sales.reduce((sum,h)=>sum+calculateHouse(h,editor.rows[player].milestones).total,0);
-    const unit=(price-min)*(house.type==='garden'?2:1);
-    return html`<div class="house-coffee-player" data-coffee-player="${player}"><strong>${playerName(p)}</strong><b class="house-coffee-income">${money(income)}</b>${editable?html`<div class="house-coffee-controls"><label><span>Kaffees</span><div class="stepper"><button data-action="inline-coffee-count" data-index="${index}" data-player="${player}" data-delta="-1" aria-label="Ein Kaffee weniger für ${esc(p.name)}">−</button><input type="number" inputmode="numeric" min="0" max="1000000" step="1" required data-house-coffee="${index}" data-player="${player}" value="${quantity}" aria-label="Kaffees für ${esc(p.name)}"><button data-action="inline-coffee-count" data-index="${index}" data-player="${player}" data-delta="1" aria-label="Ein Kaffee mehr für ${esc(p.name)}">+</button></div></label><label><span>Basispreis</span><div class="stepper"><button data-action="inline-coffee-price" data-index="${index}" data-player="${player}" data-delta="-1" aria-label="Kaffeepreis für ${esc(p.name)} senken">−</button><input type="number" inputmode="numeric" min="${min}" max="100" step="1" required data-house-coffee-price="${index}" data-player="${player}" value="${price}" aria-label="Kaffeepreis für ${esc(p.name)}"><button data-action="inline-coffee-price" data-index="${index}" data-player="${player}" data-delta="1" aria-label="Kaffeepreis für ${esc(p.name)} erhöhen">+</button></div><small>${new Set(sales.map(h=>h.price)).size>1?t('Mehrere gespeicherte Preise'):html`${money(unit)} / Stück`}</small></label></div>`:html`<small>${quantity} Kaffee</small>`}</div>`;
-  }).join('')}${records.length?html`<div class="house-coffee-total"><span>Gesamt am Haus · ohne CFO</span><strong>${money(calculateHouse(house,editor.rows[house.player].milestones).total+total)}</strong></div>`:''}<p class="hint">Route am Brett bestimmen. Der Zielbetrieb verkauft keinen Kaffee. Preisänderungen gelten für alle Kaffees dieses Spielers an diesem Haus.</p></section>`;
+function coffeeFormButton() {
+  if (!game.modules?.coffee || coffeeForm()) return '';
+  const quantities=coffeeDraftQuantities(),total=quantities.reduce((sum,n)=>sum+n,0);
+  return html`<button type="button" class="secondary coffee-form-button" data-action="open-coffee-dialog" aria-haspopup="dialog">☕ Kaffee${total?html`<span class="coffee-count-badge">${total}</span>`:''}</button>${total?html`<div class="coffee-form-summary">${quantities.map((n,i)=>n?html`<span>${playerName(game.players[i])} <b>${n} ☕</b></span>`:'').join('')}</div>`:''}`;
 }
-function setInlineCoffee(house,player,{quantity=null,price=null}) {
-  if (!game.modules?.coffee || !house || isCoffeeSale(house)) return;
-  if (quantity!==null) integer(quantity);
-  if (price!==null) {
-    integer(price,100);
-    if (price<(editor.rows[player].milestones.price?1:0)) throw new Error(t('Der Stückpreis darf nach dem Meilenstein nicht negativ sein.'));
-    coffeeRecords(house,player).forEach(h=>{h.price=price;});
-    editor.rows[player].price=price;
-    if (editor.houseForm.player===player) editor.houseForm.price=price;
-  }
+function coffeePanel(house) {
+  if (!game.modules?.coffee || !coffeeRecords(house).length) return '';
+  return html`<section class="house-coffee-summary" aria-label="Kaffee für ${esc(house.number)}"><div class="house-coffee-heading"><strong>☕ Kaffee</strong><small>Erlös ohne CFO</small></div><div class="house-coffee-chips">${game.players.map((p,player)=>{
+    const quantity=coffeeQuantity(house,player);
+    if (!quantity) return '';
+    const income=coffeeRecords(house,player).reduce((sum,h)=>sum+calculateHouse(h,editor.rows[player].milestones).total,0);
+    return html`<span class="house-coffee-chip">${playerName(p)} <b>${quantity} ☕</b><small>${money(income)}</small></span>`;
+  }).join('')}</div></section>`;
+}
+function setCoffeeQuantity(house,player,quantity) {
+  integer(quantity);
   const records=coffeeRecords(house,player);
-  if (quantity!==null) {
-    let delta=quantity-records.reduce((sum,h)=>sum+h.coffee,0);
-    if (delta>0) {
-      const last=records.at(-1);
-      if (last) last.coffee+=delta;
-      else editor.houses.push({...newHouse('coffee'),number:house.number,type:house.type,player,price:editor.rows[player].price,coffee:delta,order:Math.max(-1,...editor.houses.map(h=>h.order ?? 0))+1});
-    } else for (const record of [...records].reverse()) {
-      const removed=Math.min(-delta,record.coffee);
-      record.coffee-=removed;delta+=removed;
-      if (!delta) break;
-    }
-    editor.houses=editor.houses.filter(h=>!records.includes(h)||h.coffee>0);
+  let delta=quantity-records.reduce((sum,h)=>sum+h.coffee,0);
+  if (delta>0) {
+    const last=records.at(-1);
+    if (last) last.coffee+=delta;
+    else editor.houses.push({...newHouse('coffee'),number:house.number,type:house.type,player,price:editor.rows[player].price,coffee:delta,order:Math.max(-1,...editor.houses.map(h=>h.order ?? 0))+1});
+  } else for (const record of [...records].reverse()) {
+    const removed=Math.min(-delta,record.coffee);
+    record.coffee-=removed;delta+=removed;
+    if (!delta) break;
   }
-  editor.openCoffee ??= new Set();editor.openCoffee.add(house.number);
-  syncHouseRows();
-  if (editor.step==='summary'&&previewRound().needsReserve) {editor.step='wages';editor.wagesReviewed=false;}
-  persistDraft();
+  editor.houses=editor.houses.filter(h=>!records.includes(h)||h.coffee>0);
 }
-function refreshInlineCoffee(cards,activeInput) {
-  for (const {card,house} of cards) {
-    const index=editor.houses.indexOf(house);
-    card.dataset.houseCard=index;
-    card.querySelectorAll('[data-index]').forEach(button=>{button.dataset.index=index;});
-    card.querySelectorAll('[data-house-coffee]').forEach(input=>{input.dataset.houseCoffee=index;});
-    card.querySelectorAll('[data-house-coffee-price]').forEach(input=>{input.dataset.houseCoffeePrice=index;});
-    const panel=card.querySelector('.house-coffee');
-    if (!panel) continue;
-    game.players.forEach((_,player)=>{
-      const row=panel.querySelector(`[data-coffee-player="${player}"]`), records=coffeeRecords(house,player), price=coffeePrice(house,player);
-      row.querySelector('.house-coffee-income').textContent=money(records.reduce((sum,h)=>sum+calculateHouse(h,editor.rows[player].milestones).total,0));
-      const quantityInput=row.querySelector('[data-house-coffee]'),priceInput=row.querySelector('[data-house-coffee-price]');
-      if (quantityInput!==activeInput) quantityInput.value=coffeeQuantity(house,player);
-      if (priceInput!==activeInput) priceInput.value=price;
-      const unit=(price-(editor.rows[player].milestones.price?1:0))*(house.type==='garden'?2:1);
-      row.querySelector('.house-coffee-controls label:last-child > small').textContent=new Set(records.map(h=>h.price)).size>1?t('Mehrere gespeicherte Preise'):html`${money(unit)} / Stück`;
-    });
-    const records=coffeeRecords(house),total=calculateHouse(house,editor.rows[house.player].milestones).total+records.reduce((sum,h)=>sum+calculateHouse(h,editor.rows[h.player].milestones).total,0);
-    const footer=panel.querySelector('.house-coffee-total');
-    if (!records.length) footer?.remove();
-    else if (footer) footer.querySelector('strong').textContent=money(total);
-    else panel.querySelector('.hint').insertAdjacentHTML('beforebegin',html`<div class="house-coffee-total"><span>Gesamt am Haus · ohne CFO</span><strong>${money(total)}</strong></div>`);
-  }
-  if (editor.step==='summary') app.querySelector('.review').outerHTML=renderReview();
-  else {
-    game.players.forEach((_,i)=>{app.querySelector(`[data-comparison-price="${i}"]`).value=editor.houseForm.player===i?editor.houseForm.price:editor.rows[i].price;});
-    refreshHousePrices();
-    app.querySelector('.sidebar-total strong').textContent=money(editor.houses.reduce((sum,h)=>sum+calculateHouse(h,editor.rows[h.player].milestones).total,0));
-  }
+function renderCoffeeDialog() {
+  const state=editor.coffeeDialog;
+  const house=state?.index===null?editor.houseForm:editor.houses[state?.index];
+  return html`<dialog id="coffee-dialog" class="house-picker coffee-dialog" aria-labelledby="coffee-dialog-title"><div class="house-picker-heading"><div><h2 id="coffee-dialog-title">☕ Kaffee</h2><small>${house?.number?houseLabel(house.number):t('Für dieses Haus')}</small></div><button class="text-button" data-action="cancel-coffee-dialog" aria-label="Schließen">×</button></div><div class="coffee-dialog-players">${game.players.map((p,i)=>html`<label class="coffee-dialog-player"><strong>${playerName(p)}</strong><div class="stepper"><button type="button" data-action="coffee-dialog-count" data-player="${i}" data-delta="-1" aria-label="Ein Kaffee weniger für ${esc(p.name)}">−</button><input type="number" inputmode="numeric" min="0" max="1000000" step="1" required data-dialog-coffee="${i}" value="${state?.quantities[i] ?? 0}" aria-label="Kaffees für ${esc(p.name)}"><button type="button" data-action="coffee-dialog-count" data-player="${i}" data-delta="1" aria-label="Ein Kaffee mehr für ${esc(p.name)}">+</button></div></label>`).join('')}</div><div class="coffee-dialog-actions"><button class="secondary" data-action="cancel-coffee-dialog">Abbrechen</button><button data-action="confirm-coffee-dialog">Übernehmen ✓</button></div></dialog>`;
 }
+function openCoffeeDialog(index=null) {
+  if (!game.modules?.coffee) return;
+  if (index===editor.editingHouse) index=null;
+  const parent=index===null?null:editor.houses[index];
+  if (index!==null&&(!parent||isCoffeeSale(parent))) return;
+  editor.coffeeDialog={index,quantities:index===null?coffeeDraftQuantities():game.players.map((_,i)=>coffeeQuantity(parent,i))};
+  app.querySelector('#coffee-dialog').outerHTML=renderCoffeeDialog();
+  app.querySelector('#coffee-dialog').showModal();
+}
+
 function houseList(editable = true) {
   const meals=editor.houses.map((house,i)=>({house,i})).filter(({house})=>!isCoffeeSale(house));
-  return meals.length ? html`<div class="house-list">${meals.map(({house,i}) => html`<article class="house-item" data-house-card="${i}"><div class="house-number"><span>${house.type === 'garden' ? '♧' : '⌂'}</span><strong>${houseLabel(house.number || html`Haus ${i + 1}`)}</strong><small>${house.type === 'garden' ? t('Mit Garten') : t('Ohne Garten')}</small></div><div class="house-detail"><strong>${playerName(game.players[house.player])}</strong><span>${houseDescription(house)}</span></div><strong>${money(calculateHouse(house, editor.rows[house.player].milestones).total)}</strong>${editable ? html`<div class="house-actions">${game.modules?.coffee&&!coffeeRecords(house).length&&!editor.openCoffee?.has(house.number)?html`<button class="secondary coffee-house-action" data-action="add-coffee" data-index="${i}">+ Kaffee</button>`:''}<button class="text-button" data-action="edit-house" data-index="${i}" aria-label="${esc(house.number || html`Haus ${i + 1}`)} bearbeiten">Bearbeiten</button><button class="text-button danger" data-action="remove-house" data-index="${i}" aria-label="${esc(house.number || html`Haus ${i + 1}`)} entfernen">Entfernen</button></div>` : ''}${coffeePanel(house,i,editable)}</article>`).join('')}</div>` : htmlText('<div class="empty-houses"><span>⌂</span><p>Noch kein Haus erfasst.</p><small>Verkäufe hinzufügen oder nur Bedienungen abrechnen.</small></div>');
+  return meals.length ? html`<div class="house-list">${meals.map(({house,i}) => html`<article class="house-item" data-house-card="${i}"><div class="house-number"><span>${house.type === 'garden' ? '♧' : '⌂'}</span><strong>${houseLabel(house.number || html`Haus ${i + 1}`)}</strong><small>${house.type === 'garden' ? t('Mit Garten') : t('Ohne Garten')}</small></div><div class="house-detail"><strong>${playerName(game.players[house.player])}</strong><span>${houseDescription(house)}</span></div><strong>${money(calculateHouse(house, editor.rows[house.player].milestones).total)}</strong>${editable ? html`<div class="house-actions">${game.modules?.coffee?html`<button class="secondary coffee-house-action" data-action="open-coffee-dialog" data-index="${i}" aria-haspopup="dialog">☕ Kaffee</button>`:''}<button class="text-button" data-action="edit-house" data-index="${i}" aria-label="${esc(house.number || html`Haus ${i + 1}`)} bearbeiten">Bearbeiten</button><button class="text-button danger" data-action="remove-house" data-index="${i}" aria-label="${esc(house.number || html`Haus ${i + 1}`)} entfernen">Entfernen</button></div>` : ''}${coffeePanel(house,i,editable)}</article>`).join('')}</div>` : htmlText('<div class="empty-houses"><span>⌂</span><p>Noch kein Haus erfasst.</p><small>Verkäufe hinzufügen oder nur Bedienungen abrechnen.</small></div>');
 }
 
 function rememberBuiltGarden(label) {
@@ -317,7 +290,7 @@ function renderSales() {
   const target = document.querySelector('#sales-workspace');
   if (step === 'houses') {
     const h = editor.houseForm;
-    target.innerHTML = html`<div class="house-layout"><section class="panel house-form"><div class="form-title"><h2>${coffeeForm()?t('Kaffee verkaufen'):editor.editingHouse === null ? html`Verkauf ${mealHouses().length + 1}` : t('Verkauf bearbeiten')}</h2><div class="house-selector"><span>Hausnummer</span><button class="secondary house-picker-trigger" data-action="open-house-picker" aria-haspopup="dialog">${h.number ? houseLabel(h.number) : t('Haus wählen')}<small>${visibleGardenKind(h.number)==='built'?t('Garten gebaut'):visibleGardenKind(h.number)==='native'?t('Mit Garten'):t('Hausnummer auswählen')}</small></button></div></div><fieldset><legend>${coffeeForm()?t('1. Wer verkauft den Kaffee?'):t('1. Wer beliefert das Haus?')}</legend>${playerChoices()}</fieldset><fieldset><legend>2. Was wurde verkauft?</legend><div class="house-goods">${formGoods().map(([key,label,icon]) => html`<label><span>${icon} ${t(label)}</span><small class="goods-unit-price" data-goods-price="${key}">${goodsUnitPrice(key)}</small><div class="stepper"><button data-action="house-count" data-field="${key}" data-delta="-1" aria-label="${t(label)} weniger">−</button><input type="number" inputmode="numeric" min="0" max="1000000" step="1" required data-house="${key}" value="${h[key]}" aria-label="Anzahl ${t(label)}"><button data-action="house-count" data-field="${key}" data-delta="1" aria-label="${t(label)} mehr">+</button></div></label>`).join('')}</div>${coffeeForm()?htmlText('<p class="goods-price-note">Kaffee: ein Stück je passierter Filiale. Route am Brett bestimmen. Der Zielbetrieb verkauft keinen Kaffee. Kein Getränkemeilenstein.</p>'):htmlText('<p class="goods-price-note">Erlös je Stück inkl. Meilenstein- und Gartenbonus, ohne CFO.</p>')}</fieldset>${!coffeeForm()?html`<fieldset><legend>3. Welches Haus?</legend><div class="house-types">${[['normal','⌂',t('Ohne Garten'),t('Einfacher Stückpreis')],['garden','♧',t('Mit Garten'),t('Doppelter Stückpreis')]].map(([type,icon,label,hint]) => html`<button class="choice ${h.type === type ? 'selected' : ''}" data-action="house-type" data-type="${type}" aria-pressed="${h.type === type}" ${coffeeForm() || (type==='normal'&&visibleGardenKind(h.number)!=='none'&&!editableGarden(h.number)) || (type==='garden'&&isApartment(h.number))?'disabled':''}><span class="type-icon">${icon}</span><span>${t(label)}<small>${t(hint)}</small></span></button>`).join('')}</div>${coffeeForm()?htmlText('<p class="hint">Der Gartenstatus wird vom Essensverkauf dieses Hauses übernommen.</p>'):''}${isApartment(h.number)?htmlText('<p class="hint">Apartments können keinen Garten haben.</p>'):''}${editableGarden(h.number) ? htmlText('<p class="hint">In dieser Baurunde kannst du den Garten korrigieren. Die Änderung wird mit der Runde bestätigt; spätere Verkäufe dieses Hauses werden neu berechnet.</p>') : ''}</fieldset>`:''}<div class="house-price"><div><span>Verkauf inkl. Meilensteinen</span><strong id="house-income">${housePreview()}</strong><small>Trinkgeld und CFO folgen in Schritt 2.</small></div></div><div class="house-form-actions">${editor.editingHouse !== null || coffeeForm() ? htmlText('<button class="secondary" data-action="cancel-house">Abbrechen</button>') : ''}<button data-action="save-house">${coffeeForm()?t('Kaffee speichern'):editor.editingHouse !== null ? t('Verkauf speichern') : t('Haus übernehmen & nächstes')} →</button></div></section><aside class="house-sidebar">${priceComparison()}<div class="sidebar-heading"><h2>Diese Runde</h2><span>${mealHouses().length} ${mealHouses().length === 1 ? t('Haus') : t('Häuser')}</span></div>${houseList()}<div class="sidebar-total"><span>Warenumsatz inkl. Meilensteinen</span><strong>${money(editor.houses.reduce((sum, house) => sum + calculateHouse(house, editor.rows[house.player].milestones).total, 0))}</strong></div><button class="secondary" data-action="sales-step" data-step="extras">Essenszeit abschließen →</button></aside></div>`;
+    target.innerHTML = html`<div class="house-layout"><section class="panel house-form"><div class="form-title"><h2>${coffeeForm()?t('Kaffee verkaufen'):editor.editingHouse === null ? html`Verkauf ${mealHouses().length + 1}` : t('Verkauf bearbeiten')}</h2><div class="house-selector"><span>Hausnummer</span><button class="secondary house-picker-trigger" data-action="open-house-picker" aria-haspopup="dialog">${h.number ? houseLabel(h.number) : t('Haus wählen')}<small>${visibleGardenKind(h.number)==='built'?t('Garten gebaut'):visibleGardenKind(h.number)==='native'?t('Mit Garten'):t('Hausnummer auswählen')}</small></button></div></div><fieldset><legend>${coffeeForm()?t('1. Wer verkauft den Kaffee?'):t('1. Wer beliefert das Haus?')}</legend>${playerChoices()}</fieldset><fieldset><legend>2. Was wurde verkauft?</legend><div class="house-goods">${formGoods().map(([key,label,icon]) => html`<label><span>${icon} ${t(label)}</span><small class="goods-unit-price" data-goods-price="${key}">${goodsUnitPrice(key)}</small><div class="stepper"><button data-action="house-count" data-field="${key}" data-delta="-1" aria-label="${t(label)} weniger">−</button><input type="number" inputmode="numeric" min="0" max="1000000" step="1" required data-house="${key}" value="${h[key]}" aria-label="Anzahl ${t(label)}"><button data-action="house-count" data-field="${key}" data-delta="1" aria-label="${t(label)} mehr">+</button></div></label>`).join('')}</div>${coffeeFormButton()}${coffeeForm()?htmlText('<p class="goods-price-note">Kaffee: ein Stück je passierter Filiale. Route am Brett bestimmen. Der Zielbetrieb verkauft keinen Kaffee. Kein Getränkemeilenstein.</p>'):htmlText('<p class="goods-price-note">Erlös je Stück inkl. Meilenstein- und Gartenbonus, ohne CFO.</p>')}</fieldset>${!coffeeForm()?html`<fieldset><legend>3. Welches Haus?</legend><div class="house-types">${[['normal','⌂',t('Ohne Garten'),t('Einfacher Stückpreis')],['garden','♧',t('Mit Garten'),t('Doppelter Stückpreis')]].map(([type,icon,label,hint]) => html`<button class="choice ${h.type === type ? 'selected' : ''}" data-action="house-type" data-type="${type}" aria-pressed="${h.type === type}" ${coffeeForm() || (type==='normal'&&visibleGardenKind(h.number)!=='none'&&!editableGarden(h.number)) || (type==='garden'&&isApartment(h.number))?'disabled':''}><span class="type-icon">${icon}</span><span>${t(label)}<small>${t(hint)}</small></span></button>`).join('')}</div>${coffeeForm()?htmlText('<p class="hint">Der Gartenstatus wird vom Essensverkauf dieses Hauses übernommen.</p>'):''}${isApartment(h.number)?htmlText('<p class="hint">Apartments können keinen Garten haben.</p>'):''}${editableGarden(h.number) ? htmlText('<p class="hint">In dieser Baurunde kannst du den Garten korrigieren. Die Änderung wird mit der Runde bestätigt; spätere Verkäufe dieses Hauses werden neu berechnet.</p>') : ''}</fieldset>`:''}<div class="house-price"><div><span>Verkauf inkl. Meilensteinen</span><strong id="house-income">${housePreview()}</strong><small>Trinkgeld und CFO folgen in Schritt 2.</small></div></div><div class="house-form-actions">${editor.editingHouse !== null || coffeeForm() ? htmlText('<button class="secondary" data-action="cancel-house">Abbrechen</button>') : ''}<button data-action="save-house">${coffeeForm()?t('Kaffee speichern'):editor.editingHouse !== null ? t('Verkauf speichern') : t('Haus übernehmen & nächstes')} →</button></div></section><aside class="house-sidebar">${priceComparison()}<div class="sidebar-heading"><h2>Diese Runde</h2><span>${mealHouses().length} ${mealHouses().length === 1 ? t('Haus') : t('Häuser')}</span></div>${houseList()}<div class="sidebar-total"><span>Warenumsatz inkl. Meilensteinen</span><strong>${money(editor.houses.reduce((sum, house) => sum + calculateHouse(house, editor.rows[house.player].milestones).total, 0))}</strong></div><button class="secondary" data-action="sales-step" data-step="extras">Essenszeit abschließen →</button></aside></div>`;
   } else if (step === 'extras') {
     target.innerHTML = html`<div class="entry-grid">${game.players.map((p,i) => html`<article class="panel player-entry" style="--player-color:${p.color}"><h3>${playerName(p)}</h3>${roundMilestones(editor.rows[i],i)}${waitressField(editor.rows[i],i)}${cfoButton(editor.rows[i],i)}${roundCalculation(editor.rows[i],i)}</article>`).join('')}</div><div class="commit-bar"><button class="secondary" data-action="sales-step" data-step="houses">← Häuser</button><button data-action="sales-step" data-step="wages">Weiter zu den Löhnen →</button></div>`;
   } else if (step === 'wages') {
@@ -326,7 +299,7 @@ function renderSales() {
     const settlement = previewRound();
     target.innerHTML = html`<section class="panel summary-houses"><div class="sidebar-heading"><h2>Alle Hausverkäufe</h2><button class="secondary" data-action="add-house">+ Weiteres Haus</button></div>${houseList()}</section><div class="summary-heading"><h2>Rundenabrechnung pro Spieler</h2><div><button class="text-button" data-action="sales-step" data-step="extras">Bedienungen & CFO bearbeiten</button><button class="text-button" data-action="sales-step" data-step="wages">Löhne bearbeiten</button></div></div>${settlement.ended ? htmlText('<p class="round-warning">Zweiter Bankbruch: Alle Einnahmen werden ausgezahlt, Löhne entfallen.</p>') : ''}${bankNotice()}${renderReview()}<div class="commit-bar"><span>${editor.index === null ? t('Einnahmen und Löhne werden zusammen gebucht.') : t('Die Korrektur berechnet alle folgenden Kontostände neu.')}</span><button data-action="commit">${editor.index === null ? t('Runde bestätigen') : t('Änderung speichern')} ✓</button></div>`;
   }
-  app.insertAdjacentHTML('beforeend', renderHousePicker());
+  app.insertAdjacentHTML('beforeend', renderHousePicker()+(game.modules?.coffee?renderCoffeeDialog():''));
 }
 function bankNotice() {
   const removed=editor.rows.map(bankRemoval);
@@ -371,9 +344,9 @@ function refreshWages() {
   issues.textContent = settlement.issues.join(' ');
   issues.hidden = !settlement.issues.length;
 }
-function houseHasGoods() { return allGoods.some(([key]) => editor.houseForm[key] > 0); }
+function houseHasGoods() { return allGoods.some(([key]) => editor.houseForm[key] > 0)||editor.houseForm.coffees?.some(n=>n>0); }
 function validInputs() {
-  const invalid = app.querySelector('input:invalid');
+  const invalid = [...app.querySelectorAll('input:invalid')].find(input=>!input.closest('#coffee-dialog'));
   if (invalid) { invalid.setCustomValidity(t('Bitte eine gültige Zahl im angezeigten Bereich eingeben.')); invalid.reportValidity(); return false; }
   return true;
 }
@@ -399,9 +372,11 @@ function storeHouse() {
     editor.houses.forEach(saved=>{if(houseNumber(saved.number)===number) saved.type='garden';});
   }
   const order = editor.editingHouse === null ? Math.max(-1, ...editor.houses.map(h => h.order ?? 0)) + 1 : editor.houses[editor.editingHouse].order;
-  const saved = { ...house, order, number: house.number.trim() || html`Haus ${(order ?? editor.editingHouse) + 1}` };
+  const {coffees,...houseValues}=house;
+  const saved = { ...houseValues, order, number: house.number.trim() || html`Haus ${(order ?? editor.editingHouse) + 1}` };
   if (editor.editingHouse === null) editor.houses.push(saved);
   else editor.houses[editor.editingHouse] = saved;
+  if (coffees) coffees.forEach((quantity,i)=>setCoffeeQuantity(saved,i,quantity));
   editor.houseForm = newHouse();
   editor.editingHouse = null;
   syncHouseRows();
@@ -541,6 +516,9 @@ function checkEditor() {
   if (editor.index !== null && result.needsReserve && editor.index !== candidate.events.length - 1) throw new Error(t('Diese Änderung benötigt Reservekarten. Bitte zuerst die späteren Buchungen zurücknehmen.'));
   return candidate;
 }
+app.addEventListener('cancel',event=>{
+  if (event.target.id==='coffee-dialog'&&editor) editor.coffeeDialog=null;
+},true);
 app.addEventListener('input', event => {
   event.target.setCustomValidity?.('');
   const input = event.target;
@@ -549,14 +527,8 @@ app.addEventListener('input', event => {
     game.players[+input.dataset.player].milestones[input.dataset.achievement] = input.checked;
     save(); return;
   }
-  if ((input.dataset.houseCoffee!==undefined || input.dataset.houseCoffeePrice!==undefined) && editor?.wizard) {
-    if (!input.validity.valid || !Number.isFinite(input.valueAsNumber)) return;
-    const price=input.dataset.houseCoffeePrice!==undefined;
-    const parent=editor.houses[+(price?input.dataset.houseCoffeePrice:input.dataset.houseCoffee)],player=+input.dataset.player;
-    const step=editor.step,cards=[...app.querySelectorAll('[data-house-card]')].map(card=>({card,house:editor.houses[+card.dataset.houseCard]}));
-    setInlineCoffee(parent,player,price?{price:input.valueAsNumber}:{quantity:input.valueAsNumber});
-    if (step!==editor.step) render();
-    else refreshInlineCoffee(cards,input);
+  if (input.dataset.dialogCoffee!==undefined && editor?.coffeeDialog) {
+    if (input.validity.valid&&Number.isFinite(input.valueAsNumber)) editor.coffeeDialog.quantities[+input.dataset.dialogCoffee]=input.valueAsNumber;
     return;
   }
   if (input.dataset.demand !== undefined && editor?.wizard) {
@@ -575,6 +547,13 @@ app.addEventListener('input', event => {
     editor.rows[i].price = input.valueAsNumber;
     if (editor.houseForm.player === i) {
       editor.houseForm.price = input.valueAsNumber;
+    }
+    if (game.modules?.coffee) {
+      editor.houses.filter(h=>isCoffeeSale(h)&&h.player===i).forEach(h=>{h.price=input.valueAsNumber;});
+      syncHouseRows();
+      const list=app.querySelector('.house-list');
+      if (list) list.outerHTML=houseList();
+      app.querySelector('.sidebar-total strong').textContent=money(editor.houses.reduce((sum,h)=>sum+calculateHouse(h,editor.rows[h.player].milestones).total,0));
     }
     refreshHousePrices(); persistDraft(); return;
   }
@@ -766,18 +745,33 @@ app.addEventListener('click', async event => {
         editor.returnToSummary = false;
         persistDraft(); window.scrollTo(0,0); break;
       }
-      case 'add-coffee': {
-        if (!game.modules?.coffee) return;
-        const parent=editor.houses[+button.dataset.index];
-        if (!parent || isCoffeeSale(parent)) return;
-        editor.openCoffee ??= new Set();editor.openCoffee.add(parent.number);break;
-      }
-      case 'inline-coffee-count': case 'inline-coffee-price': {
+      case 'open-coffee-dialog':
         if (!validInputs()) return;
-        const parent=editor.houses[+button.dataset.index], player=+button.dataset.player;
-        if (button.dataset.action==='inline-coffee-count') setInlineCoffee(parent,player,{quantity:Math.max(0,Math.min(1000000,coffeeQuantity(parent,player)+ +button.dataset.delta))});
-        else setInlineCoffee(parent,player,{price:Math.max(editor.rows[player].milestones.price?1:0,Math.min(100,coffeePrice(parent,player)+ +button.dataset.delta))});
-        break;
+        openCoffeeDialog(button.dataset.index===undefined?null:+button.dataset.index);return;
+      case 'coffee-dialog-count': {
+        const input=app.querySelector('[data-dialog-coffee="'+button.dataset.player+'"]');
+        if (!input.validity.valid) {input.reportValidity();return;}
+        input.value=Math.max(0,Math.min(1000000,input.valueAsNumber + +button.dataset.delta));
+        input.dispatchEvent(new Event('input',{bubbles:true}));return;
+      }
+      case 'cancel-coffee-dialog':
+        app.querySelector('#coffee-dialog').close();editor.coffeeDialog=null;return;
+      case 'confirm-coffee-dialog': {
+        const invalid=app.querySelector('#coffee-dialog input:invalid');
+        if (invalid) {invalid.reportValidity();return;}
+        const state=editor.coffeeDialog;
+        if (!state) return;
+        const quantities=[...app.querySelectorAll('[data-dialog-coffee]')].map(input=>integer(input.valueAsNumber));
+        if (state.index===null) editor.houseForm.coffees=quantities;
+        else {
+          const parent=editor.houses[state.index];
+          const editingParent=editor.editingHouse===null?null:editor.houses[editor.editingHouse];
+          quantities.forEach((quantity,i)=>setCoffeeQuantity(parent,i,quantity));
+          if (editingParent) editor.editingHouse=editor.houses.indexOf(editingParent);
+          syncHouseRows();
+          if (editor.step==='summary'&&previewRound().needsReserve) {editor.step='wages';editor.wagesReviewed=false;}
+        }
+        editor.coffeeDialog=null;persistDraft();break;
       }
       case 'add-house':
         editor.houseForm = newHouse(); editor.editingHouse = null; editor.returnToSummary = true; editor.step = 'houses'; persistDraft(); window.scrollTo(0,0); break;
