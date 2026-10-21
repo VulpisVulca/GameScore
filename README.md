@@ -73,6 +73,10 @@ Achievements cover CFO and tip earnings, quantities and revenue for every produc
 
 Setup provides two independent switches. **New Districts** adds houses 21 and 22 without gardens and house 25 with a native garden. **Apartments** adds π and 9¾; apartments cannot have gardens. Both options can be combined with either milestone set. Selections are saved with the game and survive export/import and offline reloads. The house picker shows only enabled modules. Apartment identities and their order between houses 3–4 and 9–10 are respected in the achievements. Gardens built at houses 21 or 22 retain the usual construction-round correction. Older saves without module settings keep the 19-house base selection.
 
+### Lobbyist
+
+Enable **Lobbyist** during setup to track parks beside houses and apartments. The **Adjacent park** button is independent of the garden selection: a park makes the base item price 2×, or 3× together with a garden. Multiple adjacent parks do not stack. Milestone bonuses, tips and Fry Chef bonuses are not multiplied; the CFO applies to total income as usual. Coffee uses the same house multiplier. Unit-price previews, recorded sales and statistics reflect the calculation. A small tree marks affected houses in the picker and sale cards. Parks persist for the game and survive offline reloads and export/import. Correct a mistaken park by editing the house in its construction round; later food and coffee sales are recalculated while gardens remain intact. Apartments can have an adjacent park but cannot have a garden. Roads and park adjacency are resolved on the physical board. The nonfinancial First Lobbyist Used milestone is not tracked.
+
 ### Fry Chef
 
 Enable **Fry Chef** during setup. Below each player’s Waitresses, enter the number of active Fry Chefs using +/−. Each chef adds $10 per house or apartment served with food or drinks, regardless of item quantity. Gardens do not multiply this bonus, and coffee sales do not trigger it. The CFO includes the bonus once in the round total. For example, three burgers sold to one house with two Fry Chefs earn a $20 bonus. The calculation, review, log and income charts show Fry Chef income separately. Drafts, export/import and historical corrections retain the entered counts. Salaries still use the actual employee count you enter. Games without this module keep their existing flow.
@@ -178,6 +182,10 @@ Achievements zeichnen unter anderem CFO- und Trinkgeldeinnahmen, Menge und Umsat
 ### Zusätzliche Häuser
 
 Im Setup gibt es zwei unabhängige Schalter. **Neue Bezirke** ergänzt die Häuser 21 und 22 ohne Garten sowie 25 mit festem Garten. **Apartments** ergänzt π und 9¾; Apartments können keinen Garten haben. Beide Optionen lassen sich mit jedem Meilensteinsatz kombinieren. Die Auswahl wird in der Partie gespeichert und bleibt bei Export/Import und Offline-Neuladen erhalten. Die Hausauswahl zeigt nur aktivierte Module. Apartments gelten für Achievements als eigene Häuser und werden zwischen 3–4 beziehungsweise 9–10 eingeordnet. Bei Haus 21 und 22 gebaute Gärten bleiben in ihrer Baurunde korrigierbar. Alte Spielstände ohne Moduleinstellungen behalten die 19 Häuser des Grundspiels.
+
+### Lobbyist
+
+Aktiviere **Lobbyist** bei der Spielerstellung, um Parks neben Häusern und Apartments zu erfassen. **Park angrenzend** ist unabhängig von der Gartenwahl: Mit Park gilt der 2-fache, mit Garten und Park der 3-fache Grundpreis. Mehrere angrenzende Parks bringen keinen weiteren Bonus. Meilensteinboni, Trinkgeld und Friteusenkoch-Boni werden nicht vervielfacht; der CFO gilt wie gewohnt für die gesamten Einnahmen. Kaffee verwendet denselben Hausfaktor. Stückpreisvorschau, Verkäufe und Statistik berücksichtigen die Berechnung. Ein kleiner Baum markiert betroffene Häuser in der Auswahl und den Verkaufskacheln. Parks bleiben für die Partie gespeichert, auch offline und nach Export/Import. Einen falsch gesetzten Park korrigierst du beim Bearbeiten des Hauses in seiner Baurunde; spätere Essens- und Kaffeeverkäufe werden neu berechnet, der Garten bleibt bestehen. Apartments können an einem Park liegen, aber keinen Garten haben. Straßen und die Nachbarschaft zu Parks bestimmt ihr am Brett. Der Meilenstein „Erster Lobbyist eingesetzt“ hat keine finanzielle Wirkung und wird nicht erfasst.
 
 ### Friteusenkoch
 

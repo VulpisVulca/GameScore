@@ -604,3 +604,6 @@ body.fcm-theme{--green:#225b5e;--muted:#59656a;--line:#c9caba;--paper:#fffcf2;--
 }
 
 .fcm-theme .fry-chef-field{display:block;margin-top:14px}
+
+.fcm-theme .park-toggle{display:flex;align-items:center;gap:12px;width:100%;margin-top:10px}
+.fcm-theme .park-marker{font-size:16px;vertical-align:middle}

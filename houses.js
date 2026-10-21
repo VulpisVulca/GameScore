@@ -103,3 +103,39 @@ export function removeBuiltGarden(game,label,round) {
   }
   return next;
 }
+
+// Parks affect a house independently of its garden, including apartments.
+export const houseMultiplier = house => (house.type==='garden'?2:1)+(house.park?1:0);
+export function builtParkOrigins(game) {
+  const origins={...game.builtParkRounds};
+  const record=(house,round)=>{const id=houseId(house.number);if(house.park && houseOptions(game).includes(id))origins[id]=Math.min(origins[id] ?? Infinity,round);};
+  for(const event of game.events)if(event.type==='sale')for(const row of event.rows)for(const house of row.houses || [])record(house,event.round);
+  const draft=game.draft?.completion || (game.draft?.type==='sale'?game.draft:null);
+  const round=Math.floor(game.events.length/2)+1;
+  if(draft){for(const row of draft.rows || [])for(const house of row.houses || [])record(house,round);if(draft.houseForm)record(draft.houseForm,round);}
+  for(const id of game.builtParks || [])origins[id] ??= round;
+  return origins;
+}
+export const builtParkHouses = game => houseOptions(game).filter(id=>Object.hasOwn(builtParkOrigins(game),id));
+export const parkAtRound = (game,label,round) => game.modules?.lobbyist===true && (builtParkOrigins(game)[houseId(label)] ?? Infinity)<=round;
+export const canRemoveBuiltPark = (game,label,round) => parkAtRound(game,label,round) && builtParkOrigins(game)[houseId(label)]===round;
+function changePark(game,label,round,enabled) {
+  const id=houseId(label);
+  if(!game.modules?.lobbyist || !houseOptions(game).includes(id))throw new Error('Invalid park house.');
+  const next=structuredClone(game);
+  next.builtParkRounds=builtParkOrigins(game);
+  if(enabled)next.builtParkRounds[id]=Math.min(next.builtParkRounds[id] ?? Infinity,round);
+  else delete next.builtParkRounds[id];
+  next.builtParks=houseOptions(game).filter(value=>Object.hasOwn(next.builtParkRounds,value));
+  const correct=house=>{if(houseId(house.number)===id){const changed=Boolean(house.park)!==enabled;house.park=enabled;return changed;}return false;};
+  const correctRows=rows=>{let changed=false;for(const row of rows)for(const house of row.houses || [])if(correct(house))changed=true;return changed;};
+  for(const event of next.events)if(event.type==='sale' && event.round>=round && correctRows(event.rows))event.updatedAt=new Date().toISOString();
+  const draft=next.draft?.completion || (next.draft?.type==='sale'?next.draft:null);
+  if(draft){correctRows(draft.rows);if(draft.houseForm)correct(draft.houseForm);}
+  return next;
+}
+export const addBuiltPark = (game,label,round) => changePark(game,label,round,true);
+export function removeBuiltPark(game,label,round) {
+  if(!canRemoveBuiltPark(game,label,round))throw new Error('Park can only be removed in its construction round.');
+  return changePark(game,label,round,false);
+}

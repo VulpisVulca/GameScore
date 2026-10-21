@@ -1,5 +1,5 @@
 import { t, html } from './i18n.js';
-import { houseOptions, houseId, isNativeGarden, isApartment } from './houses.js';
+import { houseOptions, houseId, isNativeGarden, isApartment, houseMultiplier } from './houses.js';
 export const GOODS = [
   ['burger', 'Burger', '🍔'], ['pizza', 'Pizza', '🍕'],
   ['beer', 'Bier · braun', '🟤'], ['lemonade', 'Limonade · gelb', '🟡'], ['soda', 'Softdrinks · rot', '🔴']
@@ -14,7 +14,7 @@ export function validateCoffeeSales(rows) {
   for (const house of houses.filter(isCoffeeSale)) {
     const meals=houses.filter(other=>!isCoffeeSale(other)&&sameHouse(other.number,house.number));
     if (!meals.length) throw new Error(t('Kaffee benötigt einen erfassten Essensverkauf für dieses Haus.'));
-    if (meals.some(meal=>meal.type!==house.type)) throw new Error(t('Kaffee und Essen müssen denselben Gartenstatus haben.'));
+    if (meals.some(meal=>meal.type!==house.type || Boolean(meal.park)!==Boolean(house.park))) throw new Error(t('Kaffee und Essen müssen denselben Garten- und Parkstatus haben.'));
   }
 }
 export const MILESTONES = [
@@ -48,6 +48,7 @@ export function emptySale(milestones = {}) {
 }
 export function calculateHouse(house, milestones = {}) {
   if (!house || !['normal', 'garden'].includes(house.type) || typeof house.number !== 'string' || house.number.length > 24) throw new Error(t('Bitte ein gültiges Haus auswählen.'));
+  if (house.park!==undefined && typeof house.park!=='boolean') throw new Error(t('Ungültiger Parkstatus.'));
   if (isApartment(house.number) && house.type==='garden') throw new Error(t('Apartments können keinen Garten haben.'));
   if (house.order !== undefined) integer(house.order);
   const quantity = GOODS.reduce((sum, [key]) => sum + integer(house[key]), 0);
@@ -56,8 +57,8 @@ export function calculateHouse(house, milestones = {}) {
   if (quantity && coffee) throw new Error(t('Kaffee bitte als eigenen Verkauf erfassen.'));
   const price = integer(house.price, 100) - (milestones.price ? 1 : 0);
   if (price < 0) throw new Error(t('Der Stückpreis darf nach dem Meilenstein nicht negativ sein.'));
-  const revenue = quantity * price * (house.type === 'garden' ? 2 : 1);
-  const coffeeRevenue = coffee * price * (house.type === 'garden' ? 2 : 1);
+  const revenue = quantity * price * houseMultiplier(house);
+  const coffeeRevenue = coffee * price * houseMultiplier(house);
   const bonus = (milestones.burger ? house.burger * 5 : 0) + (milestones.pizza ? house.pizza * 5 : 0) + (milestones.drink ? (house.beer + house.lemonade + house.soda) * 5 : 0);
   return { quantity, coffee, revenue, coffeeRevenue, bonus, total: revenue + coffeeRevenue + bonus };
 }
@@ -192,7 +193,11 @@ export function roundSettlement(game, rows, wages, index = null, reserves = game
 }
 export function validateGame(game) {
   if (!game || game.version !== 1 || !Array.isArray(game.players) || game.players.length < 2 || game.players.length > 6) throw new Error(t('Kein gültiger GameScores-Spielstand.'));
-  if (game.modules!==undefined && (!game.modules || typeof game.modules!=='object' || Array.isArray(game.modules) || Object.entries(game.modules).some(([key,value])=>!['newDistricts','apartments','coffee','fryChef'].includes(key)||typeof value!=='boolean'))) throw new Error(t('Ungültige Erweiterungsmodule.'));
+  if (game.modules!==undefined && (!game.modules || typeof game.modules!=='object' || Array.isArray(game.modules) || Object.entries(game.modules).some(([key,value])=>!['newDistricts','apartments','coffee','fryChef','lobbyist'].includes(key)||typeof value!=='boolean'))) throw new Error(t('Ungültige Erweiterungsmodule.'));
+  const options=houseOptions(game);
+  if (game.builtParks!==undefined && (!Array.isArray(game.builtParks) || new Set(game.builtParks).size!==game.builtParks.length || game.builtParks.some(id=>!options.includes(id)))) throw new Error(t('Ungültige Parks.'));
+  if (game.builtParkRounds!==undefined && (!game.builtParkRounds || typeof game.builtParkRounds!=='object' || Array.isArray(game.builtParkRounds) || Object.entries(game.builtParkRounds).some(([id,round])=>!options.some(option=>String(option)===id) || !Number.isSafeInteger(round) || round<1 || round>10001))) throw new Error(t('Ungültige Park-Baurunden.'));
+  if (!game.modules?.lobbyist && ((game.builtParks?.length ?? 0)>0 || Object.keys(game.builtParkRounds || {}).length)) throw new Error(t('Das Lobbyist-Modul ist nicht aktiviert.'));
   const gardenNumbers=houseOptions(game).filter(number=>typeof number==='number'&&!isNativeGarden(number));
   if (game.milestoneSet!==undefined && !['base','new'].includes(game.milestoneSet)) throw new Error(t('Ungültiger Meilensteinsatz.'));
   if (game.builtGardens !== undefined && (!Array.isArray(game.builtGardens) || game.builtGardens.length > gardenNumbers.length || new Set(game.builtGardens).size !== game.builtGardens.length || game.builtGardens.some(number => !gardenNumbers.includes(number)))) throw new Error(t('Ungültige gebaute Gärten.'));
@@ -236,8 +241,12 @@ export function validateGame(game) {
     }
     if (game.draft.reserves !== undefined && game.draft.reserves !== null && (!Array.isArray(game.draft.reserves) || game.draft.reserves.length !== game.players.length || game.draft.reserves.some(n => ![100,200,300].includes(n)))) throw new Error(t('Ungültige Reservekarten im Entwurf.'));
     if (game.draft.removedGardens !== undefined && (!Array.isArray(game.draft.removedGardens) || game.draft.removedGardens.length>gardenNumbers.length || new Set(game.draft.removedGardens).size!==game.draft.removedGardens.length || game.draft.removedGardens.some(number=>!gardenNumbers.includes(number)))) throw new Error(t('Ungültige Gartenkorrektur.'));
+    if (game.draft.removedParks!==undefined && (!Array.isArray(game.draft.removedParks) || new Set(game.draft.removedParks).size!==game.draft.removedParks.length || game.draft.removedParks.some(id=>!options.includes(id)) || (game.draft.removedParks.length && !game.modules?.lobbyist))) throw new Error(t('Ungültige Parkkorrektur.'));
     if (game.draft.houseForm !== undefined) {
       const h = game.draft.houseForm;
+      if(h?.park!==undefined && typeof h.park!=='boolean') throw new Error(t('Ungültiger Parkstatus.'));
+      if(h?.park && !options.includes(houseId(h.number))) throw new Error(t('Ungültiges Haus für einen Park.'));
+      if(h?.park && !game.modules?.lobbyist) throw new Error(t('Das Lobbyist-Modul ist nicht aktiviert.'));
       if (type !== 'sale' || !h || typeof h.number !== 'string' || h.number.length > 24 || !['normal','garden'].includes(h.type)) throw new Error(t('Ungültiger Hausentwurf.'));
       if (isApartment(h.number)&&h.type==='garden') throw new Error(t('Apartments können keinen Garten haben.'));
       if (h.player !== null) integer(h.player, game.players.length - 1);
@@ -254,7 +263,7 @@ export function validateGame(game) {
     if (game.draft.completion !== undefined) {
       const completion = game.draft.completion;
       if (type !== 'salary' || !completion || game.events.at(-1)?.type !== 'sale') throw new Error(t('Ungültiger Rundenentwurf.'));
-      validateGame({...game,events:game.events.slice(0,-1),draft:{type:'sale',rows:completion.rows,houseForm:completion.houseForm,reserves:completion.reserves,wages:game.draft.rows,removedGardens:completion.removedGardens}});
+      validateGame({...game,events:game.events.slice(0,-1),draft:{type:'sale',rows:completion.rows,houseForm:completion.houseForm,reserves:completion.reserves,wages:game.draft.rows,removedGardens:completion.removedGardens,removedParks:completion.removedParks}});
     }
   }
   account(game);
@@ -267,6 +276,8 @@ function validateMilestones(m,newSet) {
   if (m.newSet && (MILESTONES.some(([key])=>m[key]) || NEW_MILESTONES.some(([key])=>typeof m[key]!=='boolean'))) throw new Error(t('Ungültige Meilensteine.'));
 }
 function validateCoffeeModule(row,game) {
+  if(row.houses?.some(h=>h.park && !houseOptions(game).includes(houseId(h.number)))) throw new Error(t('Ungültiges Haus für einen Park.'));
+  if (!game.modules?.lobbyist && row.houses?.some(h=>h.park)) throw new Error(t('Das Lobbyist-Modul ist nicht aktiviert.'));
   integer(row.fryChefs ?? 0);
   if ((row.fryChefs ?? 0)>0 && !game.modules?.fryChef) throw new Error(t('Das Friteusenkoch-Modul ist nicht aktiviert.'));
   if ((row.coffee ?? 0)>0 && !game.modules?.coffee) throw new Error(t('Das Kaffeemodul ist nicht aktiviert.'));

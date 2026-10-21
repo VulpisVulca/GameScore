@@ -1,6 +1,6 @@
 import { t, html } from './i18n.js';
 import { GOODS, allGoods, isCoffeeSale, calculateSale, salaryRate, marketingIncome } from './rules.js';
-import { houseId, houseOrder } from './houses.js';
+import { houseId, houseOrder, houseMultiplier } from './houses.js';
 
 // Rebuild from the ledger so historical corrections also update every chart.
 export function gameStatistics(game) {
@@ -32,9 +32,9 @@ export function gameStatistics(game) {
         const goods = Object.fromEntries(allGoods.map(([key]) => [key,0]));
         if (Array.isArray(row.houses)) {
           for (const house of row.houses) {
-            const price = (house.price - (row.milestones.price ? 1 : 0)) * (house.type === 'garden' ? 2 : 1);
+            const price = (house.price - (row.milestones.price ? 1 : 0)) * houseMultiplier(house);
             const quantity = GOODS.reduce((sum,[key])=>sum+house[key],0)+(house.coffee ?? 0);
-            p.discount += quantity * Math.max(0,10-(house.price-(row.milestones.price?1:0))) * (house.type==='garden'?2:1);
+            p.discount += quantity * Math.max(0,10-(house.price-(row.milestones.price?1:0))) * houseMultiplier(house);
             for (const [key] of allGoods) goods[key] += (house[key] ?? 0) * price;
             const number=houseId(house.number);
             const label=house.number.trim();
