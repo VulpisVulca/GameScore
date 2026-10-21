@@ -4,7 +4,7 @@ import { houseNumber } from './houses.js';
 
 // Rebuild from the ledger so historical corrections also update every chart.
 export function gameStatistics(game) {
-  const players = game.players.map(p => ({ ...p, income:0, wages:0, balance:0, tips:0, cfo:0, quantity:0, houses:0, gardens:0, bonus:0, discount:0,
+  const players = game.players.map(p => ({ ...p, income:0, wages:0, balance:0, tips:0, cfo:0, quantity:0, houses:0, gardens:0, bonus:0, discount:0, saleRounds:[],
     goods:Object.fromEntries(GOODS.map(([key]) => [key,{quantity:0,income:0}])) }));
   const rounds = [];
   const visits=game.players.map(()=>new Map());
@@ -55,6 +55,7 @@ export function gameStatistics(game) {
         }
         p.income += c.total; p.balance += c.total; p.tips += c.tips; p.cfo += c.cfo;
         p.quantity += c.quantity; p.bonus += c.bonus;
+        if (c.quantity>0) p.saleRounds.push(event.round);
         p.gardenQuantity=(p.gardenQuantity || 0)+row.garden;
         round.players.push({income:c.total,wages:0,net:c.total,balance:p.balance});
       });
@@ -84,6 +85,37 @@ export function gameAwards(stats) {
     result.push({title,value:best,unit,detail,winners:values.flatMap((value,i) => value === best ? [i] : [])});
   }
   const {players,rounds} = stats;
+  const finalBest=Math.max(0,...players.map(p=>p.balance));
+  const champions=players.flatMap((p,i)=>p.balance===finalBest?[i]:[]);
+  if (players.length>=2 && finalBest>0) {
+    const runnerUp=[...players.map(p=>p.balance)].sort((a,b)=>b-a)[1];
+    const gap=finalBest-runnerUp;
+    if (gap*20<=finalBest) result.push({title:t('Fotofinish'),detail:t('Abstand zu Platz 2: höchstens 5 % des Gewinnervermögens'),
+      value:gap,unit:'$',winners:champions});
+  }
+  const comebacks=champions.flatMap(player=>rounds.map(round=>({player,round:round.number,
+    value:Math.max(...round.players.map(p=>p.balance))-round.players[player].balance})));
+  const comebackBest=Math.max(0,...comebacks.map(record=>record.value));
+  if (comebackBest>0) {
+    const records=comebacks.filter(record=>record.value===comebackBest);
+    result.push({title:t('Comeback des Abends'),detail:t('Größten Rückstand am Rundenende nach Löhnen aufgeholt und die Partie gewonnen'),
+      value:comebackBest,unit:'$',winners:[...new Set(records.map(record=>record.player))],rounds:[...new Set(records.map(record=>record.round))]});
+  }
+  const streaks=players.flatMap((p,player)=>{
+    let run=[];
+    const records=[];
+    for (const round of p.saleRounds) {
+      if (round===run.at(-1)+1) run.push(round);
+      else {run=[round];records.push({player,rounds:run});}
+    }
+    return records.map(record=>({...record,value:record.rounds.length}));
+  });
+  const streakBest=Math.max(0,...streaks.map(record=>record.value));
+  if (streakBest>=2) {
+    const records=streaks.filter(record=>record.value===streakBest);
+    result.push({title:t('Dauerbrenner'),detail:t('Längste Serie aufeinanderfolgender Runden mit Warenverkäufen, mindestens zwei'),value:streakBest,unit:t('Runden'),
+      winners:[...new Set(records.map(record=>record.player))],rounds:[...new Set(records.flatMap(record=>record.rounds))].sort((a,b)=>a-b)});
+  }
   if (stats.firstSale) result.push({title:t('Erster Verkauf des Spiels'),detail:t('Erster Warenverkauf in Hausnummern-Reihenfolge'),
     value:stats.firstSale.number,house:stats.firstSale.number,winners:stats.firstSale.winners,rounds:[stats.firstSale.round]});
   award(t('Finanzgenie'),players.map(p => p.cfo),'$',t('Meistes Geld mit CFO'));

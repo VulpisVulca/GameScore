@@ -1,5 +1,11 @@
 // German source texts are stable translation keys. {0}, {1}, … are values.
 export const en = {
+  'Dauerbrenner':'Consistent seller',
+  'Längste Serie aufeinanderfolgender Runden mit Warenverkäufen, mindestens zwei':'Longest streak of consecutive rounds with product sales, at least two',
+  'Fotofinish':'Photo finish',
+  'Abstand zu Platz 2: höchstens 5 % des Gewinnervermögens':'Gap to second place: at most 5% of the winner’s final money',
+  'Comeback des Abends':'Comeback of the evening',
+  'Größten Rückstand am Rundenende nach Löhnen aufgeholt und die Partie gewonnen':'Overcame the largest deficit at a round end after salaries and won the game',
   'Größter Preisnachlass':'Largest cumulative discount',
   'Kumulierte Rabatte gegenüber 10 $ pro Ware, inklusive Preis-Meilenstein und doppeltem Rabatt bei Gärten':'Cumulative discounts against $10 per product, including the pricing milestone and double discounts at garden houses',
   'Erster Verkauf des Spiels':'First sale of the game',

@@ -9,6 +9,68 @@ const players = [{name:'Alex',color:'#b34335'},{name:'Kim',color:'#336f9b'}];
 const game = events => ({players,events});
 const house = extra => ({player:0,number:'7',type:'normal',price:10,burger:0,pizza:0,beer:0,lemonade:0,soda:0,...extra});
 
+const saleFor = (round,amounts) => ({type:'sale',round,rows:amounts.map(amount=>({...emptySale(),price:1,burger:amount}))});
+const findAward = (g,title) => gameAwards(gameStatistics(g)).find(a=>a.title===title);
+
+test('Consistent seller counts consecutive product-selling rounds, resets on tip-only rounds, and shares ties', () => {
+  const g=game([saleFor(1,[1,1]),saleFor(2,[1,1]),saleFor(3,[0,1]),saleFor(4,[1,0]),saleFor(5,[1,1]),saleFor(6,[1,1])]);
+  g.events[2].rows[0].waitresses=3;
+  const streak=findAward(g,'Dauerbrenner');
+  assert.equal(streak.value,3);
+  assert.deepEqual(streak.winners,[0,1]);
+  assert.deepEqual(streak.rounds,[1,2,3,4,5,6]);
+  g.events[4].rows[0].burger=0;
+  assert.deepEqual(findAward(g,'Dauerbrenner').winners,[1]);
+  assert.equal(findAward(game([saleFor(1,[1,0]),saleFor(3,[1,0])]),'Dauerbrenner'),undefined);
+  assert.equal(findAward(game([saleFor(1,[1,0])]),'Dauerbrenner'),undefined);
+  try {
+    setLanguage('en');
+    assert.match(renderAwards(g),/Consistent seller/);
+    assert.match(renderAwards(g),/consecutive rounds with product sales/);
+  } finally {setLanguage('de');}
+});
+
+test('Photo finish uses the final balance after salaries, includes the exact 5% boundary and shares tied wins', () => {
+  const g=game([saleFor(1,[400,390])]);
+  assert.equal(findAward(g,'Fotofinish').value,10);
+  assert.deepEqual(findAward(g,'Fotofinish').winners,[0]);
+  g.events.push({type:'salary',round:1,rows:[4,0]});
+  assert.equal(findAward(g,'Fotofinish').value,10);
+  assert.deepEqual(findAward(g,'Fotofinish').winners,[1]);
+  assert.equal(findAward(game([saleFor(1,[400,380])]),'Fotofinish').value,20);
+  assert.equal(findAward(game([saleFor(1,[400,379])]),'Fotofinish'),undefined);
+  assert.equal(findAward(game([saleFor(1,[0,0])]),'Fotofinish'),undefined);
+  const tie=findAward(game([saleFor(1,[100,100])]),'Fotofinish');
+  assert.equal(tie.value,0);
+  assert.deepEqual(tie.winners,[0,1]);
+});
+
+test('Comeback considers only eventual winners and uses their largest round-end deficit after salaries', () => {
+  const g=game([saleFor(1,[100,150]),{type:'salary',round:1,rows:[10,0]},saleFor(2,[150,0])]);
+  const comeback=findAward(g,'Comeback des Abends');
+  assert.equal(comeback.value,100);
+  assert.deepEqual(comeback.winners,[0]);
+  assert.deepEqual(comeback.rounds,[1]);
+  g.events[1].rows=[0,30];
+  assert.equal(findAward(g,'Comeback des Abends'),undefined); // Sales alone suggested a deficit; after wages there was none.
+  assert.equal(findAward(game([saleFor(1,[100,50]),saleFor(2,[100,0])]),'Comeback des Abends'),undefined);
+});
+
+test('Tied final winners share a comeback record and old aggregate entries remain usable', () => {
+  const g={players:[...players,{name:'Sam',color:'#4e8052'}],events:[saleFor(1,[0,0,80]),saleFor(2,[100,100,0])]};
+  const comeback=findAward(g,'Comeback des Abends');
+  assert.equal(comeback.value,80);
+  assert.deepEqual(comeback.winners,[0,1]);
+  assert.match(renderAwards(g),/Fotofinish/);
+  try {
+    setLanguage('en');
+    const html=renderAwards(g);
+    assert.match(html,/Photo finish/);
+    assert.match(html,/Comeback of the evening/);
+    assert.match(html,/after salaries/);
+  } finally {setLanguage('de');}
+});
+
 test('Discounts accumulate per product and house, including price milestone and gardens, without offsetting with higher prices', () => {
   const configs=[emptySale({price:true,burger:true}),{...emptySale(),cfo:true,waitresses:2}];
   const g=game([{type:'sale',round:1,rows:houseRows(configs,[
