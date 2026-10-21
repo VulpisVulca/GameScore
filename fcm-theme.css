@@ -560,3 +560,18 @@ body.fcm-theme{--green:#225b5e;--muted:#59656a;--line:#c9caba;--paper:#fffcf2;--
 .fcm-theme .module-settings {flex-wrap:wrap;gap:.5rem;margin-top:.6rem}
 .fcm-theme .house-actions {flex-wrap:wrap;gap:4px}
 .fcm-theme .house-actions .coffee-house-action {margin-right:auto}
+.fcm-theme .house-coffee {flex:0 0 100%;min-width:0;border-top:1px solid #c4ceb9;padding-top:10px}
+.fcm-theme .house-coffee-heading,.fcm-theme .house-coffee-total {display:flex;align-items:center;justify-content:space-between;gap:8px}
+.fcm-theme .house-coffee-heading small {font-size:13px}
+.fcm-theme .house-coffee-player {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 10px;padding:10px 0;border-bottom:1px solid #dce0d2}
+.fcm-theme .house-coffee-player>strong {overflow-wrap:anywhere}
+.fcm-theme .house-coffee-income {font-size:21px;white-space:nowrap}
+.fcm-theme .house-coffee-controls {grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.fcm-theme .house-coffee-controls label {min-width:0;font-size:14px}
+.fcm-theme .house-coffee-controls label>span {display:block;margin-bottom:4px}
+.fcm-theme .house-coffee-controls .stepper {width:100%;min-width:0}
+.fcm-theme .house-coffee-controls .stepper input {min-width:0;width:100%;font-size:19px}
+.fcm-theme .house-coffee-controls small {display:block;margin-top:3px;font-size:13px}
+.fcm-theme .house-coffee-total {padding-top:10px;font-size:14px}
+.fcm-theme .house-coffee-total strong {font-size:22px;white-space:nowrap}
+.fcm-theme .house-coffee .hint {margin:8px 0 0;font-size:13px}

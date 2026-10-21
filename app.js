@@ -1,7 +1,7 @@
 import { houseOptions, houseId, isApartment, gardenKind, houseNumber, builtGardenNumbers, builtGardenOrigins, canRemoveBuiltGarden, removeBuiltGarden, gardenKindAtRound } from './houses.js';
 import { t, html, htmlText, locale, getLanguage, setLanguage } from './i18n.js';
 import { renderStatistics, renderAwards } from './statistics-view.js';
-import { GOODS, COFFEE, allGoods, isCoffeeSale, sameHouse, milestoneList, emptyMilestones, salaryRate, marketingIncome, bankRemoval, COLORS, emptySale, calculateSale, calculateHouse, houseRows, account, roundSettlement, validateGame } from './rules.js';
+import { integer, GOODS, COFFEE, allGoods, isCoffeeSale, sameHouse, milestoneList, emptyMilestones, salaryRate, marketingIncome, bankRemoval, COLORS, emptySale, calculateSale, calculateHouse, houseRows, account, roundSettlement, validateGame } from './rules.js';
 
 const KEY = 'gamescores.fcm.v1';
 const app = document.querySelector('#app');
@@ -162,9 +162,93 @@ function houseLabel(label) {
 function houseDescription(house) {
   return allGoods.filter(([key]) => house[key]).map(([key,label]) => html`${house[key]} ${t(label.split(' · ')[0])}`).join(' · ');
 }
-function houseList(editable = true) {
-  return editor.houses.length ? html`<div class="house-list">${editor.houses.map((house,i) => html`<article class="house-item"><div class="house-number"><span>${isCoffeeSale(house)?'☕':house.type === 'garden' ? '♧' : '⌂'}</span><strong>${houseLabel(house.number || html`Haus ${i + 1}`)}</strong><small>${house.type === 'garden' ? t('Mit Garten') : t('Ohne Garten')}</small></div><div class="house-detail"><strong>${playerName(game.players[house.player])}</strong><span>${houseDescription(house)}</span></div><strong>${money(calculateHouse(house, editor.rows[house.player].milestones).total)}</strong>${editable ? html`<div class="house-actions">${game.modules?.coffee&&!isCoffeeSale(house)?html`<button class="secondary coffee-house-action" data-action="add-coffee" data-index="${i}">+ Kaffee</button>`:''}<button class="text-button" data-action="edit-house" data-index="${i}" aria-label="${esc(house.number || html`Haus ${i + 1}`)} bearbeiten">Bearbeiten</button><button class="text-button danger" data-action="remove-house" data-index="${i}" aria-label="${esc(house.number || html`Haus ${i + 1}`)} entfernen">Entfernen</button></div>` : ''}</article>`).join('')}</div>` : htmlText('<div class="empty-houses"><span>⌂</span><p>Noch kein Haus erfasst.</p><small>Verkäufe hinzufügen oder nur Bedienungen abrechnen.</small></div>');
+function coffeeRecords(house,player=null) {
+  return editor.houses.filter(h=>isCoffeeSale(h)&&sameHouse(h.number,house.number)&&(player===null||h.player===player));
 }
+function coffeeQuantity(house,player) {
+  return coffeeRecords(house,player).reduce((sum,h)=>sum+h.coffee,0);
+}
+function coffeePrice(house,player) {
+  return coffeeRecords(house,player).at(-1)?.price ?? editor.rows[player].price;
+}
+function coffeePanel(house,index,editable) {
+  const records=coffeeRecords(house);
+  const expanded=records.length || editor.openCoffee?.has(house.number);
+  if (!game.modules?.coffee || !expanded) return '';
+  const total=records.reduce((sum,h)=>sum+calculateHouse(h,editor.rows[h.player].milestones).total,0);
+  return html`<section class="house-coffee" aria-label="Kaffee für ${esc(house.number)}"><div class="house-coffee-heading"><strong>☕ Kaffee</strong><small>Erlös ohne CFO</small></div>${game.players.map((p,player)=>{
+    const quantity=coffeeQuantity(house,player), price=coffeePrice(house,player), min=editor.rows[player].milestones.price?1:0;
+    const sales=coffeeRecords(house,player);
+    const income=sales.reduce((sum,h)=>sum+calculateHouse(h,editor.rows[player].milestones).total,0);
+    const unit=(price-min)*(house.type==='garden'?2:1);
+    return html`<div class="house-coffee-player" data-coffee-player="${player}"><strong>${playerName(p)}</strong><b class="house-coffee-income">${money(income)}</b>${editable?html`<div class="house-coffee-controls"><label><span>Kaffees</span><div class="stepper"><button data-action="inline-coffee-count" data-index="${index}" data-player="${player}" data-delta="-1" aria-label="Ein Kaffee weniger für ${esc(p.name)}">−</button><input type="number" inputmode="numeric" min="0" max="1000000" step="1" required data-house-coffee="${index}" data-player="${player}" value="${quantity}" aria-label="Kaffees für ${esc(p.name)}"><button data-action="inline-coffee-count" data-index="${index}" data-player="${player}" data-delta="1" aria-label="Ein Kaffee mehr für ${esc(p.name)}">+</button></div></label><label><span>Basispreis</span><div class="stepper"><button data-action="inline-coffee-price" data-index="${index}" data-player="${player}" data-delta="-1" aria-label="Kaffeepreis für ${esc(p.name)} senken">−</button><input type="number" inputmode="numeric" min="${min}" max="100" step="1" required data-house-coffee-price="${index}" data-player="${player}" value="${price}" aria-label="Kaffeepreis für ${esc(p.name)}"><button data-action="inline-coffee-price" data-index="${index}" data-player="${player}" data-delta="1" aria-label="Kaffeepreis für ${esc(p.name)} erhöhen">+</button></div><small>${new Set(sales.map(h=>h.price)).size>1?t('Mehrere gespeicherte Preise'):html`${money(unit)} / Stück`}</small></label></div>`:html`<small>${quantity} Kaffee</small>`}</div>`;
+  }).join('')}${records.length?html`<div class="house-coffee-total"><span>Gesamt am Haus · ohne CFO</span><strong>${money(calculateHouse(house,editor.rows[house.player].milestones).total+total)}</strong></div>`:''}<p class="hint">Route am Brett bestimmen. Der Zielbetrieb verkauft keinen Kaffee. Preisänderungen gelten für alle Kaffees dieses Spielers an diesem Haus.</p></section>`;
+}
+function setInlineCoffee(house,player,{quantity=null,price=null}) {
+  if (!game.modules?.coffee || !house || isCoffeeSale(house)) return;
+  if (quantity!==null) integer(quantity);
+  if (price!==null) {
+    integer(price,100);
+    if (price<(editor.rows[player].milestones.price?1:0)) throw new Error(t('Der Stückpreis darf nach dem Meilenstein nicht negativ sein.'));
+    coffeeRecords(house,player).forEach(h=>{h.price=price;});
+    editor.rows[player].price=price;
+    if (editor.houseForm.player===player) editor.houseForm.price=price;
+  }
+  const records=coffeeRecords(house,player);
+  if (quantity!==null) {
+    let delta=quantity-records.reduce((sum,h)=>sum+h.coffee,0);
+    if (delta>0) {
+      const last=records.at(-1);
+      if (last) last.coffee+=delta;
+      else editor.houses.push({...newHouse('coffee'),number:house.number,type:house.type,player,price:editor.rows[player].price,coffee:delta,order:Math.max(-1,...editor.houses.map(h=>h.order ?? 0))+1});
+    } else for (const record of [...records].reverse()) {
+      const removed=Math.min(-delta,record.coffee);
+      record.coffee-=removed;delta+=removed;
+      if (!delta) break;
+    }
+    editor.houses=editor.houses.filter(h=>!records.includes(h)||h.coffee>0);
+  }
+  editor.openCoffee ??= new Set();editor.openCoffee.add(house.number);
+  syncHouseRows();
+  if (editor.step==='summary'&&previewRound().needsReserve) {editor.step='wages';editor.wagesReviewed=false;}
+  persistDraft();
+}
+function refreshInlineCoffee(cards,activeInput) {
+  for (const {card,house} of cards) {
+    const index=editor.houses.indexOf(house);
+    card.dataset.houseCard=index;
+    card.querySelectorAll('[data-index]').forEach(button=>{button.dataset.index=index;});
+    card.querySelectorAll('[data-house-coffee]').forEach(input=>{input.dataset.houseCoffee=index;});
+    card.querySelectorAll('[data-house-coffee-price]').forEach(input=>{input.dataset.houseCoffeePrice=index;});
+    const panel=card.querySelector('.house-coffee');
+    if (!panel) continue;
+    game.players.forEach((_,player)=>{
+      const row=panel.querySelector(`[data-coffee-player="${player}"]`), records=coffeeRecords(house,player), price=coffeePrice(house,player);
+      row.querySelector('.house-coffee-income').textContent=money(records.reduce((sum,h)=>sum+calculateHouse(h,editor.rows[player].milestones).total,0));
+      const quantityInput=row.querySelector('[data-house-coffee]'),priceInput=row.querySelector('[data-house-coffee-price]');
+      if (quantityInput!==activeInput) quantityInput.value=coffeeQuantity(house,player);
+      if (priceInput!==activeInput) priceInput.value=price;
+      const unit=(price-(editor.rows[player].milestones.price?1:0))*(house.type==='garden'?2:1);
+      row.querySelector('.house-coffee-controls label:last-child > small').textContent=new Set(records.map(h=>h.price)).size>1?t('Mehrere gespeicherte Preise'):html`${money(unit)} / Stück`;
+    });
+    const records=coffeeRecords(house),total=calculateHouse(house,editor.rows[house.player].milestones).total+records.reduce((sum,h)=>sum+calculateHouse(h,editor.rows[h.player].milestones).total,0);
+    const footer=panel.querySelector('.house-coffee-total');
+    if (!records.length) footer?.remove();
+    else if (footer) footer.querySelector('strong').textContent=money(total);
+    else panel.querySelector('.hint').insertAdjacentHTML('beforebegin',html`<div class="house-coffee-total"><span>Gesamt am Haus · ohne CFO</span><strong>${money(total)}</strong></div>`);
+  }
+  if (editor.step==='summary') app.querySelector('.review').outerHTML=renderReview();
+  else {
+    game.players.forEach((_,i)=>{app.querySelector(`[data-comparison-price="${i}"]`).value=editor.houseForm.player===i?editor.houseForm.price:editor.rows[i].price;});
+    refreshHousePrices();
+    app.querySelector('.sidebar-total strong').textContent=money(editor.houses.reduce((sum,h)=>sum+calculateHouse(h,editor.rows[h.player].milestones).total,0));
+  }
+}
+function houseList(editable = true) {
+  const meals=editor.houses.map((house,i)=>({house,i})).filter(({house})=>!isCoffeeSale(house));
+  return meals.length ? html`<div class="house-list">${meals.map(({house,i}) => html`<article class="house-item" data-house-card="${i}"><div class="house-number"><span>${house.type === 'garden' ? '♧' : '⌂'}</span><strong>${houseLabel(house.number || html`Haus ${i + 1}`)}</strong><small>${house.type === 'garden' ? t('Mit Garten') : t('Ohne Garten')}</small></div><div class="house-detail"><strong>${playerName(game.players[house.player])}</strong><span>${houseDescription(house)}</span></div><strong>${money(calculateHouse(house, editor.rows[house.player].milestones).total)}</strong>${editable ? html`<div class="house-actions">${game.modules?.coffee&&!coffeeRecords(house).length&&!editor.openCoffee?.has(house.number)?html`<button class="secondary coffee-house-action" data-action="add-coffee" data-index="${i}">+ Kaffee</button>`:''}<button class="text-button" data-action="edit-house" data-index="${i}" aria-label="${esc(house.number || html`Haus ${i + 1}`)} bearbeiten">Bearbeiten</button><button class="text-button danger" data-action="remove-house" data-index="${i}" aria-label="${esc(house.number || html`Haus ${i + 1}`)} entfernen">Entfernen</button></div>` : ''}${coffeePanel(house,i,editable)}</article>`).join('')}</div>` : htmlText('<div class="empty-houses"><span>⌂</span><p>Noch kein Haus erfasst.</p><small>Verkäufe hinzufügen oder nur Bedienungen abrechnen.</small></div>');
+}
+
 function rememberBuiltGarden(label) {
   const number=houseNumber(label);
   if (!number || gardenKind(game,number)==='native') return;
@@ -300,7 +384,7 @@ function storeHouse() {
   if (!house.number.trim()) throw new Error(t('Bitte eine Hausnummer auswählen.'));
   calculateHouse(house, editor.rows[house.player].milestones);
   const old=editor.editingHouse===null?null:editor.houses[editor.editingHouse];
-  if (old&&!isCoffeeSale(old)&&!sameHouse(old.number,house.number)&&editor.houses.some(h=>isCoffeeSale(h)&&sameHouse(h.number,old.number))) throw new Error(t('Bitte zugehörige Kaffeeverkäufe zuerst entfernen, bevor du das Haus änderst.'));
+  if (old&&!isCoffeeSale(old)&&!sameHouse(old.number,house.number)) coffeeRecords(old).forEach(h=>{h.number=house.number;h.type=house.type;});
   if (coffeeForm()) {
     const parent=mealHouses().find(h=>sameHouse(h.number,house.number));
     if (!parent) throw new Error(t('Kaffee benötigt einen erfassten Essensverkauf für dieses Haus.'));
@@ -464,6 +548,16 @@ app.addEventListener('input', event => {
   if (input.dataset.achievement !== undefined) {
     game.players[+input.dataset.player].milestones[input.dataset.achievement] = input.checked;
     save(); return;
+  }
+  if ((input.dataset.houseCoffee!==undefined || input.dataset.houseCoffeePrice!==undefined) && editor?.wizard) {
+    if (!input.validity.valid || !Number.isFinite(input.valueAsNumber)) return;
+    const price=input.dataset.houseCoffeePrice!==undefined;
+    const parent=editor.houses[+(price?input.dataset.houseCoffeePrice:input.dataset.houseCoffee)],player=+input.dataset.player;
+    const step=editor.step,cards=[...app.querySelectorAll('[data-house-card]')].map(card=>({card,house:editor.houses[+card.dataset.houseCard]}));
+    setInlineCoffee(parent,player,price?{price:input.valueAsNumber}:{quantity:input.valueAsNumber});
+    if (step!==editor.step) render();
+    else refreshInlineCoffee(cards,input);
+    return;
   }
   if (input.dataset.demand !== undefined && editor?.wizard) {
     if (!input.validity.valid || !Number.isFinite(input.valueAsNumber)) return;
@@ -674,12 +768,16 @@ app.addEventListener('click', async event => {
       }
       case 'add-coffee': {
         if (!game.modules?.coffee) return;
-        if (editor.step==='houses'&&(houseHasGoods()||editor.editingHouse!==null)) throw new Error(t('Bitte den aktuellen Verkauf zuerst speichern oder abbrechen.'));
         const parent=editor.houses[+button.dataset.index];
         if (!parent || isCoffeeSale(parent)) return;
-        editor.returnToSummary=editor.step==='summary'; editor.editingHouse=null;
-        editor.houseForm={...newHouse('coffee'),number:parent.number,type:parent.type};
-        editor.step='houses';persistDraft();window.scrollTo(0,0);break;
+        editor.openCoffee ??= new Set();editor.openCoffee.add(parent.number);break;
+      }
+      case 'inline-coffee-count': case 'inline-coffee-price': {
+        if (!validInputs()) return;
+        const parent=editor.houses[+button.dataset.index], player=+button.dataset.player;
+        if (button.dataset.action==='inline-coffee-count') setInlineCoffee(parent,player,{quantity:Math.max(0,Math.min(1000000,coffeeQuantity(parent,player)+ +button.dataset.delta))});
+        else setInlineCoffee(parent,player,{price:Math.max(editor.rows[player].milestones.price?1:0,Math.min(100,coffeePrice(parent,player)+ +button.dataset.delta))});
+        break;
       }
       case 'add-house':
         editor.houseForm = newHouse(); editor.editingHouse = null; editor.returnToSummary = true; editor.step = 'houses'; persistDraft(); window.scrollTo(0,0); break;
@@ -690,9 +788,12 @@ app.addEventListener('click', async event => {
         editor.houseForm = newHouse(); editor.editingHouse = null; if (editor.returnToSummary) editor.step = 'summary'; editor.returnToSummary = false; persistDraft(); break;
       case 'remove-house':
         if (editor.step === 'houses' && (houseHasGoods() || editor.editingHouse !== null)) throw new Error(t('Bitte den aktuellen Verkauf zuerst speichern oder abbrechen.'));
-        if (!isCoffeeSale(editor.houses[+button.dataset.index]) && editor.houses.some(h=>isCoffeeSale(h)&&sameHouse(h.number,editor.houses[+button.dataset.index].number))) throw new Error(t('Bitte zuerst die Kaffeeverkäufe dieses Hauses entfernen.'));
-        if (!confirm(t('Diesen Hausverkauf aus der Runde entfernen?'))) return;
-        editor.houses.splice(+button.dataset.index,1); syncHouseRows(); persistDraft(); break;
+        {
+          const parent=editor.houses[+button.dataset.index], coffees=coffeeRecords(parent);
+          if (!confirm(coffees.length?t('Dieses Haus samt Kaffeeverkäufen aus der Runde entfernen?'):t('Diesen Hausverkauf aus der Runde entfernen?'))) return;
+          editor.houses=editor.houses.filter(h=>h!==parent&&!coffees.includes(h));
+          syncHouseRows();persistDraft();break;
+        }
       case 'review': {
         const invalid = app.querySelector('input:invalid');
         if (invalid) { invalid.reportValidity(); return; }
