@@ -1,4 +1,4 @@
-const CACHE = 'gamescores-v44';
+const CACHE = 'gamescores-v45';
 const FILES = [
   './',
   './index.html',
