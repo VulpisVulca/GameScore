@@ -2873,6 +2873,28 @@ body.fcm-theme {
   font-weight: 600;
   margin-bottom: 5px;
 }
+.fcm-theme .food-addons-row > * {
+  display: grid;
+  grid-template-rows: subgrid;
+  grid-row: span 5;
+  align-items: start;
+}
+.fcm-theme .food-addons-row .goods-counter > span {
+  grid-row: 1;
+}
+.fcm-theme .food-addons-row .goods-unit-price {
+  grid-row: 2;
+}
+.fcm-theme .food-addons-row .stepper,
+.fcm-theme .food-addon-control > button {
+  grid-row: 3;
+}
+.fcm-theme .food-addons-row .food-rule-hint {
+  grid-row: 4;
+}
+.fcm-theme .food-addon-control .coffee-form-summary {
+  grid-row: 5;
+}
 .fcm-theme .food-addons-row .stepper input {
   min-width: 0;
   width: 100%;
